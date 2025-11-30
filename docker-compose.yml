@@ -1,0 +1,253 @@
+services:
+    # ==============================================================================
+    # LIDIFY CORE APPLICATION
+    # ==============================================================================
+
+    # Backend API - Your Lidify Express.js server
+    backend:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+        container_name: lidify_backend
+        environment:
+            # Database
+            DATABASE_URL: postgresql://${POSTGRES_USER:-lidifydb}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-lidify}
+            POSTGRES_USER: ${POSTGRES_USER:-lidifydb}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+            POSTGRES_DB: ${POSTGRES_DB:-lidify}
+            REDIS_URL: redis://redis:6379
+
+            # Server config
+            PORT: 3006
+            NODE_ENV: ${NODE_ENV:-production}
+            SESSION_SECRET: ${SESSION_SECRET:-changeme-generate-secure-key}
+            SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
+
+            # Music library (required)
+            MUSIC_PATH: ${MUSIC_PATH:-/music}
+            TRANSCODE_CACHE_PATH: ${TRANSCODE_CACHE_PATH:-/cache/transcodes}
+            TRANSCODE_CACHE_MAX_GB: ${TRANSCODE_CACHE_MAX_GB:-10}
+
+            # CORS
+            ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3030}
+        volumes:
+            - ${MUSIC_PATH:-./music}:/music
+            - backend_cache:/app/cache
+            - backend_logs:/app/logs
+        ports:
+            - "${BACKEND_PORT:-3006}:3006"
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        restart: unless-stopped
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "wget",
+                    "--no-verbose",
+                    "--tries=1",
+                    "--spider",
+                    "http://localhost:3006/health",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+
+    # Frontend Web UI - Your Lidify Next.js app
+    frontend:
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile
+            args:
+                NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3006}
+        container_name: lidify_frontend
+        environment:
+            NODE_ENV: ${NODE_ENV:-production}
+            NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3006}
+        ports:
+            - "${FRONTEND_PORT:-3030}:3030"
+        depends_on:
+            - backend
+        restart: unless-stopped
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "wget",
+                    "--no-verbose",
+                    "--tries=1",
+                    "--spider",
+                    "http://localhost:3030",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+
+    # ==============================================================================
+    # INFRASTRUCTURE (Database & Cache)
+    # ==============================================================================
+
+    postgres:
+        image: postgres:16-alpine
+        container_name: lidify_db
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER:-lidifydb}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+            POSTGRES_DB: ${POSTGRES_DB:-lidify}
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        ports:
+            - "${POSTGRES_PORT:-5432}:5432"
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lidifydb}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    redis:
+        image: redis:7-alpine
+        container_name: lidify_redis
+        ports:
+            - "${REDIS_PORT:-6379}:6379"
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # ==============================================================================
+    # EXTERNAL SERVICES (Music Management)
+    # ==============================================================================
+
+    # Lidarr - Music collection manager
+    lidarr:
+        image: lscr.io/linuxserver/lidarr:latest
+        container_name: lidify_lidarr
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=${TZ:-UTC}
+        volumes:
+            - lidarr_config:/config
+            - ${MUSIC_PATH:-./music}:/music
+            - ${DOWNLOAD_PATH:-./downloads}:/downloads
+        ports:
+            - "8686:8686"
+        restart: unless-stopped
+
+    # Prowlarr - Indexer manager
+    prowlarr:
+        image: lscr.io/linuxserver/prowlarr:latest
+        container_name: lidify_prowlarr
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=${TZ:-UTC}
+        volumes:
+            - prowlarr_config:/config
+        ports:
+            - "9696:9696"
+        restart: unless-stopped
+
+    # FlareSolverr - Cloudflare bypass for Prowlarr
+    flaresolverr:
+        image: ghcr.io/flaresolverr/flaresolverr:latest
+        container_name: lidify_flaresolverr
+        environment:
+            - LOG_LEVEL=${LOG_LEVEL:-info}
+            - LOG_HTML=${LOG_HTML:-false}
+            - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
+            - TZ=${TZ:-UTC}
+        ports:
+            - "8191:8191"
+        restart: unless-stopped
+
+    # Slskd - Soulseek client
+    slskd:
+        image: slskd/slskd:latest
+        container_name: lidify_slskd
+        environment:
+            - TZ=${TZ:-UTC}
+            - SLSKD_REMOTE_CONFIGURATION=true
+            - SLSKD_SOULSEEK_USERNAME=${SLSKD_SOULSEEK_USERNAME:-}
+            - SLSKD_SOULSEEK_PASSWORD=${SLSKD_SOULSEEK_PASSWORD:-}
+        ports:
+            - "5030:5030" # Web UI
+            - "5031:5031" # File server
+        volumes:
+            - slskd_config:/app
+            - ${MUSIC_PATH:-./music}:/music
+            - ${MUSIC_PATH:-./music}/Soulseek:/downloads
+        restart: unless-stopped
+
+    # Soularr - Lidarr + Soulseek integration
+    soularr:
+        image: mrusse08/soularr:latest
+        container_name: lidify_soularr
+        user: "1000:1000"
+        environment:
+            - TZ=${TZ:-UTC}
+            - SCRIPT_INTERVAL=300
+        volumes:
+            - ${MUSIC_PATH:-./music}/Soulseek:/downloads
+            - ./soularr:/data
+        restart: unless-stopped
+        depends_on:
+            - slskd
+            - lidarr
+
+    # qBittorrent - Torrent client
+    qbittorrent:
+        image: lscr.io/linuxserver/qbittorrent:latest
+        container_name: lidify_qbittorrent
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=${TZ:-UTC}
+            - WEBUI_PORT=8080
+        volumes:
+            - qbittorrent_config:/config
+            - ${MUSIC_PATH:-./music}/torrents:/music/torrents
+            - ${DOWNLOAD_PATH:-./downloads}:/downloads
+        ports:
+            - "8080:8080"
+            - "6881:6881"
+            - "6881:6881/udp"
+        restart: unless-stopped
+
+    # NZBGet - Usenet client
+    nzbget:
+        image: lscr.io/linuxserver/nzbget:latest
+        container_name: lidify_nzbget
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=${TZ:-UTC}
+        volumes:
+            - nzbget_config:/config
+            - ${MUSIC_PATH:-./music}/usenet:/music/usenet
+            - ${DOWNLOAD_PATH:-./downloads}:/downloads
+        ports:
+            - "6789:6789"
+        restart: unless-stopped
+
+volumes:
+    # Lidify core
+    postgres_data:
+    backend_cache:
+    backend_logs:
+    # External services
+    lidarr_config:
+    prowlarr_config:
+    slskd_config:
+    qbittorrent_config:
+    nzbget_config:
+
+networks:
+    default:
+        name: lidify_network

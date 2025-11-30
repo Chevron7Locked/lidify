@@ -1,0 +1,68 @@
+/**
+ * Settings Types
+ * Centralized type definitions for the settings feature
+ */
+
+export type Tab = "user" | "account" | "system";
+
+export interface UserSettings {
+    playbackQuality: "original" | "high" | "medium" | "low";
+    wifiOnly: boolean;
+    offlineEnabled: boolean;
+    maxCacheSizeMb: number;
+}
+
+export interface SystemSettings {
+    // Lidarr
+    lidarrEnabled: boolean;
+    lidarrUrl: string;
+    lidarrApiKey: string;
+    // AI Services
+    openaiEnabled: boolean;
+    openaiApiKey: string;
+    openaiModel: string;
+    fanartEnabled: boolean;
+    fanartApiKey: string;
+    // Audiobookshelf
+    audiobookshelfEnabled: boolean;
+    audiobookshelfUrl: string;
+    audiobookshelfApiKey: string;
+    // Soulseek
+    slskdEnabled: boolean;
+    slskdUrl: string;
+    soulseekUsername: string;
+    soulseekPassword: string;
+    // Storage
+    musicPath: string;
+    downloadPath: string;
+    // Advanced
+    maxConcurrentDownloads: number;
+    downloadRetryAttempts: number;
+    transcodeCacheMaxGb: number;
+    maxCacheSizeMb: number;
+    autoSync: boolean;
+    autoEnrichMetadata: boolean;
+}
+
+export interface ApiKey {
+    id: string;
+    name: string;
+    keyPreview?: string;
+    createdAt: string;
+    lastUsed?: string | null;
+    lastUsedAt?: string | null;
+}
+
+export interface User {
+    id: string;
+    username: string;
+    role: "user" | "admin";
+    createdAt: string;
+}
+
+export interface ConfirmModalConfig {
+    title: string;
+    message: string;
+    confirmText: string;
+    onConfirm: () => void;
+}

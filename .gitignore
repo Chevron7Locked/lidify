@@ -1,0 +1,369 @@
+# =============================================================================
+# LIDIFY MONOREPO - .gitignore
+# =============================================================================
+
+# =============================================================================
+# Environment Variables & Secrets
+# =============================================================================
+.env
+.env.*
+!.env.example
+*.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# =============================================================================
+# Dependencies
+# =============================================================================
+# Node modules in all subdirectories
+**/node_modules/
+node_modules/
+jspm_packages/
+
+# Python virtual environments (for soularr, scripts)
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+**/.venv/
+
+# =============================================================================
+# Build Outputs
+# =============================================================================
+# Frontend (Next.js)
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/dist/
+
+# Backend (Node.js/TypeScript)
+backend/dist/
+backend/build/
+backend/out/
+
+# Mobile Application
+mobile-application/build/
+mobile-application/dist/
+mobile-application/.expo/
+mobile-application/.expo-shared/
+
+# Soularr
+soularr/dist/
+soularr/build/
+
+# General build outputs
+**/dist/
+**/build/
+**/out/
+.next
+.nuxt
+
+# =============================================================================
+# Logs
+# =============================================================================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+pnpm-debug.log*
+
+# =============================================================================
+# Testing & Coverage
+# =============================================================================
+coverage/
+*.lcov
+.nyc_output
+*.tsbuildinfo
+.cache/
+
+# =============================================================================
+# Cache Directories
+# =============================================================================
+.cache
+.parcel-cache
+.eslintcache
+.stylelintcache
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# =============================================================================
+# Docker & Containers
+# =============================================================================
+# Don't ignore docker-compose.yml itself, but ignore local overrides
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Docker volumes (if any are stored locally)
+**/volumes/
+**/data/
+
+# =============================================================================
+# IDEs & Editors
+# =============================================================================
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.vscode-test
+
+# Claude Code
+.claude/
+.claude/*
+!.claude/commands/
+
+# JetBrains IDEs (WebStorm, IntelliJ, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# =============================================================================
+# Runtime & Process Files
+# =============================================================================
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# =============================================================================
+# Database Files (SQLite for local development)
+# =============================================================================
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# Prisma
+**/prisma/dev.db
+**/prisma/dev.db-journal
+
+# =============================================================================
+# Media & Large Files
+# =============================================================================
+# Don't commit large music files (if any test files are added)
+*.mp3
+*.flac
+*.wav
+*.m4a
+*.ogg
+*.opus
+
+# Don't commit large images (unless they're assets)
+# *.jpg
+# *.jpeg
+# *.png
+# *.gif
+
+# =============================================================================
+# Temporary Files
+# =============================================================================
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.old
+
+# =============================================================================
+# Package Manager Files
+# =============================================================================
+# Yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+yarn-error.log
+
+# NPM
+npm-debug.log*
+
+# PNPM
+pnpm-lock.yaml
+.pnpm-debug.log*
+
+# =============================================================================
+# Mobile Specific (React Native / Expo)
+# =============================================================================
+mobile-application/.expo/
+mobile-application/.expo-shared/
+mobile-application/android/app/build/
+mobile-application/ios/Pods/
+mobile-application/ios/build/
+mobile-application/*.jks
+mobile-application/*.keystore
+mobile-application/*.p8
+mobile-application/*.p12
+mobile-application/*.mobileprovision
+
+# =============================================================================
+# Postman (Keep collections, ignore environments with secrets)
+# =============================================================================
+postman/*environment*.json
+postman/*.local.json
+
+# =============================================================================
+# Documentation - Ignore all except README.md files
+# =============================================================================
+# Ignore all markdown files
+*.md
+
+# BUT allow README.md files (case-insensitive)
+!README.md
+!readme.md
+!Readme.md
+
+# Ignore Docs directories
+Docs/
+docs/
+**/Docs/
+**/docs/
+
+# =============================================================================
+# TypeScript
+# =============================================================================
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# =============================================================================
+# Miscellaneous
+# =============================================================================
+.lock-wscript
+lib-cov
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+.grunt
+bower_components
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.docusaurus
+**/.vitepress/dist
+**/.vitepress/cache
+.vuepress/dist
+.temp
+*.tgz
+.node_repl_history
+
+# =============================================================================
+# Project Specific
+# =============================================================================
+# Development scripts (keep locally, don't commit)
+reset-and-setup.sh
+organize-singles.sh
+
+# Backend development logs
+backend/logs/
+
+# Backend test cache directories
+backend/cache/test-*/
+
+# Backend duplicate/nested directories
+backend/backend/
+
+# Frontend Android build artifacts
+frontend/android/build/
+frontend/android/app/build/
+
+# Postman collections (removed from repo)
+postman/
+
+# Soularr config (removed from repo)
+soularr/
+
+# Legacy React Native files (if re-added)
+/App.tsx
+/app.json
+/src/
+
+# =============================================================================
+# IDE & Editor Settings
+# =============================================================================
+.claude/
+**/.claude/
+.cursor/
+**/.cursor/
+.vscode/
+**/.vscode/
+
+# =============================================================================
+# Android Build Artifacts (contains local paths)
+# =============================================================================
+frontend/android/app/build/
+frontend/android/build/
+frontend/android/.gradle/
+frontend/android/app/src/main/assets/capacitor.config.json
+
+# =============================================================================
+# Capacitor Generated Files
+# =============================================================================
+frontend/android/capacitor-cordova-android-plugins/build/
+
+# =============================================================================
+# Cache Files (user-specific data)
+# =============================================================================
+backend/cache/
+**/cache/covers/
+**/cache/transcodes/
+
+# =============================================================================
+# VPN / Private Configs (NEVER commit these!)
+# =============================================================================
+backend/mullvad/
+**/mullvad/
+*.conf
+**/key.txt
+
+# Android signing
+lidify.keystore
+keystore.b64

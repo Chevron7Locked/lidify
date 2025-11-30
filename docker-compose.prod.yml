@@ -1,0 +1,31 @@
+# Lidify - Simple Docker Compose
+# Alternative to the single docker run command
+#
+# Usage:
+#   1. Edit the MUSIC_PATH below
+#   2. Run: docker compose -f docker-compose.prod.yml up -d
+#   3. Open http://localhost:3030
+
+services:
+  lidify:
+    image: ${DOCKERHUB_USERNAME:-chevron7locked}/lidify:${VERSION:-latest}
+    container_name: lidify
+    ports:
+      - "${PORT:-3030}:3030"
+    volumes:
+      # REQUIRED: Path to your music library
+      - ${MUSIC_PATH:-/path/to/your/music}:/music
+      # Persistent data (database, cache, etc.)
+      - lidify_data:/data
+    environment:
+      - TZ=${TZ:-UTC}
+      - SESSION_SECRET=${SESSION_SECRET:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3030"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  lidify_data:

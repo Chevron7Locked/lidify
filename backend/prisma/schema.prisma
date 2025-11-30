@@ -1,0 +1,736 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String   @id @default(cuid())
+  username               String   @unique
+  passwordHash           String
+  role                   String   @default("user") // user, admin
+  onboardingComplete     Boolean  @default(false) // Tracks if user completed setup
+  enrichmentSettings     Json? // JSON settings for metadata enrichment
+  twoFactorEnabled       Boolean  @default(false) // 2FA enabled flag
+  twoFactorSecret        String? // TOTP secret (encrypted)
+  twoFactorRecoveryCodes String? // Recovery codes (encrypted, comma-separated hashed codes)
+  createdAt              DateTime @default(now())
+
+  plays                Play[]
+  playlists            Playlist[]
+  listeningState       ListeningState[]
+  downloadJobs         DownloadJob[]
+  settings             UserSettings?
+  playbackState        PlaybackState?
+  likedTracks          LikedTrack[]
+  dislikedEntities     DislikedEntity[]
+  cachedTracks         CachedTrack[]
+  audiobookProgress    AudiobookProgress[]
+  podcastSubscriptions PodcastSubscription[]
+  podcastProgress      PodcastProgress[]
+  podcastDownloads     PodcastDownload[]
+  discoveryAlbums      DiscoveryAlbum[]
+  discoverExclusions   DiscoverExclusion[]
+  discoverConfig       UserDiscoverConfig?
+  unavailableAlbums    UnavailableAlbum[]
+  apiKeys              ApiKey[]
+}
+
+model UserSettings {
+  userId          String  @id
+  playbackQuality String  @default("original") // original, high, medium, low
+  wifiOnly        Boolean @default(false)
+  offlineEnabled  Boolean @default(false)
+  maxCacheSizeMb  Int     @default(10240) // 10GB default
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PlaybackState {
+  userId       String   @id
+  playbackType String // track, audiobook, podcast
+  trackId      String? // For music tracks
+  audiobookId  String? // For audiobooks (audiobookshelfId)
+  podcastId    String? // For podcasts (format: podcastId:episodeId)
+  queue        Json? // JSON array of track IDs
+  currentIndex Int      @default(0)
+  isShuffle    Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SystemSettings {
+  id String @id @default("default")
+
+  // === Download Services ===
+  // Lidarr
+  lidarrEnabled Boolean @default(true)
+  lidarrUrl     String? @default("http://localhost:8686")
+  lidarrApiKey  String? // Encrypted
+
+  // === AI Services ===
+  // OpenAI (for future AI features)
+  openaiEnabled Boolean @default(false)
+  openaiApiKey  String? // Encrypted
+  openaiModel   String? @default("gpt-4")
+  openaiBaseUrl String? // For custom endpoints
+
+  // Fanart.tv (for high-quality images - optional)
+  fanartEnabled Boolean @default(false)
+  fanartApiKey  String? // Encrypted
+
+  // === Media Services ===
+  // Audiobookshelf
+  audiobookshelfEnabled Boolean @default(false)
+  audiobookshelfUrl     String? @default("http://localhost:13378")
+  audiobookshelfApiKey  String? // Encrypted
+
+  // Soulseek (Slskd)
+  slskdEnabled     Boolean @default(false)
+  slskdUrl         String? @default("http://localhost:5030")
+  soulseekUsername String?
+  soulseekPassword String? // Encrypted
+
+  // === Storage Paths ===
+  musicPath    String? @default("/music")
+  downloadPath String? @default("/downloads")
+
+  // === Feature Flags ===
+  autoSync           Boolean @default(true)
+  autoEnrichMetadata Boolean @default(true)
+
+  // === Advanced Settings ===
+  maxConcurrentDownloads Int @default(3)
+  downloadRetryAttempts  Int @default(3)
+  transcodeCacheMaxGb    Int @default(10) // Transcode cache size limit in GB
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model Artist {
+  id               String                   @id @default(cuid())
+  mbid             String                   @unique
+  name             String
+  normalizedName   String                   @default("") // Lowercase version for case-insensitive matching
+  summary          String?                  @db.Text
+  heroUrl          String?
+  genres           Json? // Array of genre strings from Last.fm/MusicBrainz
+  lastSynced       DateTime                 @default(now())
+  lastEnriched     DateTime?
+  enrichmentStatus String                   @default("pending") // pending, enriching, completed, failed
+  searchVector     Unsupported("tsvector")?
+
+  albums      Album[]
+  similarFrom SimilarArtist[] @relation("FromArtist")
+  similarTo   SimilarArtist[] @relation("ToArtist")
+  ownedAlbums OwnedAlbum[]
+
+  @@index([name])
+  @@index([normalizedName])
+  @@index([searchVector], type: Gin)
+}
+
+model Album {
+  id           String                   @id @default(cuid())
+  rgMbid       String                   @unique // release group MBID
+  artistId     String
+  title        String
+  year         Int?
+  coverUrl     String?
+  primaryType  String // Album, EP, Single, Live, Compilation
+  label        String? // Record label (from MusicBrainz)
+  genres       Json? // Array of genre strings from Last.fm
+  lastSynced   DateTime                 @default(now())
+  location     AlbumLocation            @default(LIBRARY) // LIBRARY or DISCOVER
+  searchVector Unsupported("tsvector")?
+
+  artist Artist  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  tracks Track[]
+
+  @@index([artistId])
+  @@index([location])
+  @@index([title])
+  @@index([searchVector], type: Gin)
+}
+
+model Track {
+  id           String                   @id @default(cuid())
+  albumId      String
+  title        String
+  trackNo      Int
+  duration     Int // seconds
+  mime         String?
+  searchVector Unsupported("tsvector")?
+
+  // Native file system fields (required for self-contained system)
+  filePath     String   @unique // Relative path: "Artist/Album/track.flac"
+  fileModified DateTime // mtime for change detection
+  fileSize     Int // File size in bytes
+
+  album           Album            @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  plays           Play[]
+  playlistItems   PlaylistItem[]
+  trackGenres     TrackGenre[]
+  likedBy         LikedTrack[]
+  cachedBy        CachedTrack[]
+  transcodedFiles TranscodedFile[]
+
+  @@index([albumId])
+  @@index([fileModified])
+  @@index([title])
+  @@index([searchVector], type: Gin)
+}
+
+// Transcoded file cache for audio streaming
+model TranscodedFile {
+  id             String   @id @default(cuid())
+  trackId        String
+  quality        String // original, high, medium, low
+  cachePath      String   @unique // Relative path in transcode cache
+  cacheSize      Int // File size in bytes
+  sourceModified DateTime // For invalidation
+  lastAccessed   DateTime @default(now()) // For LRU eviction
+  createdAt      DateTime @default(now())
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([trackId, quality])
+  @@index([trackId, quality])
+  @@index([lastAccessed])
+}
+
+model Play {
+  id       String       @id @default(cuid())
+  userId   String
+  trackId  String
+  playedAt DateTime     @default(now())
+  source   ListenSource @default(LIBRARY) // LIBRARY, DISCOVERY, or DISCOVERY_KEPT
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([userId, playedAt])
+  @@index([trackId])
+  @@index([source])
+}
+
+model Playlist {
+  id        String   @id @default(cuid())
+  userId    String
+  mixId     String?
+  name      String
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items PlaylistItem[]
+
+  @@unique([userId, mixId])
+  @@index([userId])
+}
+
+model PlaylistItem {
+  id         String @id @default(cuid())
+  playlistId String
+  trackId    String
+  sort       Int
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track    Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, trackId])
+  @@index([playlistId, sort])
+}
+
+model Genre {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  trackGenres TrackGenre[]
+}
+
+model TrackGenre {
+  trackId String
+  genreId String
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  genre Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([trackId, genreId])
+  @@index([genreId])
+}
+
+model SimilarArtist {
+  fromArtistId String
+  toArtistId   String
+  weight       Float  @default(1.0)
+
+  fromArtist Artist @relation("FromArtist", fields: [fromArtistId], references: [id], onDelete: Cascade)
+  toArtist   Artist @relation("ToArtist", fields: [toArtistId], references: [id], onDelete: Cascade)
+
+  @@id([fromArtistId, toArtistId])
+  @@index([fromArtistId])
+}
+
+model OwnedAlbum {
+  artistId String
+  rgMbid   String
+  source   String // lidarr, manual, native_scan
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([artistId, rgMbid])
+  @@index([artistId])
+}
+
+model DownloadJob {
+  id               String    @id @default(cuid())
+  correlationId    String?   @unique // UUID for reliable webhook matching
+  userId           String
+  subject          String // artist name or album title
+  type             String // artist, album
+  targetMbid       String // artist MBID or release group MBID
+  status           String // pending, processing, completed, failed
+  error            String? // error message if failed
+  lidarrRef        String? // Lidarr's downloadId from webhook
+  lidarrAlbumId    Int? // Lidarr's internal album ID for retry/cleanup
+  metadata         Json? // additional metadata (downloadType, rootFolderPath, etc.)
+  attempts         Int       @default(0) // Number of download attempts
+  startedAt        DateTime? // When download was initiated (for timeout tracking)
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  discoveryBatchId String? // Links to Discovery Weekly batch if part of discovery
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discoveryBatch DiscoveryBatch? @relation(fields: [discoveryBatchId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([status])
+  @@index([discoveryBatchId])
+  @@index([correlationId])
+  @@index([startedAt])
+  @@index([lidarrRef])
+}
+
+model ListeningState {
+  id         String   @id @default(cuid())
+  userId     String
+  kind       String // music, book
+  entityId   String // artist/album/book ID
+  trackId    String? // current track/chapter
+  positionMs Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, entityId])
+  @@index([userId])
+}
+
+model DiscoveryAlbum {
+  id            String         @id @default(cuid())
+  userId        String
+  rgMbid        String
+  artistName    String
+  artistMbid    String?
+  albumTitle    String
+  lidarrAlbumId Int?
+  downloadedAt  DateTime?
+  folderPath    String         @default("")
+  weekStartDate DateTime // When it was added to discovery
+  weekEndDate   DateTime       @default(now()) // When it expires
+  status        DiscoverStatus @default(ACTIVE)
+  likedAt       DateTime? // When user liked it
+  similarity    Float? // Similarity score from Last.fm (0-1)
+  tier          String? // high, medium, low, wild
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tracks DiscoveryTrack[]
+
+  @@unique([userId, weekStartDate, rgMbid])
+  @@index([userId, weekStartDate])
+  @@index([downloadedAt])
+  @@index([status])
+}
+
+model DiscoveryTrack {
+  id               String    @id @default(cuid())
+  discoveryAlbumId String
+  trackId          String?
+  fileName         String
+  filePath         String
+  inPlaylistCount  Int       @default(0)
+  userKept         Boolean   @default(false)
+  lastPlayedAt     DateTime?
+
+  discoveryAlbum DiscoveryAlbum @relation(fields: [discoveryAlbumId], references: [id], onDelete: Cascade)
+
+  @@index([discoveryAlbumId])
+  @@index([userKept])
+  @@index([lastPlayedAt])
+}
+
+model LikedTrack {
+  userId  String
+  trackId String
+  likedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([userId, trackId])
+  @@index([userId])
+  @@index([likedAt])
+}
+
+model DislikedEntity {
+  id         String   @id @default(cuid())
+  userId     String
+  entityType String // track, album, artist
+  entityId   String // trackId, albumId, artistId
+  dislikedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entityType, entityId])
+  @@index([userId, entityType])
+}
+
+model CachedTrack {
+  id             String   @id @default(cuid())
+  userId         String
+  trackId        String
+  localPath      String
+  quality        String // original, high, medium, low
+  fileSizeMb     Float
+  cachedAt       DateTime @default(now())
+  lastAccessedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trackId, quality])
+  @@index([userId])
+  @@index([lastAccessedAt])
+}
+
+model AudiobookProgress {
+  id               String   @id @default(cuid())
+  userId           String
+  audiobookshelfId String // The audiobook ID from Audiobookshelf
+  title            String // Cached for display
+  author           String? // Cached for display
+  coverUrl         String? // Cached for display
+  currentTime      Float    @default(0) // Current playback position in seconds
+  duration         Float    @default(0) // Total duration in seconds
+  isFinished       Boolean  @default(false)
+  lastPlayedAt     DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Note: No foreign key to Audiobook - progress can exist before audiobook is cached
+
+  @@unique([userId, audiobookshelfId])
+  @@index([userId, lastPlayedAt])
+}
+
+// ============================================
+// Cached Audiobooks (from Audiobookshelf)
+// ============================================
+
+model Audiobook {
+  id            String  @id // Audiobookshelf item ID
+  title         String
+  author        String?
+  narrator      String?
+  description   String? @db.Text
+  publishedYear Int?
+  publisher     String?
+
+  // Series info
+  series         String?
+  seriesSequence String?
+
+  // Media info
+  duration    Float? // seconds
+  numTracks   Int?
+  numChapters Int?
+  size        BigInt? // bytes
+
+  // Metadata
+  isbn     String?
+  asin     String?
+  language String?
+  genres   String[] // array of genres
+  tags     String[] // array of tags
+
+  // Files
+  localCoverPath String? // local cached cover image path
+  coverUrl       String? // original Audiobookshelf URL
+  audioUrl       String // Audiobookshelf streaming URL
+  libraryId      String? // Audiobookshelf library ID
+
+  // Timestamps
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastSyncedAt DateTime @default(now())
+
+  @@index([title])
+  @@index([author])
+  @@index([series])
+  @@index([lastSyncedAt])
+}
+
+model PodcastRecommendation {
+  id            String   @id @default(cuid())
+  podcastId     String // The source podcast ID (from Audiobookshelf)
+  recommendedId String // Unique ID for the recommended podcast
+  title         String
+  author        String?
+  description   String?  @db.Text
+  coverUrl      String?
+  episodeCount  Int      @default(0)
+  feedUrl       String?
+  itunesId      String?
+  score         Float    @default(0) // Relevance score
+  cachedAt      DateTime @default(now())
+  expiresAt     DateTime // When this recommendation expires (30 days from cache)
+
+  @@index([podcastId, expiresAt])
+  @@index([expiresAt]) // For cleanup of expired recommendations
+  @@map("podcast_recommendations")
+}
+
+// ============================================
+// NEW: Independent Podcast System (RSS-based)
+// ============================================
+
+model Podcast {
+  id              String   @id @default(cuid())
+  feedUrl         String   @unique
+  title           String
+  author          String?
+  description     String?  @db.Text
+  imageUrl        String? // Original feed image URL
+  localCoverPath  String? // Local cached cover image path
+  itunesId        String?  @unique
+  language        String?
+  explicit        Boolean  @default(false)
+  episodeCount    Int      @default(0)
+  lastRefreshed   DateTime @default(now())
+  refreshInterval Int      @default(3600) // seconds (1 hour default)
+  autoRefresh     Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  episodes      PodcastEpisode[]
+  subscriptions PodcastSubscription[]
+
+  @@index([itunesId])
+  @@index([lastRefreshed])
+}
+
+model PodcastEpisode {
+  id             String   @id @default(cuid())
+  podcastId      String
+  guid           String // RSS GUID (unique per feed)
+  title          String
+  description    String?  @db.Text
+  audioUrl       String // Direct MP3/audio URL from RSS
+  duration       Int      @default(0) // seconds
+  publishedAt    DateTime
+  episodeNumber  Int?
+  season         Int?
+  imageUrl       String? // Episode-specific image URL
+  localCoverPath String? // Local cached episode cover
+  fileSize       Int? // bytes
+  mimeType       String?  @default("audio/mpeg")
+  createdAt      DateTime @default(now())
+
+  podcast   Podcast           @relation(fields: [podcastId], references: [id], onDelete: Cascade)
+  progress  PodcastProgress[]
+  downloads PodcastDownload[]
+
+  @@unique([podcastId, guid])
+  @@index([podcastId, publishedAt])
+}
+
+// User podcast subscriptions
+model PodcastSubscription {
+  userId       String
+  podcastId    String
+  subscribedAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  podcast Podcast @relation(fields: [podcastId], references: [id], onDelete: Cascade)
+
+  @@id([userId, podcastId])
+  @@index([userId])
+  @@index([podcastId])
+}
+
+// Listening progress for podcast episodes
+model PodcastProgress {
+  id           String   @id @default(cuid())
+  userId       String
+  episodeId    String
+  currentTime  Float    @default(0) // seconds
+  duration     Float    @default(0) // seconds
+  isFinished   Boolean  @default(false)
+  lastPlayedAt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episode PodcastEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, episodeId])
+  @@index([userId, lastPlayedAt])
+}
+
+// Downloaded episodes for offline playback
+model PodcastDownload {
+  id             String   @id @default(cuid())
+  userId         String
+  episodeId      String
+  localPath      String // Where the file is stored locally
+  fileSizeMb     Float
+  downloadedAt   DateTime @default(now())
+  lastAccessedAt DateTime @default(now())
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episode PodcastEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, episodeId])
+  @@index([userId])
+  @@index([lastAccessedAt]) // For cache cleanup
+}
+
+// ============================================
+// Discover Weekly System
+// ============================================
+
+// Album exclusion tracking - prevents suggesting the same album for 6 months
+model DiscoverExclusion {
+  id              String   @id @default(cuid())
+  userId          String
+  albumMbid       String // MusicBrainz release group ID
+  lastSuggestedAt DateTime @default(now())
+  expiresAt       DateTime // 6 months from lastSuggestedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, albumMbid])
+  @@index([userId, expiresAt])
+}
+
+// User configuration for Discover Weekly
+model UserDiscoverConfig {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  playlistSize     Int       @default(40) // 5-50, increments of 5
+  maxRetryAttempts Int       @default(3) // 1-10, how many times to retry finding replacements
+  enabled          Boolean   @default(true)
+  lastGeneratedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Unavailable albums (recommended but not found in Lidarr)
+model UnavailableAlbum {
+  id              String   @id @default(cuid())
+  userId          String
+  artistName      String
+  albumTitle      String
+  albumMbid       String
+  artistMbid      String?
+  similarity      Float // Similarity score from Last.fm (0-1)
+  tier            String // high, medium, low, wild
+  weekStartDate   DateTime // When it was recommended
+  previewUrl      String? // 30-second preview from Deezer
+  deezerTrackId   String? // Deezer track ID for preview
+  deezerAlbumId   String? // Deezer album ID for preview
+  attemptNumber   Int      @default(0) // 0 = original, 1 = first replacement, 2 = second replacement, etc.
+  originalAlbumId String? // References the original album's ID if this is a replacement
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekStartDate, albumMbid])
+  @@index([userId, weekStartDate])
+  @@index([userId, weekStartDate, attemptNumber])
+  @@index([originalAlbumId])
+}
+
+// Batch tracking for Discovery Weekly generation
+model DiscoveryBatch {
+  id              String    @id @default(cuid())
+  userId          String
+  weekStart       DateTime // Week this batch is for
+  targetSongCount Int // Target number of songs to find
+  status          String    @default("downloading") // downloading, scanning, completed, failed
+  totalAlbums     Int       @default(0) // Total albums queued for download
+  completedAlbums Int       @default(0) // Albums successfully downloaded
+  failedAlbums    Int       @default(0) // Albums that failed to download
+  finalSongCount  Int       @default(0) // Final number of songs in playlist
+  logs            Json? // Structured logs for debugging [{timestamp, level, message}]
+  errorMessage    String? // Summary error message if failed
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  jobs DownloadJob[]
+
+  @@index([userId, weekStart])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ============================================
+// API Keys for Mobile/External Authentication
+// ============================================
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  userId    String
+  key       String   @unique // 64-character hex string
+  name      String // Device name: "iPhone 14", "Android Tablet"
+  lastUsed  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([key])
+  @@index([userId])
+  @@index([lastUsed])
+}
+
+// ============================================
+// Enums
+// ============================================
+
+enum DiscoverStatus {
+  ACTIVE // Currently in discover folder
+  LIKED // User liked, will be moved to permanent
+  MOVED // Already moved to permanent library
+  DELETED // Week ended, was not liked
+}
+
+enum ListenSource {
+  LIBRARY // From permanent /music folder
+  DISCOVERY // From /music/Discover, not yet liked
+  DISCOVERY_KEPT // Was discovery, user liked it
+}
+
+enum AlbumLocation {
+  LIBRARY // In /music
+  DISCOVER // In /music/Discover
+}

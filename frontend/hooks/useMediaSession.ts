@@ -1,0 +1,300 @@
+import { useEffect } from "react";
+import { useAudio } from "@/lib/audio-context";
+import { api } from "@/lib/api";
+
+/**
+ * Media Session API integration for OS-level media controls
+ *
+ * Features:
+ * - Lock screen controls (iOS/Android)
+ * - Media keys (play/pause, next, previous)
+ * - Now playing notification
+ * - Album art display
+ * - Seek controls (on supported platforms)
+ */
+export function useMediaSession() {
+    const {
+        currentTrack,
+        currentAudiobook,
+        currentPodcast,
+        playbackType,
+        isPlaying,
+        pause,
+        resume,
+        next,
+        previous,
+        seek,
+        currentTime,
+    } = useAudio();
+
+    useEffect(() => {
+        // Check if Media Session API is supported
+        if (!("mediaSession" in navigator)) {
+            console.warn("[MediaSession] Media Session API not supported");
+            return;
+        }
+
+        // Update metadata when track/audiobook/podcast changes
+        if (playbackType === "track" && currentTrack) {
+            const coverUrl = currentTrack.album?.coverArt
+                ? api.getCoverArtUrl(currentTrack.album.coverArt, 512)
+                : undefined;
+
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: currentTrack.title,
+                artist: currentTrack.artist?.name || "Unknown Artist",
+                album: currentTrack.album?.title || "Unknown Album",
+                artwork: coverUrl
+                    ? [
+                          { src: coverUrl, sizes: "96x96", type: "image/jpeg" },
+                          {
+                              src: coverUrl,
+                              sizes: "128x128",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "192x192",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "256x256",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "384x384",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "512x512",
+                              type: "image/jpeg",
+                          },
+                      ]
+                    : undefined,
+            });
+        } else if (playbackType === "audiobook" && currentAudiobook) {
+            const coverUrl = currentAudiobook.coverUrl
+                ? api.getCoverArtUrl(currentAudiobook.coverUrl, 512)
+                : undefined;
+
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: currentAudiobook.title,
+                artist: currentAudiobook.author,
+                album: currentAudiobook.narrator
+                    ? `Narrated by ${currentAudiobook.narrator}`
+                    : "Audiobook",
+                artwork: coverUrl
+                    ? [
+                          { src: coverUrl, sizes: "96x96", type: "image/jpeg" },
+                          {
+                              src: coverUrl,
+                              sizes: "128x128",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "192x192",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "256x256",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "384x384",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "512x512",
+                              type: "image/jpeg",
+                          },
+                      ]
+                    : undefined,
+            });
+        } else if (playbackType === "podcast" && currentPodcast) {
+            const coverUrl = currentPodcast.coverUrl
+                ? api.getCoverArtUrl(currentPodcast.coverUrl, 512)
+                : undefined;
+
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: currentPodcast.title,
+                artist: currentPodcast.podcastTitle,
+                album: "Podcast",
+                artwork: coverUrl
+                    ? [
+                          { src: coverUrl, sizes: "96x96", type: "image/jpeg" },
+                          {
+                              src: coverUrl,
+                              sizes: "128x128",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "192x192",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "256x256",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "384x384",
+                              type: "image/jpeg",
+                          },
+                          {
+                              src: coverUrl,
+                              sizes: "512x512",
+                              type: "image/jpeg",
+                          },
+                      ]
+                    : undefined,
+            });
+        } else {
+            // Clear metadata when nothing is playing
+            navigator.mediaSession.metadata = null;
+        }
+
+        // Update playback state
+        navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+    }, [
+        currentTrack,
+        currentAudiobook,
+        currentPodcast,
+        playbackType,
+        isPlaying,
+    ]);
+
+    useEffect(() => {
+        if (!("mediaSession" in navigator)) return;
+
+        // Register action handlers
+        navigator.mediaSession.setActionHandler("play", () => {
+            resume();
+        });
+
+        navigator.mediaSession.setActionHandler("pause", () => {
+            pause();
+        });
+
+        navigator.mediaSession.setActionHandler("previoustrack", () => {
+            if (playbackType === "track") {
+                previous();
+            } else {
+                // For audiobooks/podcasts, seek backward 30s
+                seek(Math.max(currentTime - 30, 0));
+            }
+        });
+
+        navigator.mediaSession.setActionHandler("nexttrack", () => {
+            if (playbackType === "track") {
+                next();
+            } else {
+                // For audiobooks/podcasts, seek forward 30s
+                const duration =
+                    currentAudiobook?.duration || currentPodcast?.duration || 0;
+                seek(Math.min(currentTime + 30, duration));
+            }
+        });
+
+        // Seek controls (may not be supported on all platforms)
+        try {
+            navigator.mediaSession.setActionHandler(
+                "seekbackward",
+                (details) => {
+                    const skipTime = details.seekOffset || 10;
+                    seek(Math.max(currentTime - skipTime, 0));
+                }
+            );
+
+            navigator.mediaSession.setActionHandler(
+                "seekforward",
+                (details) => {
+                    const skipTime = details.seekOffset || 10;
+                    const duration =
+                        currentTrack?.duration ||
+                        currentAudiobook?.duration ||
+                        currentPodcast?.duration ||
+                        0;
+                    seek(Math.min(currentTime + skipTime, duration));
+                }
+            );
+
+            navigator.mediaSession.setActionHandler("seekto", (details) => {
+                if (details.seekTime !== undefined) {
+                    seek(details.seekTime);
+                }
+            });
+        } catch (error) {
+            // Seek actions not supported on this platform
+        }
+
+        // Cleanup
+        return () => {
+            if ("mediaSession" in navigator) {
+                navigator.mediaSession.setActionHandler("play", null);
+                navigator.mediaSession.setActionHandler("pause", null);
+                navigator.mediaSession.setActionHandler("previoustrack", null);
+                navigator.mediaSession.setActionHandler("nexttrack", null);
+                try {
+                    navigator.mediaSession.setActionHandler(
+                        "seekbackward",
+                        null
+                    );
+                    navigator.mediaSession.setActionHandler(
+                        "seekforward",
+                        null
+                    );
+                    navigator.mediaSession.setActionHandler("seekto", null);
+                } catch (error) {
+                    // Ignore cleanup errors
+                }
+            }
+        };
+    }, [
+        pause,
+        resume,
+        next,
+        previous,
+        seek,
+        currentTime,
+        playbackType,
+        currentTrack,
+        currentAudiobook,
+        currentPodcast,
+    ]);
+
+    // Update position state for scrubbing on lock screen
+    useEffect(() => {
+        if (!("mediaSession" in navigator)) return;
+        if (!("setPositionState" in navigator.mediaSession)) return;
+
+        const duration =
+            currentTrack?.duration ||
+            currentAudiobook?.duration ||
+            currentPodcast?.duration;
+
+        if (duration && currentTime !== undefined) {
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration,
+                    playbackRate: 1,
+                    position: Math.min(currentTime, duration),
+                });
+            } catch (error) {
+                // Some browsers may not support position state
+                console.warn(
+                    "[MediaSession] Failed to set position state:",
+                    error
+                );
+            }
+        }
+    }, [currentTime, currentTrack, currentAudiobook, currentPodcast]);
+}
