@@ -92,7 +92,7 @@ autostart=true
 autorestart=true
 stdout_logfile=/var/log/supervisor/backend.log
 stderr_logfile=/var/log/supervisor/backend_err.log
-environment=NODE_ENV="production",DATABASE_URL="postgresql://lidify:lidify@localhost:5432/lidify",REDIS_URL="redis://localhost:6379",PORT="3006",MUSIC_PATH="/music",TRANSCODE_CACHE_PATH="/app/backend/cache/transcodes",ALLOWED_ORIGINS="http://localhost:3030,http://localhost:3006",SESSION_SECRET="",SETTINGS_ENCRYPTION_KEY=""
+directory=/app/backend
 priority=30
 
 [program:frontend]
@@ -144,19 +144,27 @@ su-exec postgres pg_ctl -D /data/postgres -w stop
 
 # Generate session secret if not provided
 if [ -z "$SESSION_SECRET" ]; then
-    export SESSION_SECRET=$(openssl rand -base64 32)
-    echo "Generated SESSION_SECRET: $SESSION_SECRET"
+    export SESSION_SECRET=$(openssl rand -hex 32)
+    echo "Generated SESSION_SECRET"
 fi
 
-# Generate encryption key if not provided
+# Generate encryption key if not provided  
 if [ -z "$SETTINGS_ENCRYPTION_KEY" ]; then
-    export SETTINGS_ENCRYPTION_KEY=$(openssl rand -base64 32)
+    export SETTINGS_ENCRYPTION_KEY=$(openssl rand -hex 32)
     echo "Generated SETTINGS_ENCRYPTION_KEY"
 fi
 
-# Update supervisor environment
-sed -i "s|SESSION_SECRET=\"\"|SESSION_SECRET=\"$SESSION_SECRET\"|g" /etc/supervisord.conf
-sed -i "s|SETTINGS_ENCRYPTION_KEY=\"\"|SETTINGS_ENCRYPTION_KEY=\"$SETTINGS_ENCRYPTION_KEY\"|g" /etc/supervisord.conf
+# Write environment file for backend (avoids sed issues with special chars)
+cat > /app/backend/.env << ENVEOF
+NODE_ENV=production
+DATABASE_URL=postgresql://lidify:lidify@localhost:5432/lidify
+REDIS_URL=redis://localhost:6379
+PORT=3006
+MUSIC_PATH=/music
+TRANSCODE_CACHE_PATH=/app/backend/cache/transcodes
+SESSION_SECRET=$SESSION_SECRET
+SETTINGS_ENCRYPTION_KEY=$SETTINGS_ENCRYPTION_KEY
+ENVEOF
 
 echo "Starting Lidify..."
 exec /usr/bin/supervisord -c /etc/supervisord.conf
