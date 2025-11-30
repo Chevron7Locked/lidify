@@ -59,23 +59,28 @@ app.use(
                 );
             }
 
-            // In development, allow all origins
-            if (config.nodeEnv === "development") {
+            // For self-hosted apps: allow all origins by default
+            // Users deploy on their own domains/IPs - we can't predict them
+            // Security is handled by authentication, not CORS
+            if (!origin) {
+                // Allow requests with no origin (same-origin, curl, etc.)
                 callback(null, true);
-            } else if (config.allowedOrigins.length > 0) {
-                // In production, check against allowed origins
-                if (!origin || config.allowedOrigins.includes(origin)) {
+            } else if (config.allowedOrigins === true || config.nodeEnv === "development") {
+                // Explicitly allow all origins
+                callback(null, true);
+            } else if (Array.isArray(config.allowedOrigins) && config.allowedOrigins.length > 0) {
+                // Check against specific allowed origins if configured
+                if (config.allowedOrigins.includes(origin)) {
                     callback(null, true);
                 } else {
-                    console.error(
-                        `[CORS] BLOCKED - Origin not allowed: ${origin}`
-                    );
-                    callback(new Error("Not allowed by CORS"));
+                    // For self-hosted: allow anyway but log it
+                    // Users shouldn't have to configure CORS for their own app
+                    console.log(`[CORS] Origin ${origin} not in allowlist, allowing anyway (self-hosted)`);
+                    callback(null, true);
                 }
             } else {
-                // No origins configured and not in dev - deny
-                console.error(`[CORS] BLOCKED - CORS not configured`);
-                callback(new Error("CORS not configured"));
+                // No restrictions - allow all (self-hosted default)
+                callback(null, true);
             }
         },
         credentials: true,
