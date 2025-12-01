@@ -37,8 +37,8 @@ RUN npx prisma generate
 COPY backend/src ./src
 COPY backend/docker-entrypoint.sh ./
 
-# Create cache directories
-RUN mkdir -p /app/backend/cache/covers /app/backend/cache/transcodes /app/backend/logs
+# Create log directory (cache will be in /data volume)
+RUN mkdir -p /app/backend/logs
 
 # ============================================
 # FRONTEND BUILD
@@ -142,26 +142,38 @@ npx prisma migrate deploy 2>&1 || {
 # Stop PostgreSQL (supervisord will start it)
 su-exec postgres pg_ctl -D /data/postgres -w stop
 
-# Generate session secret if not provided
-if [ -z "$SESSION_SECRET" ]; then
-    export SESSION_SECRET=$(openssl rand -hex 32)
-    echo "Generated SESSION_SECRET"
+# Create persistent cache directories in /data volume
+mkdir -p /data/cache/covers /data/cache/transcodes /data/secrets
+
+# Load or generate persistent secrets
+if [ -f /data/secrets/session_secret ]; then
+    SESSION_SECRET=$(cat /data/secrets/session_secret)
+    echo "Loaded existing SESSION_SECRET"
+else
+    SESSION_SECRET=$(openssl rand -hex 32)
+    echo "$SESSION_SECRET" > /data/secrets/session_secret
+    chmod 600 /data/secrets/session_secret
+    echo "Generated and saved new SESSION_SECRET"
 fi
 
-# Generate encryption key if not provided  
-if [ -z "$SETTINGS_ENCRYPTION_KEY" ]; then
-    export SETTINGS_ENCRYPTION_KEY=$(openssl rand -hex 32)
-    echo "Generated SETTINGS_ENCRYPTION_KEY"
+if [ -f /data/secrets/encryption_key ]; then
+    SETTINGS_ENCRYPTION_KEY=$(cat /data/secrets/encryption_key)
+    echo "Loaded existing SETTINGS_ENCRYPTION_KEY"
+else
+    SETTINGS_ENCRYPTION_KEY=$(openssl rand -hex 32)
+    echo "$SETTINGS_ENCRYPTION_KEY" > /data/secrets/encryption_key
+    chmod 600 /data/secrets/encryption_key
+    echo "Generated and saved new SETTINGS_ENCRYPTION_KEY"
 fi
 
-# Write environment file for backend (avoids sed issues with special chars)
+# Write environment file for backend
 cat > /app/backend/.env << ENVEOF
 NODE_ENV=production
 DATABASE_URL=postgresql://lidify:lidify@localhost:5432/lidify
 REDIS_URL=redis://localhost:6379
 PORT=3006
 MUSIC_PATH=/music
-TRANSCODE_CACHE_PATH=/app/backend/cache/transcodes
+TRANSCODE_CACHE_PATH=/data/cache/transcodes
 SESSION_SECRET=$SESSION_SECRET
 SETTINGS_ENCRYPTION_KEY=$SETTINGS_ENCRYPTION_KEY
 ENVEOF
