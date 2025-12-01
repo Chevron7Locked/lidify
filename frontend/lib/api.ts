@@ -98,7 +98,8 @@ class ApiClient {
             ] = `Bearer ${this.token}`;
         }
 
-        const url = `${this.getBaseUrl()}${endpoint}`;
+        // All API endpoints are prefixed with /api
+        const url = `${this.getBaseUrl()}/api${endpoint}`;
 
         const response = await fetch(url, {
             ...fetchOptions,
@@ -326,7 +327,7 @@ class ApiClient {
 
     // Streaming
     getStreamUrl(trackId: string): string {
-        const baseUrl = `${this.getBaseUrl()}/library/tracks/${trackId}/stream`;
+        const baseUrl = `${this.getBaseUrl()}/api/library/tracks/${trackId}/stream`;
         // For audio element requests, cookies may not be sent cross-origin in development
         // Add token as query param for authentication (supported by requireAuthOrToken)
         if (this.token) {
@@ -342,7 +343,7 @@ class ApiClient {
         if (coverId && coverId.startsWith("/audiobooks/")) {
             // Return direct path - audiobook covers are served from local disk
             // Add token for cross-origin requests (canvas color extraction needs this)
-            const url = `${baseUrl}${coverId}`;
+            const url = `${baseUrl}/api${coverId}`;
             if (this.token) {
                 return `${url}?token=${encodeURIComponent(this.token)}`;
             }
@@ -353,7 +354,7 @@ class ApiClient {
         if (coverId && coverId.startsWith("/podcasts/")) {
             // Return direct path - podcast covers are served from local disk or redirected
             // Add token for cross-origin requests (canvas color extraction needs this)
-            const url = `${baseUrl}${coverId}`;
+            const url = `${baseUrl}/api${coverId}`;
             if (this.token) {
                 return `${url}?token=${encodeURIComponent(this.token)}`;
             }
@@ -370,7 +371,7 @@ class ApiClient {
             if (size) params.append("size", size.toString());
             // Add token for cross-origin requests (canvas color extraction needs this)
             if (this.token) params.append("token", this.token);
-            return `${baseUrl}/library/cover-art?${params.toString()}`;
+            return `${baseUrl}/api/library/cover-art?${params.toString()}`;
         }
 
         // Otherwise use as path parameter (cover ID - typically a hash)
@@ -379,7 +380,7 @@ class ApiClient {
         // Add token for cross-origin requests (canvas color extraction needs this)
         if (this.token) params.append("token", this.token);
         const queryString = params.toString();
-        return `${baseUrl}/library/cover-art/${coverId}${
+        return `${baseUrl}/api/library/cover-art/${coverId}${
             queryString ? "?" + queryString : ""
         }`;
     }
@@ -751,7 +752,7 @@ class ApiClient {
     }
 
     getAudiobookStreamUrl(id: string): string {
-        const baseUrl = `${this.getBaseUrl()}/audiobooks/${id}/stream`;
+        const baseUrl = `${this.getBaseUrl()}/api/audiobooks/${id}/stream`;
         // For audio element requests, cookies may not be sent cross-origin in development
         // Add token as query param for authentication (supported by requireAuthOrToken)
         if (this.token) {
@@ -808,7 +809,7 @@ class ApiClient {
     }
 
     getPodcastEpisodeStreamUrl(podcastId: string, episodeId: string): string {
-        const baseUrl = `${this.getBaseUrl()}/podcasts/${podcastId}/episodes/${episodeId}/stream`;
+        const baseUrl = `${this.getBaseUrl()}/api/podcasts/${podcastId}/episodes/${episodeId}/stream`;
         // For audio element requests, cookies may not be sent cross-origin in development
         // Add token as query param for authentication (supported by requireAuthOrToken)
         if (this.token) {

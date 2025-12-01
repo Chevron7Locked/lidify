@@ -59,7 +59,7 @@ export const serverConfig = {
             }
 
             // Try auth status endpoint as fallback
-            const altResponse = await fetch(`${normalizedUrl}/auth/status`, {
+            const altResponse = await fetch(`${normalizedUrl}/api/auth/status`, {
                 method: "GET",
                 credentials: "include",
                 signal: AbortSignal.timeout(10000),

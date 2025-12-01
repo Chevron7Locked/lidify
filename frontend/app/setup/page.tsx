@@ -14,7 +14,7 @@ export default function SetupPage() {
 
     // Redirect to login - login page now handles server URL entry
     useEffect(() => {
-        router.replace("/login");
+                    router.replace("/login");
     }, [router]);
 
     // Show loading state while redirecting
@@ -33,7 +33,7 @@ export default function SetupPage() {
 
             {/* Loading */}
             <div className="flex items-center gap-3 text-white/60">
-                <Loader2 className="w-5 h-5 animate-spin" />
+                                <Loader2 className="w-5 h-5 animate-spin" />
                 <span>Redirecting to login...</span>
             </div>
         </div>

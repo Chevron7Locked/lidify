@@ -146,18 +146,18 @@ startDiscoverWeeklyCron();
 
 // Run data integrity check on startup and then every 24 hours
 timeouts.push(
-    setTimeout(() => {
-        runDataIntegrityCheck().catch((err) => {
-            console.error("Data integrity check failed:", err);
-        });
+setTimeout(() => {
+    runDataIntegrityCheck().catch((err) => {
+        console.error("Data integrity check failed:", err);
+    });
     }, 10000) // Run 10 seconds after startup
 );
 
 intervals.push(
-    setInterval(() => {
-        runDataIntegrityCheck().catch((err) => {
-            console.error("Data integrity check failed:", err);
-        });
+setInterval(() => {
+    runDataIntegrityCheck().catch((err) => {
+        console.error("Data integrity check failed:", err);
+    });
     }, 24 * 60 * 60 * 1000) // Run every 24 hours
 );
 
@@ -166,17 +166,17 @@ console.log("Data integrity check scheduled (every 24 hours)");
 // Run stale download cleanup every 2 minutes
 // This catches downloads that timed out even if the queue cleaner isn't running
 intervals.push(
-    setInterval(async () => {
-        try {
-            const staleCount = await simpleDownloadManager.markStaleJobsAsFailed();
-            if (staleCount > 0) {
-                console.log(
-                    `⏰ Periodic cleanup: marked ${staleCount} stale download(s) as failed`
-                );
-            }
-        } catch (err) {
-            console.error("Stale download cleanup failed:", err);
+setInterval(async () => {
+    try {
+        const staleCount = await simpleDownloadManager.markStaleJobsAsFailed();
+        if (staleCount > 0) {
+            console.log(
+                `⏰ Periodic cleanup: marked ${staleCount} stale download(s) as failed`
+            );
         }
+    } catch (err) {
+        console.error("Stale download cleanup failed:", err);
+    }
     }, 2 * 60 * 1000) // Every 2 minutes
 );
 
@@ -185,17 +185,17 @@ console.log("Stale download cleanup scheduled (every 2 minutes)");
 // Run Lidarr queue cleanup every 5 minutes
 // This catches stuck/failed imports even if webhooks fail
 intervals.push(
-    setInterval(async () => {
-        try {
-            const result = await simpleDownloadManager.clearLidarrQueue();
-            if (result.removed > 0) {
-                console.log(
-                    `Periodic Lidarr cleanup: removed ${result.removed} stuck download(s)`
-                );
-            }
-        } catch (err) {
-            console.error("Lidarr queue cleanup failed:", err);
+setInterval(async () => {
+    try {
+        const result = await simpleDownloadManager.clearLidarrQueue();
+        if (result.removed > 0) {
+            console.log(
+                `Periodic Lidarr cleanup: removed ${result.removed} stuck download(s)`
+            );
         }
+    } catch (err) {
+        console.error("Lidarr queue cleanup failed:", err);
+    }
     }, 5 * 60 * 1000) // Every 5 minutes
 );
 
@@ -203,20 +203,20 @@ console.log("Lidarr queue cleanup scheduled (every 5 minutes)");
 
 // Run initial Lidarr cleanup 30 seconds after startup (to catch any stuck items)
 timeouts.push(
-    setTimeout(async () => {
-        try {
-            console.log("Running initial Lidarr queue cleanup...");
-            const result = await simpleDownloadManager.clearLidarrQueue();
-            if (result.removed > 0) {
-                console.log(
-                    `Initial cleanup: removed ${result.removed} stuck download(s)`
-                );
-            } else {
-                console.log("Initial cleanup: queue is clean");
-            }
-        } catch (err) {
-            console.error("Initial Lidarr cleanup failed:", err);
+setTimeout(async () => {
+    try {
+        console.log("Running initial Lidarr queue cleanup...");
+        const result = await simpleDownloadManager.clearLidarrQueue();
+        if (result.removed > 0) {
+            console.log(
+                `Initial cleanup: removed ${result.removed} stuck download(s)`
+            );
+        } else {
+            console.log("Initial cleanup: queue is clean");
         }
+    } catch (err) {
+        console.error("Initial Lidarr cleanup failed:", err);
+    }
     }, 30 * 1000) // 30 seconds after startup
 );
 

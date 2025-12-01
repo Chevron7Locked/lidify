@@ -41,15 +41,15 @@ export function ConditionalAudioProvider({
     // Wrapped in error boundary to prevent audio errors from crashing the app
     return (
         <AudioErrorBoundary>
-            <AudioStateProvider>
-                <AudioPlaybackProvider>
-                    <AudioControlsProvider>
-                        {/* Render platform-specific audio element */}
-                        <AudioComponent />
-                        {children}
-                    </AudioControlsProvider>
-                </AudioPlaybackProvider>
-            </AudioStateProvider>
+        <AudioStateProvider>
+            <AudioPlaybackProvider>
+                <AudioControlsProvider>
+                    {/* Render platform-specific audio element */}
+                    <AudioComponent />
+                    {children}
+                </AudioControlsProvider>
+            </AudioPlaybackProvider>
+        </AudioStateProvider>
         </AudioErrorBoundary>
     );
 }

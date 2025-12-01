@@ -44,4 +44,4 @@ next-env.d.ts
 *.keystore
 *.jks
 android/key.properties
-android/gradle.properties
+# Note: android/gradle.properties is NOT ignored - it contains AndroidX settings needed for builds

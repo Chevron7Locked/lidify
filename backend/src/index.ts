@@ -110,46 +110,49 @@ app.use(
     })
 );
 
-// Routes
+// Routes - All API routes prefixed with /api for clear separation from frontend
 // Apply rate limiting to auth routes
-app.use("/auth/login", authLimiter);
-app.use("/auth/register", authLimiter);
-app.use("/auth", authRoutes);
-app.use("/onboarding", onboardingRoutes); // Public onboarding routes
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+app.use("/api/auth", authRoutes);
+app.use("/api/onboarding", onboardingRoutes); // Public onboarding routes
 
 // Apply general API rate limiting to all API routes
-app.use("/api-keys", apiLimiter, apiKeysRoutes);
-// NOTE: /library has its own rate limiting (imageLimiter for cover-art, apiLimiter for others)
-app.use("/library", libraryRoutes);
-app.use("/plays", apiLimiter, playsRoutes);
-app.use("/settings", apiLimiter, settingsRoutes);
-app.use("/system-settings", apiLimiter, systemSettingsRoutes);
-app.use("/listening-state", apiLimiter, listeningStateRoutes);
-app.use("/playback-state", apiLimiter, playbackStateRoutes);
-app.use("/offline", apiLimiter, offlineRoutes);
-app.use("/playlists", apiLimiter, playlistsRoutes);
-app.use("/search", apiLimiter, searchRoutes);
-app.use("/recommendations", apiLimiter, recommendationsRoutes);
-app.use("/downloads", apiLimiter, downloadsRoutes);
-app.use("/webhooks", webhooksRoutes); // Webhooks should not be rate limited
-// NOTE: /audiobooks has its own rate limiting (imageLimiter for covers, apiLimiter for others)
-app.use("/audiobooks", audiobooksRoutes);
-app.use("/podcasts", apiLimiter, podcastsRoutes);
-app.use("/artists", apiLimiter, artistsRoutes);
-app.use("/slskd", apiLimiter, slskdRoutes);
-app.use("/discover", apiLimiter, discoverRoutes);
-app.use("/mixes", apiLimiter, mixesRoutes);
-app.use("/enrichment", apiLimiter, enrichmentRoutes);
-app.use("/homepage", apiLimiter, homepageRoutes);
+app.use("/api/api-keys", apiLimiter, apiKeysRoutes);
+// NOTE: /api/library has its own rate limiting (imageLimiter for cover-art, apiLimiter for others)
+app.use("/api/library", libraryRoutes);
+app.use("/api/plays", apiLimiter, playsRoutes);
+app.use("/api/settings", apiLimiter, settingsRoutes);
+app.use("/api/system-settings", apiLimiter, systemSettingsRoutes);
+app.use("/api/listening-state", apiLimiter, listeningStateRoutes);
+app.use("/api/playback-state", apiLimiter, playbackStateRoutes);
+app.use("/api/offline", apiLimiter, offlineRoutes);
+app.use("/api/playlists", apiLimiter, playlistsRoutes);
+app.use("/api/search", apiLimiter, searchRoutes);
+app.use("/api/recommendations", apiLimiter, recommendationsRoutes);
+app.use("/api/downloads", apiLimiter, downloadsRoutes);
+app.use("/api/webhooks", webhooksRoutes); // Webhooks should not be rate limited
+// NOTE: /api/audiobooks has its own rate limiting (imageLimiter for covers, apiLimiter for others)
+app.use("/api/audiobooks", audiobooksRoutes);
+app.use("/api/podcasts", apiLimiter, podcastsRoutes);
+app.use("/api/artists", apiLimiter, artistsRoutes);
+app.use("/api/slskd", apiLimiter, slskdRoutes);
+app.use("/api/discover", apiLimiter, discoverRoutes);
+app.use("/api/mixes", apiLimiter, mixesRoutes);
+app.use("/api/enrichment", apiLimiter, enrichmentRoutes);
+app.use("/api/homepage", apiLimiter, homepageRoutes);
 
-// Health check
+// Health check (keep at root for simple container health checks)
 app.get("/health", (req, res) => {
+    res.json({ status: "ok" });
+});
+app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
 });
 
 // Swagger API Documentation
 app.use(
-    "/api-docs",
+    "/api/docs",
     swaggerUi.serve,
     swaggerUi.setup(swaggerSpec, {
         customCss: ".swagger-ui .topbar { display: none }",
@@ -158,7 +161,7 @@ app.use(
 );
 
 // Serve raw OpenAPI spec
-app.get("/api-docs.json", (req, res) => {
+app.get("/api/docs.json", (req, res) => {
     res.json(swaggerSpec);
 });
 
@@ -194,7 +197,7 @@ app.listen(config.port, "0.0.0.0", async () => {
     );
 
     const serverAdapter = new ExpressAdapter();
-    serverAdapter.setBasePath("/admin/queues");
+    serverAdapter.setBasePath("/api/admin/queues");
 
     createBullBoard({
         queues: [
@@ -205,8 +208,8 @@ app.listen(config.port, "0.0.0.0", async () => {
         serverAdapter,
     });
 
-    app.use("/admin/queues", serverAdapter.getRouter());
-    console.log("Bull Board dashboard available at /admin/queues");
+    app.use("/api/admin/queues", serverAdapter.getRouter());
+    console.log("Bull Board dashboard available at /api/admin/queues");
 
     // Note: Native library scanning is now triggered manually via POST /library/scan
     // No automatic sync on startup - user must manually scan their music folder

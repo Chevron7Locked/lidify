@@ -92,49 +92,22 @@ const nextConfig: NextConfig = {
         ];
     },
     // Proxy API requests to backend (for Docker all-in-one container)
+    // All backend routes are prefixed with /api for clear separation
     async rewrites() {
         const backendUrl = process.env.BACKEND_URL || "http://localhost:3006";
         
-        // All backend routes that need to be proxied
-        const backendRoutes = [
-            "auth",
-            "onboarding", 
-            "api-keys",
-            "library",
-            "plays",
-            "settings",
-            "system-settings",
-            "listening-state",
-            "playback-state",
-            "offline",
-            "playlists",
-            "search",
-            "recommendations",
-            "downloads",
-            "webhooks",
-            "audiobooks",
-            "podcasts",
-            "artists",
-            "slskd",
-            "discover",
-            "mixes",
-            "enrichment",
-            "homepage",
-            "stream",
-            "admin",
-            "health",
+        return [
+            // Proxy all /api/* requests to backend
+            {
+                source: "/api/:path*",
+                destination: `${backendUrl}/api/:path*`,
+            },
+            // Health check endpoint (at root for container health checks)
+            {
+                source: "/health",
+                destination: `${backendUrl}/health`,
+            },
         ];
-        
-        return backendRoutes.map(route => ({
-            source: `/${route}/:path*`,
-            destination: `${backendUrl}/${route}/:path*`,
-        })).concat([
-            // Also handle routes without trailing paths
-            ...backendRoutes.map(route => ({
-                source: `/${route}`,
-                destination: `${backendUrl}/${route}`,
-            })),
-        ]);
     },
 };
 

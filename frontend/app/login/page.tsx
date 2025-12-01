@@ -72,7 +72,7 @@ export default function LoginPage() {
             try {
                 // Get recently listened artists (public endpoint or cached data)
                 const response = await fetch(
-                    "/library/recently-listened?limit=10"
+                    "/api/library/recently-listened?limit=10"
                 );
                 if (response.ok) {
                     const data = await response.json();
