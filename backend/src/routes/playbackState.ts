@@ -38,12 +38,21 @@ router.post("/", requireAuth, async (req, res) => {
             isShuffle,
         } = req.body;
 
+        // Validate required field
+        if (!playbackType) {
+            return res.status(400).json({ error: "playbackType is required" });
+        }
+
+        // Limit queue size to prevent database issues with large JSON
+        const safeQueue = Array.isArray(queue) ? queue.slice(0, 100) : null;
+        const safeCurrentIndex = Math.min(currentIndex || 0, safeQueue?.length || 0);
+
         console.log(`[PlaybackState] Saving for user ${userId}:`, {
             playbackType,
             trackId,
             audiobookId,
             podcastId,
-            queueLength: queue?.length || 0,
+            queueLength: safeQueue?.length || 0,
         });
 
         const playbackState = await prisma.playbackState.upsert({
@@ -53,8 +62,8 @@ router.post("/", requireAuth, async (req, res) => {
                 trackId: trackId || null,
                 audiobookId: audiobookId || null,
                 podcastId: podcastId || null,
-                queue: queue || null,
-                currentIndex: currentIndex || 0,
+                queue: safeQueue,
+                currentIndex: safeCurrentIndex,
                 isShuffle: isShuffle || false,
             },
             create: {
@@ -63,16 +72,17 @@ router.post("/", requireAuth, async (req, res) => {
                 trackId: trackId || null,
                 audiobookId: audiobookId || null,
                 podcastId: podcastId || null,
-                queue: queue || null,
-                currentIndex: currentIndex || 0,
+                queue: safeQueue,
+                currentIndex: safeCurrentIndex,
                 isShuffle: isShuffle || false,
             },
         });
 
         res.json(playbackState);
-    } catch (error) {
-        console.error("Update playback state error:", error);
-        res.status(500).json({ error: "Failed to update playback state" });
+    } catch (error: any) {
+        console.error("Update playback state error:", error?.message || error);
+        console.error("Stack:", error?.stack);
+        res.status(500).json({ error: "Internal server error" });
     }
 });
 

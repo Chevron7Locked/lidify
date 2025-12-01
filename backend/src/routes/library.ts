@@ -835,12 +835,13 @@ router.get("/artists", async (req, res) => {
         res.json({
             artists: artistsWithImages,
             total,
-            page: pageNum,
-            pages: Math.ceil(total / limit),
+            offset,
+            limit,
         });
-    } catch (error) {
-        console.error("Get artists error:", error);
-        res.status(500).json({ error: "Failed to fetch artists" });
+    } catch (error: any) {
+        console.error("[Library] Get artists error:", error?.message || error);
+        console.error("[Library] Stack:", error?.stack);
+        res.status(500).json({ error: "Failed to fetch artists", details: error?.message });
     }
 });
 
@@ -1652,12 +1653,13 @@ router.get("/albums", async (req, res) => {
         res.json({
             albums,
             total,
-            page: pageNum,
-            pages: Math.ceil(total / limit),
+            offset,
+            limit,
         });
-    } catch (error) {
-        console.error("Get albums error:", error);
-        res.status(500).json({ error: "Failed to fetch albums" });
+    } catch (error: any) {
+        console.error("[Library] Get albums error:", error?.message || error);
+        console.error("[Library] Stack:", error?.stack);
+        res.status(500).json({ error: "Failed to fetch albums", details: error?.message });
     }
 });
 

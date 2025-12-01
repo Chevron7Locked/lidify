@@ -409,9 +409,10 @@ router.get("/popular-artists", async (req, res) => {
         const artists = await lastFmService.getTopChartArtists(limit);
 
         res.json({ artists });
-    } catch (error) {
-        console.error("Get popular artists error:", error);
-        res.status(500).json({ error: "Failed to get popular artists" });
+    } catch (error: any) {
+        console.error("[Discover] Get popular artists error:", error?.message || error);
+        // Return empty array instead of 500 - allows homepage to still render
+        res.json({ artists: [] });
     }
 });
 
