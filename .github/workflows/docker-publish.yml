@@ -60,7 +60,9 @@ jobs:
             ${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+          # Note: ARM64 removed due to QEMU emulation issues with npm packages
+          # Can be re-added when using native ARM64 runners
+          platforms: linux/amd64
 
   create-release:
     needs: [build]
