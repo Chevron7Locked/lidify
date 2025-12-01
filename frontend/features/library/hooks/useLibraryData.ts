@@ -20,13 +20,13 @@ export function useLibraryData({ activeTab }: UseLibraryDataProps) {
     setIsLoading(true);
     try {
       if (activeTab === "artists") {
-        const { artists } = await api.getArtists({ limit: 100 });
+        const { artists } = await api.getArtists({ limit: 500 });
         setArtists(artists);
       } else if (activeTab === "albums") {
-        const { albums } = await api.getAlbums({ limit: 100 });
+        const { albums } = await api.getAlbums({ limit: 500 });
         setAlbums(albums);
       } else if (activeTab === "tracks") {
-        const { tracks } = await api.getTracks({ limit: 100 });
+        const { tracks } = await api.getTracks({ limit: 500 });
         setTracks(tracks);
       }
     } catch (error) {

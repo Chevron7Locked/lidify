@@ -674,13 +674,12 @@ router.get("/recently-added", async (req, res) => {
     }
 });
 
-// GET /library/artists?query=&page=
+// GET /library/artists?query=&limit=&offset=
 router.get("/artists", async (req, res) => {
     try {
-        const { query = "", page = "1" } = req.query;
-        const pageNum = parseInt(page as string, 10);
-        const limit = 50;
-        const offset = (pageNum - 1) * limit;
+        const { query = "", limit: limitParam = "500", offset: offsetParam = "0" } = req.query;
+        const limit = Math.min(parseInt(limitParam as string, 10) || 500, 1000); // Max 1000
+        const offset = parseInt(offsetParam as string, 10) || 0;
 
         const where: any = {
             albums: {
@@ -1592,13 +1591,12 @@ router.get("/artists/:id", async (req, res) => {
     }
 });
 
-// GET /library/albums?artistId=&page=
+// GET /library/albums?artistId=&limit=&offset=
 router.get("/albums", async (req, res) => {
     try {
-        const { artistId, page = "1" } = req.query;
-        const pageNum = parseInt(page as string, 10);
-        const limit = 200;
-        const offset = (pageNum - 1) * limit;
+        const { artistId, limit: limitParam = "500", offset: offsetParam = "0" } = req.query;
+        const limit = Math.min(parseInt(limitParam as string, 10) || 500, 1000); // Max 1000
+        const offset = parseInt(offsetParam as string, 10) || 0;
 
         const where: any = {
             location: "LIBRARY", // Exclude discovery albums
