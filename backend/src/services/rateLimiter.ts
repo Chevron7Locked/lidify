@@ -25,6 +25,7 @@ interface ServiceConfig {
     musicbrainz: RateLimitConfig;
     deezer: RateLimitConfig;
     lidarr: RateLimitConfig;
+    coverart: RateLimitConfig;
 }
 
 // Service-specific rate limit configurations
@@ -56,6 +57,13 @@ const SERVICE_CONFIGS: ServiceConfig = {
         concurrency: 3,
         maxRetries: 2,
         baseDelay: 500,
+    },
+    coverart: {
+        intervalCap: 5, // Cover Art Archive - conservative rate
+        interval: 1000,
+        concurrency: 3,
+        maxRetries: 2,
+        baseDelay: 1000,
     },
 };
 

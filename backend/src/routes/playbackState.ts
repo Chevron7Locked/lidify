@@ -45,7 +45,10 @@ router.post("/", requireAuth, async (req, res) => {
 
         // Limit queue size to prevent database issues with large JSON
         const safeQueue = Array.isArray(queue) ? queue.slice(0, 100) : null;
-        const safeCurrentIndex = Math.min(currentIndex || 0, safeQueue?.length || 0);
+        const safeCurrentIndex = Math.min(
+            currentIndex || 0,
+            safeQueue?.length || 0
+        );
 
         console.log(`[PlaybackState] Saving for user ${userId}:`, {
             playbackType,

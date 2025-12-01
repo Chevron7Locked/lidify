@@ -6,6 +6,21 @@ import { prisma } from "../utils/db";
 import { getEnrichmentProgress } from "../workers/enrichment";
 import { redisClient } from "../utils/redis";
 import crypto from "crypto";
+import path from "path";
+import fs from "fs";
+
+// Static imports for performance (avoid dynamic imports in hot paths)
+import { config } from "../config";
+import { fanartService } from "../services/fanart";
+import { deezerService } from "../services/deezer";
+import { musicBrainzService } from "../services/musicbrainz";
+import { coverArtService } from "../services/coverArt";
+import { getSystemSettings } from "../utils/systemSettings";
+import { AudioStreamingService } from "../services/audioStreaming";
+import { scanQueue } from "../workers/queues";
+import { organizeSingles } from "../workers/organizeSingles";
+import { enrichSimilarArtist } from "../workers/artistEnrichment";
+import { extractColorsFromImage } from "../utils/colorExtractor";
 
 const router = Router();
 
@@ -69,8 +84,6 @@ router.use((req, res, next) => {
  */
 router.post("/scan", async (req, res) => {
     try {
-        const { config } = await import("../config");
-        const { scanQueue } = await import("../workers/queues");
 
         if (!config.music.musicPath) {
             return res.status(500).json({
@@ -100,7 +113,6 @@ router.post("/scan", async (req, res) => {
 // GET /library/scan/status/:jobId - Check scan job status
 router.get("/scan/status/:jobId", async (req, res) => {
     try {
-        const { scanQueue } = await import("../workers/queues");
         const job = await scanQueue.getJob(req.params.jobId);
 
         if (!job) {
@@ -125,7 +137,6 @@ router.get("/scan/status/:jobId", async (req, res) => {
 // POST /library/organize - Manually trigger organization script
 router.post("/organize", async (req, res) => {
     try {
-        const { organizeSingles } = await import("../workers/organizeSingles");
 
         // Run in background
         organizeSingles().catch((err) => {
@@ -150,10 +161,7 @@ router.post("/artists/:id/enrich", async (req, res) => {
             return res.status(404).json({ error: "Artist not found" });
         }
 
-        // Import enrichment functions
-        const { enrichSimilarArtist } = await import(
-            "../workers/artistEnrichment"
-        );
+        // Use enrichment functions
 
         // Run enrichment in background
         enrichSimilarArtist(artist).catch((err) => {
@@ -404,9 +412,6 @@ router.get("/recently-listened", async (req, res) => {
                             !item.mbid.startsWith("temp-")
                         ) {
                             try {
-                                const { fanartService } = await import(
-                                    "../services/fanart"
-                                );
                                 coverArt = await fanartService.getArtistImage(
                                     item.mbid
                                 );
@@ -418,9 +423,6 @@ router.get("/recently-listened", async (req, res) => {
                         // Fallback to Deezer
                         if (!coverArt) {
                             try {
-                                const { deezerService } = await import(
-                                    "../services/deezer"
-                                );
                                 coverArt = await deezerService.getArtistImage(
                                     item.name
                                 );
@@ -582,9 +584,6 @@ router.get("/recently-added", async (req, res) => {
                         !artist.mbid.startsWith("temp-")
                     ) {
                         try {
-                            const { fanartService } = await import(
-                                "../services/fanart"
-                            );
                             coverArt = await fanartService.getArtistImage(
                                 artist.mbid
                             );
@@ -596,9 +595,6 @@ router.get("/recently-added", async (req, res) => {
                     // Fallback to Deezer
                     if (!coverArt) {
                         try {
-                            const { deezerService } = await import(
-                                "../services/deezer"
-                            );
                             coverArt = await deezerService.getArtistImage(
                                 artist.name
                             );
@@ -677,7 +673,11 @@ router.get("/recently-added", async (req, res) => {
 // GET /library/artists?query=&limit=&offset=
 router.get("/artists", async (req, res) => {
     try {
-        const { query = "", limit: limitParam = "500", offset: offsetParam = "0" } = req.query;
+        const {
+            query = "",
+            limit: limitParam = "500",
+            offset: offsetParam = "0",
+        } = req.query;
         const limit = Math.min(parseInt(limitParam as string, 10) || 500, 1000); // Max 1000
         const offset = parseInt(offsetParam as string, 10) || 0;
 
@@ -746,9 +746,6 @@ router.get("/artists", async (req, res) => {
                         !artist.mbid.startsWith("temp-")
                     ) {
                         try {
-                            const { fanartService } = await import(
-                                "../services/fanart"
-                            );
                             coverArt = await fanartService.getArtistImage(
                                 artist.mbid
                             );
@@ -760,9 +757,6 @@ router.get("/artists", async (req, res) => {
                     // Fallback to Deezer
                     if (!coverArt) {
                         try {
-                            const { deezerService } = await import(
-                                "../services/deezer"
-                            );
                             coverArt = await deezerService.getArtistImage(
                                 artist.name
                             );
@@ -841,7 +835,10 @@ router.get("/artists", async (req, res) => {
     } catch (error: any) {
         console.error("[Library] Get artists error:", error?.message || error);
         console.error("[Library] Stack:", error?.stack);
-        res.status(500).json({ error: "Failed to fetch artists", details: error?.message });
+        res.status(500).json({
+            error: "Failed to fetch artists",
+            details: error?.message,
+        });
     }
 });
 
@@ -940,9 +937,6 @@ router.get("/artists/:id", async (req, res) => {
                 ` Artist has temp/no MBID, searching MusicBrainz for ${artist.name}...`
             );
             try {
-                const { musicBrainzService } = await import(
-                    "../services/musicbrainz"
-                );
                 const searchResults = await musicBrainzService.searchArtist(
                     artist.name,
                     1
@@ -1000,13 +994,6 @@ router.get("/artists/:id", async (req, res) => {
             );
 
             try {
-                const { musicBrainzService } = await import(
-                    "../services/musicbrainz"
-                );
-                const { coverArtService } = await import(
-                    "../services/coverArt"
-                );
-
                 const releaseGroups = await musicBrainzService.getReleaseGroups(
                     effectiveMbid,
                     ["album", "ep"],
@@ -1255,9 +1242,6 @@ router.get("/artists/:id", async (req, res) => {
                 !effectiveMbid.startsWith("temp-")
             ) {
                 try {
-                    const { fanartService } = await import(
-                        "../services/fanart"
-                    );
                     heroUrl = await fanartService.getArtistImage(effectiveMbid);
                 } catch (err) {
                     console.warn("  Fanart.tv fetch error:", err);
@@ -1267,9 +1251,6 @@ router.get("/artists/:id", async (req, res) => {
             // Fallback to Deezer
             if (!heroUrl) {
                 try {
-                    const { deezerService } = await import(
-                        "../services/deezer"
-                    );
                     heroUrl = await deezerService.getArtistImage(artist.name);
                 } catch (err) {
                     console.warn("  Deezer fetch error:", err);
@@ -1355,9 +1336,6 @@ router.get("/artists/:id", async (req, res) => {
                         // Try Fanart.tv first if we have MBID
                         if (s.mbid) {
                             try {
-                                const { fanartService } = await import(
-                                    "../services/fanart"
-                                );
                                 image = await fanartService.getArtistImage(
                                     s.mbid
                                 );
@@ -1369,9 +1347,6 @@ router.get("/artists/:id", async (req, res) => {
                         // Fallback to Deezer
                         if (!image) {
                             try {
-                                const { deezerService } = await import(
-                                    "../services/deezer"
-                                );
                                 image = await deezerService.getArtistImage(
                                     s.name
                                 );
@@ -1505,9 +1480,6 @@ router.get("/artists/:id", async (req, res) => {
                             !s.toArtist.mbid.startsWith("temp-")
                         ) {
                             try {
-                                const { fanartService } = await import(
-                                    "../services/fanart"
-                                );
                                 coverArt = await fanartService.getArtistImage(
                                     s.toArtist.mbid
                                 );
@@ -1519,9 +1491,6 @@ router.get("/artists/:id", async (req, res) => {
                         // Fallback to Deezer
                         if (!coverArt) {
                             try {
-                                const { deezerService } = await import(
-                                    "../services/deezer"
-                                );
                                 coverArt = await deezerService.getArtistImage(
                                     s.toArtist.name
                                 );
@@ -1595,7 +1564,11 @@ router.get("/artists/:id", async (req, res) => {
 // GET /library/albums?artistId=&limit=&offset=
 router.get("/albums", async (req, res) => {
     try {
-        const { artistId, limit: limitParam = "500", offset: offsetParam = "0" } = req.query;
+        const {
+            artistId,
+            limit: limitParam = "500",
+            offset: offsetParam = "0",
+        } = req.query;
         const limit = Math.min(parseInt(limitParam as string, 10) || 500, 1000); // Max 1000
         const offset = parseInt(offsetParam as string, 10) || 0;
 
@@ -1659,7 +1632,10 @@ router.get("/albums", async (req, res) => {
     } catch (error: any) {
         console.error("[Library] Get albums error:", error?.message || error);
         console.error("[Library] Stack:", error?.stack);
-        res.status(500).json({ error: "Failed to fetch albums", details: error?.message });
+        res.status(500).json({
+            error: "Failed to fetch albums",
+            details: error?.message,
+        });
     }
 });
 
@@ -1792,9 +1768,6 @@ router.get("/cover-art/:id?", imageLimiter, async (req, res) => {
                 const audiobookPath = decodedUrl.replace("audiobook__", "");
 
                 // Get Audiobookshelf settings
-                const { getSystemSettings } = await import(
-                    "../utils/systemSettings"
-                );
                 const settings = await getSystemSettings();
                 const audiobookshelfUrl =
                     settings?.audiobookshelfUrl ||
@@ -1856,9 +1829,6 @@ router.get("/cover-art/:id?", imageLimiter, async (req, res) => {
             // Check if this is a native cover (prefixed with "native:")
             if (decodedUrl.startsWith("native:")) {
                 const nativePath = decodedUrl.replace("native:", "");
-                const { config } = await import("../config");
-                const path = require("path");
-                const fs = require("fs");
 
                 const coverCachePath = path.join(
                     config.music.transcodeCachePath,
@@ -1914,9 +1884,6 @@ router.get("/cover-art/:id?", imageLimiter, async (req, res) => {
             // Check if this is a native cover (prefixed with "native:")
             if (decodedId.startsWith("native:")) {
                 const nativePath = decodedId.replace("native:", "");
-                const { config } = await import("../config");
-                const path = require("path");
-                const fs = require("fs");
 
                 const coverCachePath = path.join(
                     config.music.transcodeCachePath,
@@ -1963,9 +1930,6 @@ router.get("/cover-art/:id?", imageLimiter, async (req, res) => {
                 const audiobookPath = decodedId.replace("audiobook__", "");
 
                 // Get Audiobookshelf settings
-                const { getSystemSettings } = await import(
-                    "../utils/systemSettings"
-                );
                 const settings = await getSystemSettings();
                 const audiobookshelfUrl =
                     settings?.audiobookshelfUrl ||
@@ -2251,9 +2215,6 @@ router.get("/cover-art-colors", imageLimiter, async (req, res) => {
         const imageBuffer = Buffer.from(buffer);
 
         // Extract colors using sharp
-        const { extractColorsFromImage } = await import(
-            "../utils/colorExtractor"
-        );
         const colors = await extractColorsFromImage(imageBuffer);
 
         console.log(`[COLORS] Extracted colors:`, colors);
@@ -2335,11 +2296,6 @@ router.get("/tracks/:id/stream", async (req, res) => {
         // Check if track has native file path
         if (track.filePath && track.fileModified) {
             try {
-                const { config } = await import("../config");
-                const { AudioStreamingService } = await import(
-                    "../services/audioStreaming"
-                );
-
                 // Initialize streaming service
                 const streamingService = new AudioStreamingService(
                     config.music.musicPath,
@@ -2348,7 +2304,7 @@ router.get("/tracks/:id/stream", async (req, res) => {
                 );
 
                 // Get absolute path to source file
-                const absolutePath = require("path").join(
+                const absolutePath = path.join(
                     config.music.musicPath,
                     track.filePath
                 );
@@ -2389,22 +2345,15 @@ router.get("/tracks/:id/stream", async (req, res) => {
                     console.warn(
                         `[STREAM] FFmpeg not available, falling back to original quality`
                     );
-                    const absolutePath = require("path").join(
-                        (await import("../config")).config.music.musicPath,
+                    const absolutePath = path.join(
+                        config.music.musicPath,
                         track.filePath
                     );
 
-                    const { AudioStreamingService } = await import(
-                        "../services/audioStreaming"
-                    );
                     const streamingService = new AudioStreamingService(
-                        (await import("../config")).config.music.musicPath,
-                        (
-                            await import("../config")
-                        ).config.music.transcodeCachePath,
-                        (
-                            await import("../config")
-                        ).config.music.transcodeCacheMaxGb
+                        config.music.musicPath,
+                        config.music.transcodeCachePath,
+                        config.music.transcodeCacheMaxGb
                     );
 
                     const { filePath, mimeType } =
@@ -2514,9 +2463,6 @@ router.delete("/tracks/:id", async (req, res) => {
         // Delete file from filesystem if path is available
         if (track.filePath) {
             try {
-                const { config } = await import("../config");
-                const fs = require("fs");
-                const path = require("path");
 
                 const absolutePath = path.join(
                     config.music.musicPath,
@@ -2566,9 +2512,6 @@ router.delete("/albums/:id", async (req, res) => {
             return res.status(404).json({ error: "Album not found" });
         }
 
-        const { config } = await import("../config");
-        const fs = require("fs");
-        const path = require("path");
 
         // Delete all track files
         let deletedFiles = 0;
@@ -2649,9 +2592,6 @@ router.delete("/artists/:id", async (req, res) => {
             return res.status(404).json({ error: "Artist not found" });
         }
 
-        const { config } = await import("../config");
-        const fs = require("fs");
-        const path = require("path");
 
         // Delete all track files and collect actual artist folders from file paths
         let deletedFiles = 0;

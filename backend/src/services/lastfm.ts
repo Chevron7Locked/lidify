@@ -37,19 +37,26 @@ class LastFmService {
         } else {
             // Try to load from system settings (user-configured in UI)
             try {
-                const { getSystemSettings } = await import("../utils/systemSettings");
+                const { getSystemSettings } = await import(
+                    "../utils/systemSettings"
+                );
                 const settings = await getSystemSettings();
                 if (settings?.lastfmApiKey) {
                     this.apiKey = settings.lastfmApiKey;
                     console.log("Last.fm configured from system settings");
                 }
             } catch (err) {
-                console.warn("Failed to load Last.fm key from system settings:", err);
+                console.warn(
+                    "Failed to load Last.fm key from system settings:",
+                    err
+                );
             }
         }
 
         if (!this.apiKey) {
-            console.warn("Last.fm API key not configured (set LASTFM_API_KEY or configure in settings)");
+            console.warn(
+                "Last.fm API key not configured (set LASTFM_API_KEY or configure in settings)"
+            );
         }
 
         this.initialized = true;
@@ -839,10 +846,12 @@ class LastFmService {
      */
     async getTopChartArtists(limit = 20) {
         await this.ensureInitialized();
-        
+
         // Return empty if no API key configured
         if (!this.apiKey) {
-            console.warn("Last.fm: Cannot fetch chart artists - no API key configured");
+            console.warn(
+                "Last.fm: Cannot fetch chart artists - no API key configured"
+            );
             return [];
         }
 

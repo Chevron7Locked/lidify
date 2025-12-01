@@ -4,22 +4,26 @@ import { enrichSimilarArtist } from "./artistEnrichment";
 let isEnriching = false;
 let enrichmentInterval: NodeJS.Timeout | null = null;
 
+// Configuration for enrichment worker
+const ENRICHMENT_BATCH_SIZE = 10; // Process 10 artists at a time (reduced from 50)
+const ENRICHMENT_INTERVAL_MS = 30 * 1000; // Run every 30 seconds (increased from 5s)
+
 /**
  * Background worker that continuously enriches pending artists
- * Processes 50 artists concurrently, runs every 5 seconds
+ * Throttled to reduce API load and prevent rate limiting
  */
 export async function startEnrichmentWorker() {
     console.log("Starting enrichment worker...");
-    console.log("   - Concurrent artists: 50");
-    console.log("   - Check interval: 5 seconds");
+    console.log(`   - Concurrent artists: ${ENRICHMENT_BATCH_SIZE}`);
+    console.log(`   - Check interval: ${ENRICHMENT_INTERVAL_MS / 1000} seconds`);
 
     // Run immediately on start
     await enrichNextBatch();
 
-    // Then run every 5 seconds
+    // Then run at configured interval
     enrichmentInterval = setInterval(async () => {
         await enrichNextBatch();
-    }, 5 * 1000); // 5 seconds
+    }, ENRICHMENT_INTERVAL_MS);
 }
 
 /**
@@ -34,7 +38,7 @@ export function stopEnrichmentWorker() {
 }
 
 /**
- * Process the next batch of pending artists (50 concurrent)
+ * Process the next batch of pending artists (throttled)
  */
 async function enrichNextBatch() {
     // Skip if already enriching
@@ -45,7 +49,7 @@ async function enrichNextBatch() {
     try {
         isEnriching = true;
 
-        // Find the next 50 pending or failed artists that have owned albums
+        // Find the next batch of pending or failed artists that have owned albums
         const artists = await prisma.artist.findMany({
             where: {
                 OR: [
@@ -58,7 +62,7 @@ async function enrichNextBatch() {
                 },
             },
             orderBy: { name: "asc" },
-            take: 50,
+            take: ENRICHMENT_BATCH_SIZE,
         });
 
         if (artists.length === 0) {

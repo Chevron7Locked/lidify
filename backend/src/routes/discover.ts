@@ -3,6 +3,11 @@ import { requireAuthOrToken } from "../middleware/auth";
 import { prisma } from "../utils/db";
 import { lastFmService } from "../services/lastfm";
 import { startOfWeek, endOfWeek } from "date-fns";
+import axios from "axios";
+
+// Static imports for performance
+import { discoverQueue } from "../workers/queues";
+import { getSystemSettings } from "../utils/systemSettings";
 
 const router = Router();
 
@@ -12,11 +17,8 @@ router.use(requireAuthOrToken);
 router.post("/generate", async (req, res) => {
     try {
         const userId = req.user!.id;
-        const { discoverQueue } = await import("../workers/queues");
 
-        console.log(
-            `\n Queuing Discover Weekly generation for user ${userId}`
-        );
+        console.log(`\n Queuing Discover Weekly generation for user ${userId}`);
 
         // Add generation job to queue
         const job = await discoverQueue.add({ userId });
@@ -34,7 +36,6 @@ router.post("/generate", async (req, res) => {
 // GET /discover/generate/status/:jobId - Check generation job status
 router.get("/generate/status/:jobId", async (req, res) => {
     try {
-        const { discoverQueue } = await import("../workers/queues");
         const job = await discoverQueue.getJob(req.params.jobId);
 
         if (!job) {
@@ -410,7 +411,10 @@ router.get("/popular-artists", async (req, res) => {
 
         res.json({ artists });
     } catch (error: any) {
-        console.error("[Discover] Get popular artists error:", error?.message || error);
+        console.error(
+            "[Discover] Get popular artists error:",
+            error?.message || error
+        );
         // Return empty array instead of 500 - allows homepage to still render
         res.json({ artists: [] });
     }
@@ -451,7 +455,6 @@ router.delete("/clear", async (req, res) => {
         console.log(`  Found ${activeAlbums.length} active albums to delete`);
 
         // Get system settings for Lidarr
-        const { getSystemSettings } = await import("../utils/systemSettings");
         const settings = await getSystemSettings();
 
         let likedMoved = 0;
@@ -502,7 +505,6 @@ router.delete("/clear", async (req, res) => {
                             settings.lidarrApiKey &&
                             album.lidarrAlbumId
                         ) {
-                            const axios = (await import("axios")).default;
 
                             try {
                                 // Get album details from Lidarr
@@ -596,7 +598,6 @@ router.delete("/clear", async (req, res) => {
                         settings.lidarrApiKey &&
                         album.lidarrAlbumId
                     ) {
-                        const axios = (await import("axios")).default;
 
                         try {
                             // Get album details to find artist ID

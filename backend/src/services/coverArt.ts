@@ -1,5 +1,6 @@
 import axios from "axios";
 import { redisClient } from "../utils/redis";
+import { rateLimiter } from "./rateLimiter";
 
 class CoverArtService {
     private readonly baseUrl = "https://coverartarchive.org";
@@ -15,11 +16,11 @@ class CoverArtService {
         }
 
         try {
-            const response = await axios.get(
-                `${this.baseUrl}/release-group/${rgMbid}`,
-                {
+            // Use rate limiter to prevent overwhelming Cover Art Archive
+            const response = await rateLimiter.execute("coverart", () =>
+                axios.get(`${this.baseUrl}/release-group/${rgMbid}`, {
                     timeout: 5000,
-                }
+                })
             );
 
             const images = response.data.images || [];
