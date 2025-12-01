@@ -26,3 +26,4 @@ export function getContrastColor(hexColor: string | undefined): string {
     return luminance > 0.5 ? "#000000" : "#ffffff";
 }
 
+
