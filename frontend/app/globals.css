@@ -1,0 +1,482 @@
+@import "tailwindcss";
+
+:root {
+    /* Lidify Design System - Dark Theme Only */
+
+    /* Background Layers */
+    --bg-primary: #0a0a0a; /* Primary canvas */
+    --bg-secondary: #0f0f0f; /* Cards, panels */
+    --bg-tertiary: #141414; /* Nested content, wells */
+    --bg-hover: #1a1a1a; /* Modals, dropdowns, hover */
+    --bg-active: #1c1c1c; /* Active/selected states */
+
+    /* Borders */
+    --border-subtle: #1c1c1c; /* Subtle borders (default) */
+    --border-interactive: #262626; /* Interactive elements */
+    --border-focus: #333333; /* Focus, selected states */
+
+    /* Text Colors */
+    --text-primary: #ffffff; /* Primary headers */
+    --text-body: #e5e5e5; /* Body text */
+    --text-secondary: #a3a3a3; /* Secondary info */
+    --text-muted: #737373; /* Timestamps, meta */
+    --text-disabled: #525252; /* Disabled */
+
+    /* Actions */
+    --color-primary: #eab308; /* PRIMARY CTA ONLY - Yellow */
+    --color-ai: #a855f7; /* AI features - Purple */
+    --color-ai-dark: #9333ea; /* AI selected */
+
+    /* Status */
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+    --color-error: #ef4444;
+    --color-info: #3b82f6;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--bg-primary);
+    color: var(--text-body);
+    font-family: var(--font-montserrat), -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    min-height: 100vh;
+}
+
+/* Make all buttons have pointer cursor */
+button {
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+}
+
+/* Scrollbar Styling - Desktop only */
+@media (min-width: 769px) {
+    ::-webkit-scrollbar {
+        width: 12px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--bg-hover);
+        border-radius: 6px;
+        border: 2px solid var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--border-focus);
+    }
+}
+
+/* Hide scrollbars on mobile and tablet */
+@media (max-width: 768px) {
+    ::-webkit-scrollbar {
+        display: none;
+    }
+
+    * {
+        scrollbar-width: none;
+    }
+}
+
+/* Animated Gradient Background */
+@keyframes gradient-shift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.animate-gradient-shift {
+    background-size: 200% 200%;
+    animation: gradient-shift 15s ease infinite;
+}
+
+/* Fade in animation for login page artist info */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.6s ease-out forwards;
+}
+
+/* Shake animation for error messages */
+@keyframes shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+        transform: translateX(-4px);
+    }
+    20%,
+    40%,
+    60%,
+    80% {
+        transform: translateX(4px);
+    }
+}
+
+.animate-shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+/* Galaxy Background Animations */
+@keyframes galaxyFloat {
+    0%,
+    100% {
+        transform: translateY(0px) translateX(0px);
+        opacity: 0.4;
+    }
+    25% {
+        transform: translateY(-25px) translateX(15px);
+        opacity: 0.8;
+    }
+    50% {
+        transform: translateY(-15px) translateX(-15px);
+        opacity: 0.5;
+    }
+    75% {
+        transform: translateY(-20px) translateX(8px);
+        opacity: 0.7;
+    }
+}
+
+@keyframes galaxyTwinkle {
+    0%,
+    100% {
+        opacity: 0.2;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(1.2);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* =====================================================
+   Android TV - Navigation Bar & Now Playing Only
+   ===================================================== */
+
+/* TV mode base setup */
+html.tv-mode,
+body.tv-mode {
+    background: linear-gradient(180deg, #1a1020 0%, #0a0a0a 100%) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    width: 100vw !important;
+    height: 100vh !important;
+}
+
+body.tv-mode {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+body.tv-mode ::-webkit-scrollbar {
+    display: none;
+}
+
+body.tv-mode * {
+    scrollbar-width: none;
+}
+
+/* TV Content Area */
+.tv-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* ===== TV NAVIGATION BAR ===== */
+.tv-nav {
+    height: 56px;
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+    background: transparent;
+}
+
+.tv-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+
+.tv-logo span {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.tv-nav-links {
+    display: flex;
+    gap: 4px;
+}
+
+.tv-nav-link {
+    padding: 6px 14px;
+    font-size: 14px;
+    color: #777;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+
+.tv-nav-link.active {
+    color: #fff;
+}
+
+.tv-nav-link.focused {
+    color: #ecb200;
+    background: rgba(236, 178, 0, 0.1);
+}
+
+.tv-sync-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.tv-sync-btn:hover,
+.tv-sync-btn:focus {
+    background: rgba(255, 255, 255, 0.2);
+    outline: 2px solid #ecb200;
+}
+
+.tv-sync-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ===== TV NOW PLAYING BAR ===== */
+.tv-now-playing-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 40px;
+    background: rgba(255, 255, 255, 0.03);
+    flex-shrink: 0;
+}
+
+.tv-np-cover {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.tv-np-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.tv-np-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tv-np-artist {
+    font-size: 12px;
+    color: #888;
+}
+
+.tv-np-time {
+    font-size: 12px;
+    color: #888;
+    margin-right: 16px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Play/Pause button - main circular button */
+.tv-np-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #ecb200;
+    color: #000;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.15s;
+}
+
+.tv-np-btn svg {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+.tv-np-btn:hover {
+    background: #ffc107;
+    transform: scale(1.05);
+}
+
+/* Control buttons (shuffle, prev, next, repeat) */
+.tv-np-ctrl {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: transparent;
+    color: #888;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+    position: relative;
+}
+
+.tv-np-ctrl:hover,
+.tv-np-ctrl:focus {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.tv-np-ctrl.active {
+    color: #ecb200;
+}
+
+.tv-np-ctrl.active:hover {
+    color: #ffc107;
+}
+
+/* Repeat "1" indicator */
+.tv-np-repeat-one {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    font-size: 8px;
+    font-weight: bold;
+    color: #ecb200;
+}
+
+/* ===== TV FOCUS STATES ===== */
+/* Card focus styling - visible ring around focused cards */
+body.tv-mode [data-tv-card]:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px #ecb200, 0 0 20px rgba(236, 178, 0, 0.4);
+    transform: scale(1.02);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    z-index: 10;
+    position: relative;
+}
+
+body.tv-mode [data-tv-card]:focus-visible {
+    outline: none;
+}
+
+/* Buttons in TV mode */
+body.tv-mode button:focus,
+body.tv-mode a:focus {
+    outline: 2px solid #ecb200;
+    outline-offset: 2px;
+}
+
+/* Remove default focus outlines for cards since we use box-shadow */
+body.tv-mode [data-tv-card] {
+    outline: none;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+/* Filter buttons / tabs focus */
+body.tv-mode [data-tv-filter]:focus {
+    outline: none;
+    background: rgba(236, 178, 0, 0.2);
+    color: #ecb200;
+    box-shadow: 0 0 0 2px #ecb200;
+}
+
+/* Track list items focus */
+body.tv-mode [data-tv-track]:focus {
+    outline: none;
+    background: rgba(236, 178, 0, 0.15);
+    box-shadow: inset 0 0 0 2px #ecb200;
+}
+
+/* Action buttons in action bars */
+body.tv-mode [data-tv-action]:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #ecb200;
+    transform: scale(1.05);
+}
+
+/* Smooth scrolling for TV */
+body.tv-mode .tv-content {
+    scroll-behavior: smooth;
+}
+
+/* Hide scrollbar in TV mode */
+body.tv-mode ::-webkit-scrollbar {
+    display: none;
+}
+
+body.tv-mode * {
+    scrollbar-width: none;
+}
+
+/* ===== QR Scanner Mode ===== */
+/* When QR scanner is active, hide the WebView content to show camera */
+body.scanner-active {
+    background: transparent !important;
+}
+
+body.scanner-active > * {
+    visibility: hidden;
+}
+
+body.scanner-active .scanner-overlay {
+    visibility: visible;
+}

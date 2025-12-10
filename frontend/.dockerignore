@@ -1,0 +1,47 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build output (keep .next for production)
+.next/cache
+out
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Testing
+coverage
+*.test.ts
+*.test.tsx
+**/__tests__
+
+# Development
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Logs
+logs
+*.log
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs
+
+# Capacitor (mobile)
+android
+ios
+capacitor.config.ts
+
+# Misc
+.DS_Store
+Thumbs.db

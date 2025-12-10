@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 
+        Allow cleartext (HTTP) traffic for self-hosted servers.
+        Self-hosted Lidify instances often run on local networks without HTTPS.
+        In production, HTTPS is recommended behind a reverse proxy.
+    -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

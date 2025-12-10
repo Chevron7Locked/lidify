@@ -1,0 +1,555 @@
+name: Build Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          # Remove 'v' prefix for version code
+          VERSION_NAME="${VERSION#v}"
+          # Create version code from version (e.g., 1.2.3 -> 10203)
+          VERSION_CODE=$(echo $VERSION_NAME | awk -F. '{printf "%d%02d%02d", $1, $2, $3}')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Update version in build.gradle
+        working-directory: frontend/android/app
+        run: |
+          sed -i "s/versionCode [0-9]*/versionCode ${{ steps.version.outputs.version_code }}/" build.gradle
+          sed -i "s/versionName \".*\"/versionName \"${{ steps.version.outputs.version_name }}\"/" build.gradle
+
+      - name: Create Capacitor shell
+        working-directory: frontend
+        run: |
+          mkdir -p out
+          cat > out/index.html << 'SHELL_EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+              <title>Lidify</title>
+              <style>
+                  * { margin: 0; padding: 0; box-sizing: border-box; }
+                  body {
+                      background: #000;
+                      color: #fff;
+                      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                      min-height: 100vh;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      padding: 20px;
+                  }
+                  .container { width: 100%; max-width: 400px; text-align: center; }
+                  .card { background: #111; border: 1px solid #333; border-radius: 16px; padding: 32px 24px; }
+                  .logo { font-size: 32px; font-weight: bold; margin-bottom: 8px; }
+                  .subtitle { color: #888; font-size: 14px; margin-bottom: 32px; }
+                  .form-group { margin-bottom: 16px; text-align: left; }
+                  .label { display: block; color: #888; font-size: 12px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+                  .input {
+                      width: 100%;
+                      padding: 14px 16px;
+                      background: #0a0a0a;
+                      border: 1px solid #333;
+                      border-radius: 8px;
+                      color: #fff;
+                      font-size: 16px;
+                      outline: none;
+                  }
+                  .input:focus { border-color: #ecb200; }
+                  .input::placeholder { color: #555; }
+                  .btn {
+                      width: 100%;
+                      padding: 14px;
+                      background: #ecb200;
+                      color: #000;
+                      border: none;
+                      border-radius: 8px;
+                      font-size: 16px;
+                      font-weight: 600;
+                      cursor: pointer;
+                      margin-top: 8px;
+                  }
+                  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+                  .btn-secondary {
+                      background: transparent;
+                      border: 1px solid #333;
+                      color: #888;
+                      margin-top: 12px;
+                  }
+                  .error { color: #ff4444; font-size: 13px; margin-top: 12px; text-align: center; }
+                  .loader { display: none; text-align: center; }
+                  .loader.active { display: block; }
+                  .spinner {
+                      width: 48px; height: 48px;
+                      border: 3px solid #333;
+                      border-top-color: #ecb200;
+                      border-radius: 50%;
+                      animation: spin 1s linear infinite;
+                      margin: 0 auto 16px;
+                  }
+                  @keyframes spin { to { transform: rotate(360deg); } }
+                  .hidden { display: none !important; }
+                  .help { color: #555; font-size: 12px; margin-top: 24px; line-height: 1.5; }
+                  .server-badge {
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 8px;
+                      padding: 8px 16px;
+                      background: #0a0a0a;
+                      border: 1px solid #333;
+                      border-radius: 8px;
+                      margin-bottom: 24px;
+                      font-size: 13px;
+                      color: #888;
+                  }
+                  .server-badge .dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; }
+                  .divider { display: flex; align-items: center; gap: 16px; margin: 20px 0; }
+                  .divider-line { flex: 1; height: 1px; background: #333; }
+                  .divider-text { color: #555; font-size: 12px; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <div id="loader" class="loader">
+                      <div class="spinner"></div>
+                      <p id="loaderText" style="color: #888;">Connecting to server...</p>
+                  </div>
+                  
+                  <div id="serverSetup" class="card">
+                      <div class="logo">Lidify</div>
+                      <p class="subtitle">Connect to your server</p>
+                      
+                      <div class="form-group">
+                          <label class="label">Server URL</label>
+                          <input type="url" id="serverUrl" class="input" placeholder="https://your-server.com or 192.168.1.100:3030" autocapitalize="none" autocorrect="off" spellcheck="false">
+                      </div>
+                      
+                      <button id="connectBtn" class="btn">Connect</button>
+                      <p id="serverError" class="error hidden"></p>
+                      <p class="help">Enter the URL of your self-hosted Lidify server.</p>
+                  </div>
+                  
+                  <div id="loginForm" class="card hidden">
+                      <div class="logo">Lidify</div>
+                      <div class="server-badge">
+                          <span class="dot"></span>
+                          <span id="serverDisplay"></span>
+                      </div>
+                      
+                      <div class="form-group">
+                          <label class="label">Username</label>
+                          <input type="text" id="username" class="input" placeholder="Enter your username" autocapitalize="none" autocorrect="off" spellcheck="false">
+                      </div>
+                      
+                      <div class="form-group">
+                          <label class="label">Password</label>
+                          <input type="password" id="password" class="input" placeholder="Enter your password">
+                      </div>
+                      
+                      <button id="loginBtn" class="btn">Sign In</button>
+                      <button id="changeServerBtn" class="btn btn-secondary">Change Server</button>
+                      <p id="loginError" class="error hidden"></p>
+                  </div>
+                  
+                  <div id="twoFactorForm" class="card hidden">
+                      <div class="logo">Lidify</div>
+                      <p class="subtitle">Two-Factor Authentication</p>
+                      
+                      <div class="form-group">
+                          <label class="label">Authentication Code</label>
+                          <input type="text" id="twoFactorCode" class="input" placeholder="000000" maxlength="6" autocapitalize="none" style="text-align: center; font-size: 24px; letter-spacing: 8px;">
+                      </div>
+                      
+                      <button id="verify2FABtn" class="btn">Verify</button>
+                      <button id="back2FABtn" class="btn btn-secondary">Back</button>
+                      <p id="twoFactorError" class="error hidden"></p>
+                  </div>
+              </div>
+              
+              <script>
+                  const SERVER_KEY = 'lidify_server_url';
+                  const TOKEN_KEY = 'auth_token';
+                  
+                  let currentServer = '';
+                  let pendingUsername = '';
+                  let pendingPassword = '';
+                  
+                  const loader = document.getElementById('loader');
+                  const loaderText = document.getElementById('loaderText');
+                  const serverSetup = document.getElementById('serverSetup');
+                  const loginForm = document.getElementById('loginForm');
+                  const twoFactorForm = document.getElementById('twoFactorForm');
+                  
+                  function showView(view) {
+                      loader.classList.remove('active');
+                      serverSetup.classList.add('hidden');
+                      loginForm.classList.add('hidden');
+                      twoFactorForm.classList.add('hidden');
+                      
+                      if (view === 'loader') loader.classList.add('active');
+                      else if (view === 'server') serverSetup.classList.remove('hidden');
+                      else if (view === 'login') loginForm.classList.remove('hidden');
+                      else if (view === '2fa') twoFactorForm.classList.remove('hidden');
+                  }
+                  
+                  function showError(el, msg) {
+                      el.textContent = msg;
+                      el.classList.remove('hidden');
+                  }
+                  
+                  function hideError(el) {
+                      el.classList.add('hidden');
+                  }
+                  
+                  function normalizeUrl(url) {
+                      url = url.trim();
+                      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                          url = 'http://' + url;
+                      }
+                      return url.replace(/\/+$/, '');
+                  }
+                  
+                  async function validateServer(url) {
+                      try {
+                          const response = await fetch(url + '/health', { 
+                              method: 'GET',
+                              signal: AbortSignal.timeout(10000)
+                          });
+                          return response.ok;
+                      } catch (e) {
+                          try {
+                              const response = await fetch(url + '/api/auth/status', {
+                                  method: 'GET',
+                                  signal: AbortSignal.timeout(10000)
+                              });
+                              return response.ok || response.status === 401;
+                          } catch (e2) {
+                              return false;
+                          }
+                      }
+                  }
+                  
+                  async function connectToServer() {
+                      const serverError = document.getElementById('serverError');
+                      const serverInput = document.getElementById('serverUrl');
+                      const connectBtn = document.getElementById('connectBtn');
+                      
+                      hideError(serverError);
+                      const url = normalizeUrl(serverInput.value);
+                      if (!url || url === 'http://' || url === 'https://') {
+                          showError(serverError, 'Please enter a server URL');
+                          return;
+                      }
+                      
+                      connectBtn.disabled = true;
+                      connectBtn.textContent = 'Connecting...';
+                      
+                      const valid = await validateServer(url);
+                      
+                      if (valid) {
+                          localStorage.setItem(SERVER_KEY, url);
+                          currentServer = url;
+                          document.getElementById('serverDisplay').textContent = url.replace(/^https?:\/\//, '');
+                          showView('login');
+                          document.getElementById('username').focus();
+                      } else {
+                          showError(serverError, 'Could not connect to server. Check the URL and ensure the server is running.');
+                      }
+                      
+                      connectBtn.disabled = false;
+                      connectBtn.textContent = 'Connect';
+                  }
+                  
+                  async function doLogin() {
+                      const loginError = document.getElementById('loginError');
+                      const loginBtn = document.getElementById('loginBtn');
+                      const username = document.getElementById('username').value.trim();
+                      const password = document.getElementById('password').value;
+                      
+                      hideError(loginError);
+                      
+                      if (!username || !password) {
+                          showError(loginError, 'Please enter username and password');
+                          return;
+                      }
+                      
+                      loginBtn.disabled = true;
+                      loginBtn.textContent = 'Signing in...';
+                      
+                      try {
+                          const response = await fetch(currentServer + '/api/auth/login', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ username, password }),
+                              signal: AbortSignal.timeout(15000)
+                          });
+                          
+                          const data = await response.json();
+                          
+                          if (response.ok && data.token) {
+                              localStorage.setItem(TOKEN_KEY, data.token);
+                              loaderText.textContent = 'Loading Lidify...';
+                              showView('loader');
+                              window.location.replace(currentServer + '/?token=' + encodeURIComponent(data.token));
+                          } else if (data.requires2FA) {
+                              pendingUsername = username;
+                              pendingPassword = password;
+                              showView('2fa');
+                              document.getElementById('twoFactorCode').focus();
+                          } else {
+                              showError(loginError, data.error || 'Login failed');
+                          }
+                      } catch (e) {
+                          showError(loginError, 'Connection failed. Please try again.');
+                      }
+                      
+                      loginBtn.disabled = false;
+                      loginBtn.textContent = 'Sign In';
+                  }
+                  
+                  async function verify2FA() {
+                      const twoFactorError = document.getElementById('twoFactorError');
+                      const verify2FABtn = document.getElementById('verify2FABtn');
+                      const code = document.getElementById('twoFactorCode').value.trim();
+                      
+                      hideError(twoFactorError);
+                      
+                      if (!code || code.length !== 6) {
+                          showError(twoFactorError, 'Please enter the 6-digit code');
+                          return;
+                      }
+                      
+                      verify2FABtn.disabled = true;
+                      verify2FABtn.textContent = 'Verifying...';
+                      
+                      try {
+                          const response = await fetch(currentServer + '/api/auth/login', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ 
+                                  username: pendingUsername, 
+                                  password: pendingPassword,
+                                  twoFactorToken: code
+                              }),
+                              signal: AbortSignal.timeout(15000)
+                          });
+                          
+                          const data = await response.json();
+                          
+                          if (response.ok && data.token) {
+                              localStorage.setItem(TOKEN_KEY, data.token);
+                              loaderText.textContent = 'Loading Lidify...';
+                              showView('loader');
+                              window.location.replace(currentServer + '/?token=' + encodeURIComponent(data.token));
+                          } else {
+                              showError(twoFactorError, data.error || 'Invalid code');
+                              document.getElementById('twoFactorCode').value = '';
+                          }
+                      } catch (e) {
+                          showError(twoFactorError, 'Connection failed. Please try again.');
+                      }
+                      
+                      verify2FABtn.disabled = false;
+                      verify2FABtn.textContent = 'Verify';
+                  }
+                  
+                  function changeServer() {
+                      localStorage.removeItem(SERVER_KEY);
+                      localStorage.removeItem(TOKEN_KEY);
+                      currentServer = '';
+                      document.getElementById('username').value = '';
+                      document.getElementById('password').value = '';
+                      showView('server');
+                      document.getElementById('serverUrl').focus();
+                  }
+                  
+                  function back2FA() {
+                      document.getElementById('twoFactorCode').value = '';
+                      pendingUsername = '';
+                      pendingPassword = '';
+                      showView('login');
+                  }
+                  
+                  async function init() {
+                      const savedUrl = localStorage.getItem(SERVER_KEY);
+                      const savedToken = localStorage.getItem(TOKEN_KEY);
+                      
+                      if (savedUrl) {
+                          currentServer = savedUrl;
+                          document.getElementById('serverDisplay').textContent = savedUrl.replace(/^https?:\/\//, '');
+                          loaderText.textContent = 'Connecting to server...';
+                          showView('loader');
+                          
+                          const valid = await validateServer(savedUrl);
+                          if (!valid) {
+                              showView('server');
+                              document.getElementById('serverUrl').value = savedUrl;
+                              showError(document.getElementById('serverError'), 'Server not reachable. Please check the URL.');
+                              return;
+                          }
+                          
+                          if (savedToken) {
+                              try {
+                                  const response = await fetch(savedUrl + '/api/auth/status', {
+                                      headers: { 'Authorization': 'Bearer ' + savedToken },
+                                      signal: AbortSignal.timeout(10000)
+                                  });
+                                  
+                                  if (response.ok) {
+                                      loaderText.textContent = 'Loading Lidify...';
+                                      window.location.replace(savedUrl + '/?token=' + encodeURIComponent(savedToken));
+                                      return;
+                                  }
+                              } catch (e) {}
+                              localStorage.removeItem(TOKEN_KEY);
+                          }
+                          
+                          showView('login');
+                      } else {
+                          showView('server');
+                      }
+                  }
+                  
+                  document.getElementById('connectBtn').addEventListener('click', connectToServer);
+                  document.getElementById('serverUrl').addEventListener('keypress', (e) => {
+                      if (e.key === 'Enter') connectToServer();
+                  });
+                  
+                  document.getElementById('loginBtn').addEventListener('click', doLogin);
+                  document.getElementById('password').addEventListener('keypress', (e) => {
+                      if (e.key === 'Enter') doLogin();
+                  });
+                  document.getElementById('changeServerBtn').addEventListener('click', changeServer);
+                  
+                  document.getElementById('verify2FABtn').addEventListener('click', verify2FA);
+                  document.getElementById('twoFactorCode').addEventListener('keypress', (e) => {
+                      if (e.key === 'Enter') verify2FA();
+                  });
+                  document.getElementById('twoFactorCode').addEventListener('input', (e) => {
+                      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  });
+                  document.getElementById('back2FABtn').addEventListener('click', back2FA);
+                  
+                  init();
+              </script>
+          </body>
+          </html>
+          SHELL_EOF
+
+      - name: Sync Capacitor
+        working-directory: frontend
+        run: |
+          # Set production mode (no dev server)
+          export NODE_ENV=production
+          npx cap sync android
+          
+          # Configure for production: remove dev server, allow all navigation
+          cd android/app/src/main/assets
+          node -e "
+            const fs = require('fs');
+            const config = JSON.parse(fs.readFileSync('capacitor.config.json', 'utf8'));
+            delete config.server;
+            // Allow navigation to any URL (needed for self-hosted servers)
+            config.server = {
+              allowNavigation: ['*']
+            };
+            fs.writeFileSync('capacitor.config.json', JSON.stringify(config, null, 2));
+            console.log('Configured for production build with allowNavigation');
+          "
+
+      - name: Configure AndroidX
+        working-directory: frontend/android
+        run: |
+          cat > gradle.properties << 'EOF'
+          org.gradle.jvmargs=-Xmx1536m
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
+
+      - name: Generate Android assets
+        working-directory: frontend
+        run: npx capacitor-assets generate --android
+
+      - name: Build Release APK
+        working-directory: frontend/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleRelease
+
+      - name: Sign APK
+        working-directory: frontend/android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # Decode keystore
+          echo "$KEYSTORE_BASE64" | base64 -d > keystore.jks
+          
+          # Sign the APK
+          $ANDROID_SDK_ROOT/build-tools/34.0.0/apksigner sign \
+            --ks keystore.jks \
+            --ks-pass pass:$KEYSTORE_PASSWORD \
+            --key-pass pass:$KEY_PASSWORD \
+            --ks-key-alias $KEY_ALIAS \
+            --out app/build/outputs/apk/release/lidify-${{ steps.version.outputs.version }}.apk \
+            app/build/outputs/apk/release/app-release-unsigned.apk
+          
+          # Clean up keystore
+          rm keystore.jks
+
+      - name: Upload APK to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          files: |
+            frontend/android/app/build/outputs/apk/release/lidify-${{ steps.version.outputs.version }}.apk
+          fail_on_unmatched_files: false
