@@ -1,26 +1,43 @@
 "use client";
 
+import { isNativePlatform } from "./platform";
+import { Preferences } from "@capacitor/preferences";
+
 const SERVER_URL_KEY = "lidify_server_url";
 
 /**
  * Server Configuration Service
  * Manages the server URL for self-hosted Lidify installations
- * Uses localStorage which works on both web and native (Capacitor WebView)
+ * Uses Preferences on native (persistent) with localStorage fallback
  */
 export const serverConfig = {
     /**
      * Get the stored server URL
-     * Returns null if not configured
+     * Checks Preferences first, falls back to localStorage
      */
     async getServerUrl(): Promise<string | null> {
         if (typeof window === "undefined") {
             return null;
         }
+        
+        // Try Capacitor Preferences first (persistent on native)
+        if (isNativePlatform()) {
+            try {
+                const { value } = await Preferences.get({ key: SERVER_URL_KEY });
+                if (value) {
+                    return value;
+                }
+            } catch (error) {
+                console.warn("[ServerConfig] Preferences.get error:", error);
+            }
+        }
+        
+        // Fall back to localStorage
         return localStorage.getItem(SERVER_URL_KEY);
     },
 
     /**
-     * Save the server URL
+     * Save the server URL - writes to BOTH storage locations
      */
     async setServerUrl(url: string): Promise<void> {
         // Normalize URL - remove trailing slash
@@ -28,15 +45,31 @@ export const serverConfig = {
 
         if (typeof window !== "undefined") {
             localStorage.setItem(SERVER_URL_KEY, normalizedUrl);
+            
+            if (isNativePlatform()) {
+                try {
+                    await Preferences.set({ key: SERVER_URL_KEY, value: normalizedUrl });
+                } catch (error) {
+                    console.warn("[ServerConfig] Preferences.set error:", error);
+                }
+            }
         }
     },
 
     /**
-     * Clear the server URL (for logout/reset)
+     * Clear the server URL - removes from BOTH storage locations
      */
     async clearServerUrl(): Promise<void> {
         if (typeof window !== "undefined") {
             localStorage.removeItem(SERVER_URL_KEY);
+            
+            if (isNativePlatform()) {
+                try {
+                    await Preferences.remove({ key: SERVER_URL_KEY });
+                } catch (error) {
+                    console.warn("[ServerConfig] Preferences.remove error:", error);
+                }
+            }
         }
     },
 

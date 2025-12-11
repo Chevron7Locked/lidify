@@ -60,7 +60,7 @@ class ApiClient {
 
     /**
      * Initialize the auth token from storage
-     * On Android WebView, localStorage is not persistent - use Capacitor Preferences
+     * Check BOTH Preferences and localStorage for migration safety
      * Call this early in the app lifecycle to ensure the token is loaded
      */
     async initToken(): Promise<string | null> {
@@ -68,27 +68,24 @@ class ApiClient {
             return null;
         }
 
-        try {
-            if (isNativePlatform()) {
-                // Use Capacitor Preferences for persistent storage on native
+        // Try Capacitor Preferences first (persistent on native)
+        if (isNativePlatform()) {
+            try {
                 const { value } = await Preferences.get({ key: AUTH_TOKEN_KEY });
                 if (value) {
                     this.token = value;
+                    this.tokenInitialized = true;
+                    return this.token;
                 }
-            } else {
-                // Use localStorage for web
-                const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
-                if (storedToken) {
-                    this.token = storedToken;
-                }
+            } catch (error) {
+                console.warn("[ApiClient] Preferences.get error:", error);
             }
-        } catch (error) {
-            console.error("[ApiClient] Failed to load token:", error);
-            // Fallback to localStorage
-            const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
-            if (storedToken) {
-                this.token = storedToken;
-            }
+        }
+
+        // Fall back to localStorage (migration from old storage or web)
+        const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+        if (storedToken) {
+            this.token = storedToken;
         }
         
         this.tokenInitialized = true;
@@ -115,32 +112,31 @@ class ApiClient {
         this.baseUrl = "";
     }
 
-    // Store JWT token
+    // Store JWT token - write to BOTH localStorage and Preferences for consistency
     setToken(token: string) {
         this.token = token;
         if (typeof window !== "undefined") {
-            // Always save to localStorage for immediate sync access
+            // Always save to localStorage
             localStorage.setItem(AUTH_TOKEN_KEY, token);
             
-            // Also save to Capacitor Preferences for persistence on native
+            // Also save to Capacitor Preferences on native (more persistent)
             if (isNativePlatform()) {
                 Preferences.set({ key: AUTH_TOKEN_KEY, value: token }).catch((err) => {
-                    console.error("[ApiClient] Failed to save token to Preferences:", err);
+                    console.warn("[ApiClient] Preferences.set error:", err);
                 });
             }
         }
     }
 
-    // Clear JWT token
+    // Clear JWT token - remove from BOTH storage locations
     clearToken() {
         this.token = null;
         if (typeof window !== "undefined") {
             localStorage.removeItem(AUTH_TOKEN_KEY);
             
-            // Also clear from Capacitor Preferences on native
             if (isNativePlatform()) {
                 Preferences.remove({ key: AUTH_TOKEN_KEY }).catch((err) => {
-                    console.error("[ApiClient] Failed to remove token from Preferences:", err);
+                    console.warn("[ApiClient] Preferences.remove error:", err);
                 });
             }
         }

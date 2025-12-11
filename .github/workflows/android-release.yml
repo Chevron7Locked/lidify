@@ -222,40 +222,45 @@ jobs:
                   let pendingPassword = '';
                   
                   // Native storage helpers - use Capacitor Preferences when available
-                  // Falls back to localStorage for web/testing
+                  // ALWAYS check both Preferences AND localStorage for reads (migration safety)
+                  // ALWAYS write to both for consistency
                   const Storage = {
                       async get(key) {
+                          // Try Capacitor Preferences first
                           try {
                               if (window.Capacitor?.Plugins?.Preferences) {
                                   const result = await window.Capacitor.Plugins.Preferences.get({ key });
-                                  return result.value;
+                                  if (result.value !== null && result.value !== undefined) {
+                                      return result.value;
+                                  }
                               }
                           } catch (e) {
-                              console.warn('[Storage] Capacitor not available, using localStorage');
+                              console.warn('[Storage] Capacitor Preferences error:', e);
                           }
+                          // Fall back to localStorage (migration from old storage)
                           return localStorage.getItem(key);
                       },
                       async set(key, value) {
+                          // Write to BOTH for consistency
+                          localStorage.setItem(key, value);
                           try {
                               if (window.Capacitor?.Plugins?.Preferences) {
                                   await window.Capacitor.Plugins.Preferences.set({ key, value });
-                                  return;
                               }
                           } catch (e) {
-                              console.warn('[Storage] Capacitor not available, using localStorage');
+                              console.warn('[Storage] Capacitor Preferences set error:', e);
                           }
-                          localStorage.setItem(key, value);
                       },
                       async remove(key) {
+                          // Remove from BOTH
+                          localStorage.removeItem(key);
                           try {
                               if (window.Capacitor?.Plugins?.Preferences) {
                                   await window.Capacitor.Plugins.Preferences.remove({ key });
-                                  return;
                               }
                           } catch (e) {
-                              console.warn('[Storage] Capacitor not available, using localStorage');
+                              console.warn('[Storage] Capacitor Preferences remove error:', e);
                           }
-                          localStorage.removeItem(key);
                       }
                   };
                   

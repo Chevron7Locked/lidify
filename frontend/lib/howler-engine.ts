@@ -95,15 +95,8 @@ class HowlerEngine {
         // Set loading guard immediately
         this.isLoading = true;
 
-        // If currently playing, use crossfade for smooth transition
-        const shouldCrossfade = this.state.isPlaying && this.howl && !this.isCrossfading;
-        
-        if (shouldCrossfade) {
-            this.loadWithCrossfade(src, format);
-            return;
-        }
-
-        // Cleanup previous instance (no crossfade)
+        // Simple instant switch - no crossfade (crossfade caused duplicate playback bugs)
+        // Just stop current track and load new one
         this.cleanup();
 
         this.state.currentSrc = src;
@@ -562,21 +555,15 @@ class HowlerEngine {
             // Stop playback first
             try {
                 this.howl.stop();
+                this.howl.unload();
             } catch (e) {
                 // Ignore errors during cleanup
             }
-            // Unload to free resources
-            this.howl.unload();
             this.howl = null;
         }
 
-        // Also clear any orphaned audio elements from the global pool
-        // This prevents "HTML5 Audio pool exhausted" errors
-        try {
-            Howler.unload();
-        } catch (e) {
-            // Ignore errors
-        }
+        // Note: Removed Howler.unload() - it was unloading ALL audio globally
+        // which caused issues. Individual howl.unload() calls are sufficient.
 
         this.state.currentSrc = null;
         this.state.isPlaying = false;
