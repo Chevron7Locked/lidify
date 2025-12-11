@@ -46,9 +46,9 @@ class HowlerEngine {
     };
     private isLoading: boolean = false; // Guard against duplicate loads
     private userInitiatedPlay: boolean = false; // Track if play was user-initiated
-    private fadeInDuration = 300; // ms
-    private fadeOutDuration = 300; // ms - crossfade duration
-    private crossfadeDuration = 600; // ms - duration for track-to-track crossfade (longer for smoother mobile transitions)
+    private fadeInDuration = 100; // ms - quick fade to avoid pop
+    private fadeOutDuration = 100; // ms - quick fade to avoid pop  
+    private crossfadeDuration = 100; // ms - very short crossfade for instant feel while avoiding pops
     private retryCount: number = 0; // Track retry attempts
     private maxRetries: number = 3; // Max retry attempts for load errors
     private pendingAutoplay: boolean = false; // Track pending autoplay for retries
@@ -469,9 +469,10 @@ class HowlerEngine {
             onload: () => {
                 this.isLoading = false;
                 
-                // Fade out old track
+                // Fade out and immediately cleanup old track
                 if (oldHowl) {
                     oldHowl.fade(targetVolume, 0, this.crossfadeDuration);
+                    // Stop immediately after fade completes - don't leave it running
                     setTimeout(() => {
                         try {
                             oldHowl.stop();
@@ -479,7 +480,7 @@ class HowlerEngine {
                         } catch (e) {
                             // Ignore cleanup errors
                         }
-                    }, this.crossfadeDuration + 50);
+                    }, this.crossfadeDuration + 10); // Minimal delay after fade
                 }
 
                 // Switch to new howl
