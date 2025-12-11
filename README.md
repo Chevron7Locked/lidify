@@ -131,6 +131,7 @@ docker run -d \
   -v lidify_data:/data \
   -e SESSION_SECRET=your-secret-key \
   -e TZ=America/New_York \
+  --add-host=host.docker.internal:host-gateway \
   chevron7locked/lidify:latest
 ```
 
@@ -155,6 +156,9 @@ services:
       - lidify_data:/data
     environment:
       - TZ=America/New_York
+    # Required for Lidarr webhook integration on Linux
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
 volumes:
@@ -210,10 +214,11 @@ Lidify will begin scanning your music library automatically. Depending on the si
 
 The unified Lidify container handles most configuration automatically. Here are the available options:
 
-| Variable         | Default        | Description                           |
-| ---------------- | -------------- | ------------------------------------- |
-| `SESSION_SECRET` | Auto-generated | Session encryption key (recommended to set for persistence across restarts) |
-| `TZ`             | `UTC`          | Timezone for the container            |
+| Variable              | Default                              | Description                           |
+| --------------------- | ------------------------------------ | ------------------------------------- |
+| `SESSION_SECRET`      | Auto-generated                       | Session encryption key (recommended to set for persistence across restarts) |
+| `TZ`                  | `UTC`                                | Timezone for the container            |
+| `LIDIFY_CALLBACK_URL` | `http://host.docker.internal:3030`   | URL for Lidarr webhook callbacks (see [Lidarr integration](#lidarr)) |
 
 The music library path is configured via Docker volume mount (`-v /path/to/music:/music`).
 
@@ -257,6 +262,19 @@ Connect Lidify to your Lidarr instance to request and download new music directl
 5. Test the connection and save
 
 Lidify will automatically configure a webhook in Lidarr to receive notifications when new music is imported.
+
+**Networking Note:**
+
+The webhook requires Lidarr to be able to reach Lidify. By default, Lidify uses `host.docker.internal:3030` which works automatically when using the provided docker-compose files (they include `extra_hosts` to enable this on Linux).
+
+If you're using **custom Docker networks** with static IPs, set the callback URL so Lidarr knows how to reach Lidify:
+
+```yaml
+environment:
+  - LIDIFY_CALLBACK_URL=http://YOUR_LIDIFY_IP:3030
+```
+
+Use the IP address that Lidarr can reach. If both containers are on the same Docker network, use Lidify's container IP.
 
 ### Audiobookshelf
 

@@ -40,15 +40,52 @@ const getApiBaseUrl = () => {
 class ApiClient {
     private baseUrl: string;
     private token: string | null = null;
+    private tokenInitialized: boolean = false;
 
     constructor(baseUrl?: string) {
         // Don't set baseUrl in constructor - determine it dynamically on each request
         this.baseUrl = baseUrl || "";
 
-        // Load token from localStorage on init (client-side only)
+        // Try to load token synchronously (may fail on Android WebView at module load time)
         if (typeof window !== "undefined") {
             this.token = localStorage.getItem("auth_token");
+            if (this.token) {
+                this.tokenInitialized = true;
+            }
         }
+    }
+
+    /**
+     * Initialize the auth token from storage
+     * On Android WebView, localStorage may not be ready at module load time
+     * Call this early in the app lifecycle to ensure the token is loaded
+     */
+    async initToken(): Promise<string | null> {
+        if (typeof window === "undefined") {
+            return null;
+        }
+
+        // Re-read from localStorage in case it wasn't ready during constructor
+        const storedToken = localStorage.getItem("auth_token");
+        if (storedToken) {
+            this.token = storedToken;
+        }
+        this.tokenInitialized = true;
+        return this.token;
+    }
+
+    /**
+     * Check if token has been initialized
+     */
+    isTokenInitialized(): boolean {
+        return this.tokenInitialized;
+    }
+
+    /**
+     * Get the current token (may be null)
+     */
+    getToken(): string | null {
+        return this.token;
     }
 
     // Refresh the base URL from configuration

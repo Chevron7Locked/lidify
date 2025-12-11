@@ -59,6 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     }
                     // Refresh API base URL with configured server
                     api.refreshBaseUrl();
+
+                    // Initialize auth token from storage
+                    // On Android WebView, localStorage may not be ready at module load time
+                    await api.initToken();
                 } catch (err) {
                     // Server config failed - go to login
                     setIsLoading(false);
