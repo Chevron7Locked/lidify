@@ -189,7 +189,7 @@ export default function LoginPage() {
             );
 
             if (response.apiKey) {
-                localStorage.setItem("auth_token", response.apiKey);
+                api.setToken(response.apiKey);
                 window.location.href = "/";
             }
         } catch (err: any) {

@@ -67,8 +67,8 @@ export function useDeepLink() {
                 );
 
                 if (response.apiKey) {
-                    // Store API key as auth token
-                    localStorage.setItem("auth_token", response.apiKey);
+                    // Store API key as auth token (uses Preferences on native for persistence)
+                    api.setToken(response.apiKey);
                     
                     // Refresh auth state and redirect
                     window.location.href = "/";

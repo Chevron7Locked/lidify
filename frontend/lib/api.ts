@@ -1,5 +1,8 @@
 import { isNativePlatform } from "./platform";
 import { getCachedServerUrl } from "./server-config";
+import { Preferences } from "@capacitor/preferences";
+
+const AUTH_TOKEN_KEY = "auth_token";
 
 // Dynamically determine API URL based on platform and configuration
 const getApiBaseUrl = () => {
@@ -57,7 +60,7 @@ class ApiClient {
 
     /**
      * Initialize the auth token from storage
-     * On Android WebView, localStorage may not be ready at module load time
+     * On Android WebView, localStorage is not persistent - use Capacitor Preferences
      * Call this early in the app lifecycle to ensure the token is loaded
      */
     async initToken(): Promise<string | null> {
@@ -65,11 +68,29 @@ class ApiClient {
             return null;
         }
 
-        // Re-read from localStorage in case it wasn't ready during constructor
-        const storedToken = localStorage.getItem("auth_token");
-        if (storedToken) {
-            this.token = storedToken;
+        try {
+            if (isNativePlatform()) {
+                // Use Capacitor Preferences for persistent storage on native
+                const { value } = await Preferences.get({ key: AUTH_TOKEN_KEY });
+                if (value) {
+                    this.token = value;
+                }
+            } else {
+                // Use localStorage for web
+                const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+                if (storedToken) {
+                    this.token = storedToken;
+                }
+            }
+        } catch (error) {
+            console.error("[ApiClient] Failed to load token:", error);
+            // Fallback to localStorage
+            const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+            if (storedToken) {
+                this.token = storedToken;
+            }
         }
+        
         this.tokenInitialized = true;
         return this.token;
     }
@@ -98,7 +119,15 @@ class ApiClient {
     setToken(token: string) {
         this.token = token;
         if (typeof window !== "undefined") {
-            localStorage.setItem("auth_token", token);
+            // Always save to localStorage for immediate sync access
+            localStorage.setItem(AUTH_TOKEN_KEY, token);
+            
+            // Also save to Capacitor Preferences for persistence on native
+            if (isNativePlatform()) {
+                Preferences.set({ key: AUTH_TOKEN_KEY, value: token }).catch((err) => {
+                    console.error("[ApiClient] Failed to save token to Preferences:", err);
+                });
+            }
         }
     }
 
@@ -106,7 +135,14 @@ class ApiClient {
     clearToken() {
         this.token = null;
         if (typeof window !== "undefined") {
-            localStorage.removeItem("auth_token");
+            localStorage.removeItem(AUTH_TOKEN_KEY);
+            
+            // Also clear from Capacitor Preferences on native
+            if (isNativePlatform()) {
+                Preferences.remove({ key: AUTH_TOKEN_KEY }).catch((err) => {
+                    console.error("[ApiClient] Failed to remove token from Preferences:", err);
+                });
+            }
         }
     }
 
