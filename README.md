@@ -8,6 +8,8 @@ A self-hosted, on-demand audio streaming platform that brings the Spotify experi
 
 Lidify is built for music lovers who want the convenience of streaming services without sacrificing ownership of their library. Point it at your music collection, and Lidify handles the rest: artist discovery, personalized playlists, podcast subscriptions, and seamless integration with tools you already use like Lidarr and Audiobookshelf.
 
+![Lidify Home Screen](assets/screenshots/desktop-home.png)
+
 ---
 
 ## Table of Contents
@@ -33,6 +35,10 @@ Lidify is built for music lovers who want the convenience of streaming services 
 -   **Automatic cataloging** - Lidify scans your library and enriches it with metadata from MusicBrainz and Last.fm
 -   **Audio transcoding** - Stream at original quality or transcode on-the-fly (320kbps, 192kbps, or 128kbps)
 
+<p align="center">
+  <img src="assets/screenshots/desktop-library.png" alt="Library View" width="800">
+</p>
+
 ### Discovery and Playlists
 
 -   **Made For You mixes** - Programmatically generated playlists based on your library:
@@ -51,11 +57,19 @@ Lidify is built for music lovers who want the convenience of streaming services 
 -   **Track progress** - Pick up where you left off across devices
 -   **Episode management** - Browse episodes, mark as played, and manage your subscriptions
 
+<p align="center">
+  <img src="assets/screenshots/desktop-podcasts.png" alt="Podcasts" width="800">
+</p>
+
 ### Audiobooks
 
 -   **Audiobookshelf integration** - Connect your existing Audiobookshelf instance
 -   **Unified experience** - Browse and listen to audiobooks alongside your music
 -   **Progress sync** - Your listening position syncs with Audiobookshelf
+
+<p align="center">
+  <img src="assets/screenshots/desktop-audiobooks.png" alt="Audiobooks" width="800">
+</p>
 
 ### Multi-User Support
 
@@ -72,8 +86,14 @@ Lidify is built for music lovers who want the convenience of streaming services 
 ### Mobile and TV
 
 -   **Android App** - Native Android application with full feature parity
--   **Android TV** - Optimized interface for big-screen viewing with remote navigation
+-   **Android TV** - Fully optimized 10-foot interface with D-pad/remote navigation, now-playing bar, and simplified browsing
 -   **Responsive Web** - Works on any device with a modern browser
+
+<p align="center">
+  <img src="assets/screenshots/mobile-home.png" alt="Mobile Home" width="280">
+  <img src="assets/screenshots/mobile-player.png" alt="Mobile Player" width="280">
+  <img src="assets/screenshots/mobile-library.png" alt="Mobile Library" width="280">
+</p>
 
 ---
 
@@ -180,35 +200,6 @@ The app automatically detects your device type and switches between:
 
 ---
 
-### Advanced Setup
-
-For more control, use docker-compose:
-
-```yaml
-# docker-compose.yml
-services:
-    lidify:
-        image: chevron7locked/lidify:latest
-        container_name: lidify
-        ports:
-            - "3030:3030"
-        volumes:
-            - /path/to/your/music:/music
-            - lidify_data:/data
-        environment:
-            - TZ=America/New_York
-        restart: unless-stopped
-
-volumes:
-    lidify_data:
-```
-
-```bash
-docker compose up -d
-```
-
----
-
 Lidify will begin scanning your music library automatically. Depending on the size of your collection, this may take a few minutes to several hours.
 
 ---
@@ -217,27 +208,14 @@ Lidify will begin scanning your music library automatically. Depending on the si
 
 ### Environment Variables
 
-Create a `.env` file in the repository root. Below is a complete reference of available options.
+The unified Lidify container handles most configuration automatically. Here are the available options:
 
-#### Required Settings
+| Variable         | Default        | Description                           |
+| ---------------- | -------------- | ------------------------------------- |
+| `SESSION_SECRET` | Auto-generated | Session encryption key (recommended to set for persistence across restarts) |
+| `TZ`             | `UTC`          | Timezone for the container            |
 
-| Variable            | Description                                      | Example                     |
-| ------------------- | ------------------------------------------------ | --------------------------- |
-| `MUSIC_PATH`        | Path to your music library                       | `/mnt/media/music`          |
-| `SESSION_SECRET`    | Secret key for session encryption (min 32 chars) | `your-secure-random-string` |
-| `POSTGRES_PASSWORD` | Database password                                | `strong-password-here`      |
-
-#### Optional Settings
-
-| Variable                 | Default                                       | Description                            |
-| ------------------------ | --------------------------------------------- | -------------------------------------- |
-| `FRONTEND_PORT`          | `3030`                                        | Port for the web interface             |
-| `BACKEND_PORT`           | `3006`                                        | Port for the API server                |
-| `POSTGRES_USER`          | `lidifydb`                                    | Database username                      |
-| `POSTGRES_DB`            | `lidify`                                      | Database name                          |
-| `TZ`                     | `UTC`                                         | Timezone for the containers            |
-| `TRANSCODE_CACHE_MAX_GB` | `10`                                          | Maximum size of transcode cache in GB  |
-| `ALLOWED_ORIGINS`        | `http://localhost:3000,http://localhost:3030` | CORS allowed origins (comma-separated) |
+The music library path is configured via Docker volume mount (`-v /path/to/music:/music`).
 
 #### External Access
 
@@ -332,8 +310,6 @@ After setup, your home screen displays:
 -   **Popular Podcasts** - Trending podcasts you might enjoy
 -   **Audiobooks** - Quick access to your audiobook library (if Audiobookshelf is connected)
 
-<!-- TODO: Add screenshot of home screen -->
-
 ### Searching
 
 Lidify offers two search modes:
@@ -345,6 +321,13 @@ Lidify offers two search modes:
 -   Preview tracks via Deezer
 -   Request downloads through Lidarr
 -   Subscribe to podcasts
+
+<p align="center">
+  <img src="assets/screenshots/desktop-artist.png" alt="Artist Page" width="800">
+</p>
+<p align="center">
+  <img src="assets/screenshots/desktop-album.png" alt="Album Page" width="800">
+</p>
 
 ### Managing Podcasts
 
@@ -370,6 +353,13 @@ In Settings, you can configure:
 -   **Playback Quality** - Choose between Original, High (320kbps), Medium (192kbps), or Low (128kbps)
 -   **Cache Size** - Limit how much space transcoded files use
 
+<p align="center">
+  <img src="assets/screenshots/desktop-player.png" alt="Now Playing" width="800">
+</p>
+<p align="center">
+  <img src="assets/screenshots/desktop-settings.png" alt="Settings" width="800">
+</p>
+
 ### Keyboard Shortcuts
 
 When using the web interface, these keyboard shortcuts are available during playback:
@@ -394,11 +384,17 @@ Lidify includes a native Android application built with Capacitor:
 -   Background playback with media controls
 -   Works on phones, tablets, and Android TV devices
 
+<p align="center">
+  <img src="assets/screenshots/mobile-login.png" alt="Mobile Login" width="280">
+  <img src="assets/screenshots/mobile-artist.png" alt="Mobile Artist" width="280">
+  <img src="assets/screenshots/mobile-podcasts.png" alt="Mobile Podcasts" width="280">
+</p>
+
 **Installation:**
 
 1. Download the latest APK from [GitHub Releases](https://github.com/chevron7locked/lidify/releases)
 2. Install the APK on your Android device (you may need to enable "Install from unknown sources")
-3. On first launch, enter your Lidify server URL (e.g., `http://192.168.1.100:3006`)
+3. On first launch, enter your Lidify server URL (e.g., `http://192.168.1.100:3030`)
 4. Log in with your Lidify credentials
 
 **Building from source:**
@@ -416,11 +412,12 @@ cd android && ./gradlew assembleRelease
 Lidify includes a dedicated interface optimized for television displays:
 
 -   Large artwork and readable text from across the room
--   D-pad and remote navigation support
--   Now Playing bar for quick access to playback controls
+-   Full D-pad and remote navigation support
+-   Persistent Now Playing bar for quick access to playback controls
 -   Simplified navigation focused on browsing and playback
+-   Same APK works on phones, tablets, and TV - automatically detects device type
 
-The TV interface is automatically enabled when accessing Lidify from an Android TV device.
+The TV interface is automatically enabled when accessing Lidify from an Android TV device. No separate installation required.
 
 ---
 

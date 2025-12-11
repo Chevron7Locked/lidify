@@ -352,75 +352,21 @@ export default function LoginPage() {
                                         </div>
                                     )}
 
-                                    {/* Device Link Code Entry - Native Only */}
+                                    {/* Device Link Code Entry - TEMPORARILY DISABLED
                                     {isNative && serverValidated && showDeviceLink && !requires2FA && (
                                         <div className="animate-fade-in space-y-4">
-                                            <div className="p-4 bg-[#ecb200]/10 border border-[#ecb200]/20 rounded-lg">
-                                                <p className="text-white/90 text-sm font-semibold mb-1">
-                                                    Quick Link
-                                                </p>
-                                                <p className="text-white/60 text-xs">
-                                                    Enter the 6-character code from Settings → Link Device on your computer
-                                                </p>
-                                            </div>
-                                            <div>
-                                                <input
-                                                    type="text"
-                                                    value={deviceLinkCode}
-                                                    onChange={(e) => setDeviceLinkCode(e.target.value.toUpperCase().slice(0, 6))}
-                                                    placeholder="ABC123"
-                                                    maxLength={6}
-                                                    autoFocus
-                                                    autoCapitalize="characters"
-                                                    className="w-full px-4 py-3 bg-white/5 border border-[#ecb200]/30 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#ecb200]/50 focus:border-transparent transition-all text-center text-2xl tracking-widest font-mono"
-                                                />
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={handleDeviceLinkSubmit}
-                                                disabled={deviceLinkCode.length !== 6 || isLinkingDevice}
-                                                className="w-full py-3 bg-[#ecb200] hover:bg-[#ffc933] text-black font-medium rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isLinkingDevice ? (
-                                                    <span className="flex items-center justify-center gap-2">
-                                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                                        Linking...
-                                                    </span>
-                                                ) : (
-                                                    "Link Device"
-                                                )}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowDeviceLink(false)}
-                                                className="w-full text-sm text-white/50 hover:text-white/80 transition-colors"
-                                            >
-                                                ← Back to login
-                                            </button>
+                                            ...
                                         </div>
                                     )}
+                                    */}
 
-                                    {/* Quick Link Option - Native Only, after server validated */}
+                                    {/* Quick Link Option - TEMPORARILY DISABLED
                                     {isNative && serverValidated && !showDeviceLink && !requires2FA && (
                                         <div className="mb-4">
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowDeviceLink(true)}
-                                                className="w-full flex items-center justify-center gap-2 py-3 bg-[#ecb200]/20 hover:bg-[#ecb200]/30 text-[#ecb200] border border-[#ecb200]/30 font-medium rounded-lg transition-all"
-                                            >
-                                                <Link2 className="w-5 h-5" />
-                                                Link with Code
-                                            </button>
-                                            <p className="text-xs text-white/40 text-center mt-2">
-                                                Go to Settings → Link Device on your computer to get a code
-                                            </p>
-                                            <div className="flex items-center gap-4 my-4">
-                                                <div className="flex-1 h-px bg-white/10" />
-                                                <span className="text-sm text-white/40">or sign in</span>
-                                                <div className="flex-1 h-px bg-white/10" />
-                                            </div>
+                                            ...
                                         </div>
                                     )}
+                                    */}
 
                                     {/* Server URL Field - Native platforms only, shown first */}
                                     {isNative && !serverValidated && !requires2FA && (

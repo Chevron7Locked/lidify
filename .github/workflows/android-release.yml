@@ -221,6 +221,44 @@ jobs:
                   let pendingUsername = '';
                   let pendingPassword = '';
                   
+                  // Native storage helpers - use Capacitor Preferences when available
+                  // Falls back to localStorage for web/testing
+                  const Storage = {
+                      async get(key) {
+                          try {
+                              if (window.Capacitor?.Plugins?.Preferences) {
+                                  const result = await window.Capacitor.Plugins.Preferences.get({ key });
+                                  return result.value;
+                              }
+                          } catch (e) {
+                              console.warn('[Storage] Capacitor not available, using localStorage');
+                          }
+                          return localStorage.getItem(key);
+                      },
+                      async set(key, value) {
+                          try {
+                              if (window.Capacitor?.Plugins?.Preferences) {
+                                  await window.Capacitor.Plugins.Preferences.set({ key, value });
+                                  return;
+                              }
+                          } catch (e) {
+                              console.warn('[Storage] Capacitor not available, using localStorage');
+                          }
+                          localStorage.setItem(key, value);
+                      },
+                      async remove(key) {
+                          try {
+                              if (window.Capacitor?.Plugins?.Preferences) {
+                                  await window.Capacitor.Plugins.Preferences.remove({ key });
+                                  return;
+                              }
+                          } catch (e) {
+                              console.warn('[Storage] Capacitor not available, using localStorage');
+                          }
+                          localStorage.removeItem(key);
+                      }
+                  };
+                  
                   const loader = document.getElementById('loader');
                   const loaderText = document.getElementById('loaderText');
                   const serverSetup = document.getElementById('serverSetup');
@@ -294,7 +332,7 @@ jobs:
                       const valid = await validateServer(url);
                       
                       if (valid) {
-                          localStorage.setItem(SERVER_KEY, url);
+                          await Storage.set(SERVER_KEY, url);
                           currentServer = url;
                           document.getElementById('serverDisplay').textContent = url.replace(/^https?:\/\//, '');
                           showView('login');
@@ -334,7 +372,7 @@ jobs:
                           const data = await response.json();
                           
                           if (response.ok && data.token) {
-                              localStorage.setItem(TOKEN_KEY, data.token);
+                              await Storage.set(TOKEN_KEY, data.token);
                               loaderText.textContent = 'Loading Lidify...';
                               showView('loader');
                               window.location.replace(currentServer + '/?token=' + encodeURIComponent(data.token));
@@ -376,7 +414,7 @@ jobs:
                               body: JSON.stringify({ 
                                   username: pendingUsername, 
                                   password: pendingPassword,
-                                  twoFactorToken: code
+                                  token: code
                               }),
                               signal: AbortSignal.timeout(15000)
                           });
@@ -384,7 +422,7 @@ jobs:
                           const data = await response.json();
                           
                           if (response.ok && data.token) {
-                              localStorage.setItem(TOKEN_KEY, data.token);
+                              await Storage.set(TOKEN_KEY, data.token);
                               loaderText.textContent = 'Loading Lidify...';
                               showView('loader');
                               window.location.replace(currentServer + '/?token=' + encodeURIComponent(data.token));
@@ -400,9 +438,9 @@ jobs:
                       verify2FABtn.textContent = 'Verify';
                   }
                   
-                  function changeServer() {
-                      localStorage.removeItem(SERVER_KEY);
-                      localStorage.removeItem(TOKEN_KEY);
+                  async function changeServer() {
+                      await Storage.remove(SERVER_KEY);
+                      await Storage.remove(TOKEN_KEY);
                       currentServer = '';
                       document.getElementById('username').value = '';
                       document.getElementById('password').value = '';
@@ -418,8 +456,8 @@ jobs:
                   }
                   
                   async function init() {
-                      const savedUrl = localStorage.getItem(SERVER_KEY);
-                      const savedToken = localStorage.getItem(TOKEN_KEY);
+                      const savedUrl = await Storage.get(SERVER_KEY);
+                      const savedToken = await Storage.get(TOKEN_KEY);
                       
                       if (savedUrl) {
                           currentServer = savedUrl;
@@ -448,7 +486,7 @@ jobs:
                                       return;
                                   }
                               } catch (e) {}
-                              localStorage.removeItem(TOKEN_KEY);
+                              await Storage.remove(TOKEN_KEY);
                           }
                           
                           showView('login');

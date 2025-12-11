@@ -19,24 +19,37 @@ if (typeof window !== "undefined") {
     import("@capacitor-community/keep-awake")
         .then((m) => {
             KeepAwake = m.KeepAwake;
+            console.log("[NativeAudio] KeepAwake plugin loaded");
         })
-        .catch(() => {});
+        .catch((err) => {
+            console.warn("[NativeAudio] KeepAwake plugin not available:", err);
+        });
 
     import("capacitor-music-controls-plugin")
         .then((m) => {
             CapacitorMusicControls = m.CapacitorMusicControls;
+            console.log("[NativeAudio] MusicControls plugin loaded");
         })
-        .catch(() => {});
+        .catch((err) => {
+            console.warn("[NativeAudio] MusicControls plugin not available:", err);
+        });
 
     import("@anuradev/capacitor-background-mode")
         .then((m) => {
             BackgroundMode = m.BackgroundMode;
+            console.log("[NativeAudio] BackgroundMode plugin loaded");
             // Enable background mode for audio playback
-            BackgroundMode.enable().catch(() => {});
+            BackgroundMode.enable()
+                .then(() => console.log("[NativeAudio] BackgroundMode enabled successfully"))
+                .catch((err: any) => console.warn("[NativeAudio] BackgroundMode enable failed:", err));
             // Disable battery optimizations prompt
-            BackgroundMode.disableBatteryOptimizations().catch(() => {});
+            BackgroundMode.disableBatteryOptimizations()
+                .then(() => console.log("[NativeAudio] Battery optimizations disabled"))
+                .catch((err: any) => console.warn("[NativeAudio] Battery optimization disable failed:", err));
         })
-        .catch(() => {});
+        .catch((err) => {
+            console.warn("[NativeAudio] BackgroundMode plugin not available:", err);
+        });
 }
 
 /**
@@ -93,6 +106,14 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     const cachePollingRef = useRef<NodeJS.Timeout | null>(null); // Polling for podcast cache
     const seekCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Seek detection timeout
     const cacheStatusPollingRef = useRef<NodeJS.Timeout | null>(null); // Polling cache status for canSeek
+    
+    // Background playback recovery refs
+    const expectedPlayingRef = useRef<boolean>(false); // What we EXPECT the playback state to be
+    const lastKnownPositionRef = useRef<number>(0); // Last known good position for recovery
+    const reconnectAttemptsRef = useRef<number>(0); // Track reconnection attempts
+    const maxReconnectAttempts = 5; // Max reconnection attempts
+    const watchdogIntervalRef = useRef<NodeJS.Timeout | null>(null); // Watchdog for detecting playback interruptions
+    const lastPlaybackCheckRef = useRef<number>(0); // Last time we checked playback position
 
     // Check if native platform on mount
     useEffect(() => {
@@ -813,15 +834,103 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
         if (!isNative.current || !BackgroundMode) return;
         
         if (isPlaying) {
-            BackgroundMode.enable().catch(() => {});
+            BackgroundMode.enable()
+                .then(() => console.log("[NativeAudio] BackgroundMode enabled for playback"))
+                .catch(() => {});
         } else {
             // Keep enabled briefly after pause to allow resume
             const timeout = setTimeout(() => {
-                if (!isPlaying) {
-                    BackgroundMode.disable().catch(() => {});
+                if (!isPlaying && !expectedPlayingRef.current) {
+                    BackgroundMode.disable()
+                        .then(() => console.log("[NativeAudio] BackgroundMode disabled after timeout"))
+                        .catch(() => {});
                 }
-            }, 30000); // Keep enabled for 30 seconds after pause
+            }, 60000); // Keep enabled for 60 seconds after pause (increased from 30)
             return () => clearTimeout(timeout);
+        }
+    }, [isPlaying]);
+
+    // Background playback watchdog - detects and recovers from stream interruptions
+    useEffect(() => {
+        if (!isNative.current) return;
+
+        // Start watchdog when we expect playback
+        if (expectedPlayingRef.current && (currentTrack || currentPodcast || currentAudiobook)) {
+            // Clear existing watchdog
+            if (watchdogIntervalRef.current) {
+                clearInterval(watchdogIntervalRef.current);
+            }
+
+            watchdogIntervalRef.current = setInterval(() => {
+                const currentTime = howlerEngine.getCurrentTime();
+                const engineState = howlerEngine.getState();
+                
+                // Update last known position if playback is progressing
+                if (currentTime > lastKnownPositionRef.current) {
+                    lastKnownPositionRef.current = currentTime;
+                    lastPlaybackCheckRef.current = Date.now();
+                    reconnectAttemptsRef.current = 0; // Reset on successful playback
+                }
+                
+                // Detect stalled playback: we expect playing but position hasn't changed
+                const timeSinceLastProgress = Date.now() - lastPlaybackCheckRef.current;
+                const isStalled = expectedPlayingRef.current && 
+                                  !engineState.isPlaying && 
+                                  timeSinceLastProgress > 5000; // 5 seconds with no progress
+                
+                if (isStalled && reconnectAttemptsRef.current < maxReconnectAttempts) {
+                    console.log(`[NativeAudio] Playback stalled, attempting reconnection (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
+                    console.log(`[NativeAudio] Last position: ${lastKnownPositionRef.current}s`);
+                    
+                    reconnectAttemptsRef.current++;
+                    
+                    // Re-enable background mode
+                    if (BackgroundMode) {
+                        BackgroundMode.enable().catch(() => {});
+                    }
+                    
+                    // Try to resume playback from last known position
+                    const position = lastKnownPositionRef.current;
+                    
+                    // Get the current source URL
+                    const state = howlerEngine.getState();
+                    if (state.currentSrc) {
+                        // Reload and seek to position
+                        setTimeout(() => {
+                            howlerEngine.load(state.currentSrc!, true);
+                            // Seek after a short delay to let it load
+                            setTimeout(() => {
+                                if (position > 0) {
+                                    howlerEngine.seek(position);
+                                }
+                            }, 1000);
+                        }, 500 * reconnectAttemptsRef.current); // Exponential backoff
+                    }
+                    
+                    lastPlaybackCheckRef.current = Date.now(); // Reset timer
+                }
+            }, 3000); // Check every 3 seconds
+
+            return () => {
+                if (watchdogIntervalRef.current) {
+                    clearInterval(watchdogIntervalRef.current);
+                    watchdogIntervalRef.current = null;
+                }
+            };
+        } else {
+            // Stop watchdog when not expecting playback
+            if (watchdogIntervalRef.current) {
+                clearInterval(watchdogIntervalRef.current);
+                watchdogIntervalRef.current = null;
+            }
+        }
+    }, [currentTrack, currentPodcast, currentAudiobook]);
+
+    // Track expected playback state
+    useEffect(() => {
+        expectedPlayingRef.current = isPlaying;
+        if (isPlaying) {
+            lastPlaybackCheckRef.current = Date.now();
         }
     }, [isPlaying]);
 
@@ -833,6 +942,10 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
 
             if (progressSaveIntervalRef.current) {
                 clearInterval(progressSaveIntervalRef.current);
+            }
+            
+            if (watchdogIntervalRef.current) {
+                clearInterval(watchdogIntervalRef.current);
             }
 
             if (isNative.current && KeepAwake) {

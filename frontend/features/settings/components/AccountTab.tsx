@@ -2,7 +2,8 @@ import { useAuth } from "@/lib/auth-context";
 import { ChangePasswordSection } from "./sections/ChangePasswordSection";
 import { TwoFactorAuthSection } from "./sections/TwoFactorAuthSection";
 import { APIKeysSection } from "./sections/APIKeysSection";
-import { LinkDeviceSection } from "./sections/LinkDeviceSection";
+// LinkDeviceSection temporarily disabled - feature not ready for launch
+// import { LinkDeviceSection } from "./sections/LinkDeviceSection";
 import { UserManagementSection } from "./sections/UserManagementSection";
 
 interface AccountTabProps {
@@ -22,7 +23,8 @@ export function AccountTab({ onSave, isSaving }: AccountTabProps) {
 
             <APIKeysSection />
 
-            <LinkDeviceSection />
+            {/* LinkDeviceSection temporarily disabled - feature not ready for launch */}
+            {/* <LinkDeviceSection /> */}
 
             {isAdmin && <UserManagementSection />}
 

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
 import { useToast } from "@/lib/toast-context";
 
@@ -15,14 +15,33 @@ export function useTwoFactor() {
     const [disableTwoFactorToken, setDisableTwoFactorToken] = useState("");
     const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
     const [showRecoveryCodes, setShowRecoveryCodes] = useState(false);
+    
+    // Retry tracking to prevent infinite loops on failure
+    const retryCountRef = useRef(0);
+    const maxRetries = 3;
+    const hasFailedRef = useRef(false);
 
     const load2FAStatus = useCallback(async () => {
+        // Don't retry if we've already failed too many times
+        if (hasFailedRef.current) {
+            return;
+        }
+        
         try {
             setLoadingTwoFactor(true);
             const status = await api.get("/auth/2fa/status");
             setTwoFactorEnabled(status.enabled);
+            // Reset retry count on success
+            retryCountRef.current = 0;
         } catch (error) {
             console.error("Failed to load 2FA status:", error);
+            retryCountRef.current++;
+            
+            // Stop retrying after max attempts
+            if (retryCountRef.current >= maxRetries) {
+                hasFailedRef.current = true;
+                console.warn(`2FA status load failed after ${maxRetries} attempts, giving up`);
+            }
             // Don't show toast on initial load failure - it's noisy
         } finally {
             setLoadingTwoFactor(false);

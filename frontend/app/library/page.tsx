@@ -220,19 +220,19 @@ export default function LibraryPage() {
     <div className="min-h-screen relative">
       <LibraryHeader />
 
-      <div className="relative max-w-7xl mx-auto px-8 pb-24">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-8 pb-24">
         <LibraryTabs activeTab={activeTab} onTabChange={changeTab} />
 
         {/* Controls Row */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 mb-6">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {/* Shuffle Library Button */}
             <button
               onClick={handleShuffleLibrary}
-              className="flex items-center gap-2 px-4 py-2 bg-[#ecb200] hover:bg-[#d4a000] text-black font-medium rounded-full transition-all hover:scale-105"
+              className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-[#ecb200] hover:bg-[#d4a000] text-black font-medium rounded-full transition-all hover:scale-105"
             >
               <Shuffle className="w-4 h-4" />
-              <span className="hidden sm:inline">Shuffle Library</span>
+              <span className="hidden sm:inline">Shuffle</span>
             </button>
 
             {/* Filter Toggle (Owned / Discovery / All) - Only show for artists and albums */}
@@ -240,7 +240,7 @@ export default function LibraryPage() {
               <div className="flex items-center bg-[#1a1a1a] border border-white/10 rounded-full p-1">
                 <button
                   onClick={() => { setFilter('owned'); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-full transition-all ${
                     filter === 'owned'
                       ? 'bg-[#ecb200] text-black'
                       : 'text-gray-400 hover:text-white'
@@ -250,7 +250,7 @@ export default function LibraryPage() {
                 </button>
                 <button
                   onClick={() => { setFilter('discovery'); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-full transition-all ${
                     filter === 'discovery'
                       ? 'bg-purple-500 text-white'
                       : 'text-gray-400 hover:text-white'
@@ -260,7 +260,7 @@ export default function LibraryPage() {
                 </button>
                 <button
                   onClick={() => { setFilter('all'); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-full transition-all ${
                     filter === 'all'
                       ? 'bg-white/20 text-white'
                       : 'text-gray-400 hover:text-white'
@@ -278,7 +278,7 @@ export default function LibraryPage() {
                 setSortBy(e.target.value as SortOption);
                 setCurrentPage(1);
               }}
-              className="px-4 py-2 bg-[#1a1a1a] border border-white/10 rounded-full text-white text-sm focus:outline-none focus:border-purple-500 [&>option]:bg-[#1a1a1a] [&>option]:text-white"
+              className="px-2 sm:px-4 py-1 sm:py-2 bg-[#1a1a1a] border border-white/10 rounded-full text-white text-xs sm:text-sm focus:outline-none focus:border-purple-500 [&>option]:bg-[#1a1a1a] [&>option]:text-white"
             >
               <option value="name">Name (A-Z)</option>
               <option value="name-desc">Name (Z-A)</option>
@@ -286,14 +286,14 @@ export default function LibraryPage() {
               {activeTab === 'artists' && <option value="tracks">Most Tracks</option>}
             </select>
 
-            {/* Items per page */}
+            {/* Items per page - hide on mobile */}
             <select
               value={itemsPerPage}
               onChange={(e) => {
                 setItemsPerPage(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="px-4 py-2 bg-[#1a1a1a] border border-white/10 rounded-full text-white text-sm focus:outline-none focus:border-purple-500 [&>option]:bg-[#1a1a1a] [&>option]:text-white"
+              className="hidden sm:block px-4 py-2 bg-[#1a1a1a] border border-white/10 rounded-full text-white text-sm focus:outline-none focus:border-purple-500 [&>option]:bg-[#1a1a1a] [&>option]:text-white"
             >
               <option value={25}>25 per page</option>
               <option value={50}>50 per page</option>

@@ -55,6 +55,16 @@ button:disabled {
     cursor: not-allowed;
 }
 
+/* Hide scrollbar utility - for horizontal scroll areas */
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari, Opera */
+}
+
 /* Scrollbar Styling - Desktop only */
 @media (min-width: 769px) {
     ::-webkit-scrollbar {
