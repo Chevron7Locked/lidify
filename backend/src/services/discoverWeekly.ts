@@ -1676,12 +1676,12 @@ export class DiscoverWeeklyService {
                 continue;
             }
 
-            // Keep if artist has ACTIVE discovery albums from other batches
+            // Keep if artist has ACTIVE discovery albums from other weeks
             const hasActiveOther = await prisma.discoveryAlbum.findFirst({
                 where: {
                     artistMbid,
                     status: "ACTIVE",
-                    batchId: { not: batchId },
+                    weekStartDate: { not: batch.weekStart },
                 },
             });
 
