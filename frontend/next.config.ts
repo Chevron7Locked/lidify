@@ -66,6 +66,9 @@ const nextConfig: NextConfig = {
         imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
         minimumCacheTTL: 60 * 60 * 24 * 7, // Cache for 7 days
         dangerouslyAllowSVG: true,
+        // Disable image optimization for internal API images
+        // Next.js Image Optimization has issues with proxied API endpoints
+        unoptimized: true,
     },
     reactStrictMode: false,
     async headers() {
