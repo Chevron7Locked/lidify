@@ -32,11 +32,19 @@ function podcastDebugLog(message: string, data?: Record<string, unknown>) {
 }
 
 // Dynamic import for Capacitor plugins (only in the Capacitor shell origin)
+// Log platform detection at module load
+if (typeof window !== "undefined") {
+    const shellCheck = isCapacitorShell();
+    console.log("[NativeAudio] Module init - isCapacitorShell:", shellCheck, "URL:", window.location.href);
+}
+
 if (typeof window !== "undefined" && isCapacitorShell()) {
+    console.log("[NativeAudio] Loading native plugins...");
+    
     import("@capacitor-community/keep-awake")
         .then((m) => {
             KeepAwake = m.KeepAwake;
-            console.log("[NativeAudio] KeepAwake plugin loaded");
+            console.log("[NativeAudio] KeepAwake plugin loaded successfully");
         })
         .catch((err) => {
             console.warn("[NativeAudio] KeepAwake plugin not available:", err);
@@ -45,7 +53,7 @@ if (typeof window !== "undefined" && isCapacitorShell()) {
     import("capacitor-music-controls-plugin")
         .then((m) => {
             CapacitorMusicControls = m.CapacitorMusicControls;
-            console.log("[NativeAudio] MusicControls plugin loaded");
+            console.log("[NativeAudio] MusicControls plugin loaded successfully");
         })
         .catch((err) => {
             console.warn("[NativeAudio] MusicControls plugin not available:", err);
@@ -900,7 +908,16 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
 
     // Native media controls setup callback
     const updateNativeMediaControls = useCallback(async () => {
-        if (!isNative.current || !CapacitorMusicControls) return;
+        console.log("[NativeAudio] updateNativeMediaControls called", {
+            isNative: isNative.current,
+            hasPlugin: !!CapacitorMusicControls,
+            hasTrack: !!(currentTrack || currentAudiobook || currentPodcast),
+        });
+        
+        if (!isNative.current || !CapacitorMusicControls) {
+            console.log("[NativeAudio] Skipping media controls - not native or plugin not loaded");
+            return;
+        }
 
         const title =
             currentTrack?.title ||

@@ -5,14 +5,37 @@ import { useRouter, usePathname } from "next/navigation";
 import { isCapacitorShell } from "@/lib/platform";
 
 /**
+ * Request notification permission for Android 13+ (API 33+)
+ * Required for showing media playback notification
+ */
+async function requestNotificationPermission() {
+    console.log("[AppLifecycle] Requesting notification permission...");
+    try {
+        // Use the standard web Notification API - works in Capacitor WebView
+        if ("Notification" in window) {
+            const permission = await Notification.requestPermission();
+            console.log("[AppLifecycle] Notification permission result:", permission);
+            return permission === "granted";
+        } else {
+            console.log("[AppLifecycle] Notification API not available");
+        }
+    } catch (e) {
+        console.warn("[AppLifecycle] Could not request notification permission:", e);
+    }
+    return false;
+}
+
+/**
  * Hook to handle native app lifecycle events
  * - Back button handling (Android)
  * - App state changes (background/foreground)
+ * - Permission requests (notifications for Android 13+)
  */
 export function useAppLifecycle() {
     const router = useRouter();
     const pathname = usePathname();
     const lastBackPress = useRef<number>(0);
+    const permissionsRequested = useRef(false);
 
     useEffect(() => {
         // Only attach Capacitor plugin listeners in the Capacitor shell origin.
@@ -25,6 +48,12 @@ export function useAppLifecycle() {
         const setupListeners = async () => {
             try {
                 const { App } = await import("@capacitor/app");
+                
+                // Request notification permission on first launch (Android 13+)
+                if (!permissionsRequested.current) {
+                    permissionsRequested.current = true;
+                    requestNotificationPermission();
+                }
 
                 // Handle Android back button
                 backButtonHandle = await App.addListener("backButton", ({ canGoBack }) => {
