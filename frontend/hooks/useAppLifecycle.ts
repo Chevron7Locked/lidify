@@ -9,20 +9,36 @@ import { isCapacitorShell } from "@/lib/platform";
  * Required for showing media playback notification
  */
 async function requestNotificationPermission() {
-    console.log("[AppLifecycle] Requesting notification permission...");
+    console.log("[AppLifecycle] Requesting Android notification permission (native)...");
     try {
-        // Use the standard web Notification API - works in Capacitor WebView
-        if ("Notification" in window) {
-            const permission = await Notification.requestPermission();
-            console.log("[AppLifecycle] Notification permission result:", permission);
-            return permission === "granted";
-        } else {
-            console.log("[AppLifecycle] Notification API not available");
+        // Android 13+ POST_NOTIFICATIONS must be requested via native runtime permissions.
+        // The web Notification API does NOT trigger the Android permission prompt in WebView.
+        const { LocalNotifications } = await import("@capacitor/local-notifications");
+        const status = await LocalNotifications.requestPermissions();
+        console.log(
+            "[AppLifecycle] LocalNotifications permission request result:",
+            status
+        );
+        try {
+            const checked = await LocalNotifications.checkPermissions();
+            console.log(
+                "[AppLifecycle] LocalNotifications checkPermissions:",
+                checked
+            );
+        } catch (e2) {
+            console.warn(
+                "[AppLifecycle] LocalNotifications checkPermissions failed:",
+                e2
+            );
         }
+        return status.display === "granted";
     } catch (e) {
-        console.warn("[AppLifecycle] Could not request notification permission:", e);
+        console.warn(
+            "[AppLifecycle] Could not request LocalNotifications permissions:",
+            e
+        );
+        return false;
     }
-    return false;
 }
 
 /**

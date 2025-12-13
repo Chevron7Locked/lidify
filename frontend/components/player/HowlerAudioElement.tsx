@@ -31,14 +31,21 @@ function podcastDebugLog(message: string, data?: Record<string, unknown>) {
     console.log(`[PodcastDebug] ${message}`, data || {});
 }
 
-// Dynamic import for Capacitor plugins (only in the Capacitor shell origin)
+// Dynamic import for Capacitor plugins (only when Capacitor native bridge is present).
+// IMPORTANT: The SDK navigates to a remote server origin inside the WebView. We must still
+// load native plugins in that case, otherwise media controls/background mode won't work.
+//
 // Log platform detection at module load
 if (typeof window !== "undefined") {
     const shellCheck = isCapacitorShell();
     console.log("[NativeAudio] Module init - isCapacitorShell:", shellCheck, "URL:", window.location.href);
 }
 
-if (typeof window !== "undefined" && isCapacitorShell()) {
+const hasNativeBridge =
+    typeof window !== "undefined" &&
+    !!((window as any).Capacitor?.isNativePlatform?.() || (window as any).Capacitor);
+
+if (typeof window !== "undefined" && hasNativeBridge) {
     console.log("[NativeAudio] Loading native plugins...");
     
     import("@capacitor-community/keep-awake")
@@ -127,6 +134,8 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     const mediaControlsInitialized = useRef<boolean>(false);
     const mediaControlsCreated = useRef<boolean>(false); // Track if create() has been called
     const isNative = useRef<boolean>(false);
+    // One-time permission prompt guard (Android 13+ notifications)
+    const notificationsPermissionRequestedRef = useRef<boolean>(false);
     const isUserInitiatedRef = useRef<boolean>(false); // Track if play/pause was user-initiated
     const isLoadingRef = useRef<boolean>(false); // Prevent duplicate loads
     const loadIdRef = useRef<number>(0); // Unique ID for each load to prevent race conditions
@@ -144,9 +153,13 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     const watchdogIntervalRef = useRef<NodeJS.Timeout | null>(null); // Watchdog for detecting playback interruptions
     const lastPlaybackCheckRef = useRef<number>(0); // Last time we checked playback position
 
-    // Check if we're in the Capacitor shell origin on mount (remote origins should behave like web)
+    // Check if we're in the Capacitor shell origin on mount.
+    // NOTE: In the SDK, we may be on a remote origin but still have the Capacitor bridge.
     useEffect(() => {
-        isNative.current = isCapacitorShell();
+        isNative.current =
+            isCapacitorShell() ||
+            !!((window as any).Capacitor?.isNativePlatform?.() ||
+                (window as any).Capacitor);
     }, []);
 
     // Reset duration when nothing is playing
@@ -925,15 +938,15 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
             currentPodcast?.title ||
             "Unknown";
         const artist =
-            currentTrack?.artist ||
+            currentTrack?.artist?.name ||
             currentAudiobook?.author ||
             currentPodcast?.podcastTitle ||
             "";
-        const album = currentTrack?.album || "";
+        const album = currentTrack?.album?.title || "";
         
         // Build full cover URL - the plugin needs a complete HTTP URL, not just an ID
-        const coverUrl = currentTrack?.coverArt
-            ? api.getCoverArtUrl(currentTrack.coverArt, 256)
+        const coverUrl = currentTrack?.album?.coverArt
+            ? api.getCoverArtUrl(currentTrack.album.coverArt, 256)
             : currentAudiobook?.coverUrl
               ? api.getCoverArtUrl(currentAudiobook.coverUrl, 256)
               : currentPodcast?.coverUrl
@@ -1018,6 +1031,55 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     useEffect(() => {
         updateNativeMediaControls();
     }, [updateNativeMediaControls]);
+
+    // On Android 13+, request POST_NOTIFICATIONS permission (via LocalNotifications) on first user-initiated playback.
+    // We trigger this on playback start (not at app boot) to avoid early-start permission hangs on some devices.
+    useEffect(() => {
+        if (!isNative.current) return;
+        if (!isPlaying) return;
+        if (notificationsPermissionRequestedRef.current) return;
+
+        notificationsPermissionRequestedRef.current = true;
+
+        (async () => {
+            try {
+                const { LocalNotifications } = await import(
+                    "@capacitor/local-notifications"
+                );
+                const checked = await LocalNotifications.checkPermissions();
+                // eslint-disable-next-line no-console
+                console.log(
+                    "[NativeAudio] LocalNotifications checkPermissions:",
+                    checked
+                );
+                const display = (checked as any)?.display;
+                if (display !== "granted") {
+                    // eslint-disable-next-line no-console
+                    console.log(
+                        "[NativeAudio] Requesting LocalNotifications permissions (Android 13+)..."
+                    );
+                    const status = await LocalNotifications.requestPermissions();
+                    // eslint-disable-next-line no-console
+                    console.log(
+                        "[NativeAudio] LocalNotifications requestPermissions result:",
+                        status
+                    );
+                }
+            } catch (e) {
+                console.warn(
+                    "[NativeAudio] LocalNotifications permission request failed:",
+                    e
+                );
+            }
+        })();
+    }, [isPlaying]);
+
+    // Ensure the native media notification exists while playing (not just on track change).
+    useEffect(() => {
+        if (!isNative.current) return;
+        if (!isPlaying) return;
+        updateNativeMediaControls();
+    }, [isPlaying, updateNativeMediaControls]);
 
     // Enable/disable background mode based on playback state
     useEffect(() => {

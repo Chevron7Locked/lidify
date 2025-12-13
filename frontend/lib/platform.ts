@@ -36,6 +36,16 @@ export const isCapacitorProtocol = (): boolean => {
 export const isCapacitorShell = (): boolean => {
     if (typeof window === "undefined") return false;
 
+    // If Capacitor bridge is present and reports native platform, trust it
+    try {
+        const nativeFlag =
+            (window as any).Capacitor?.isNativePlatform?.() ??
+            Capacitor?.isNativePlatform?.();
+        if (nativeFlag === true) return true;
+    } catch {
+        // ignore
+    }
+
     if (isCapacitorProtocol()) return true;
 
     // Only treat Android WebView UA as "shell" when it's the Capacitor-hosted origin.
