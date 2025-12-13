@@ -49,7 +49,7 @@ export function AlbumHero({
                             sizes="100vw"
                             className="object-cover"
                             priority
-                            unoptimized={isLocalUrl(coverUrl)}
+                            unoptimized
                         />
                     </div>
                     {/* Dynamic color gradient overlays */}
@@ -88,7 +88,7 @@ export function AlbumHero({
                                 sizes="(max-width: 768px) 160px, 224px"
                                 className="object-cover"
                                 priority
-                                unoptimized={isLocalUrl(coverUrl)}
+                                unoptimized
                             />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center">

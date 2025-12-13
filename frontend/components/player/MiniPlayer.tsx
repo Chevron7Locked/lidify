@@ -157,7 +157,7 @@ export function MiniPlayer() {
                                         fill
                                         sizes="32px"
                                         className="object-cover"
-                                        unoptimized={isLocalUrl(coverUrl)}
+                                        unoptimized
                                     />
                                 </div>
                             ) : (
@@ -278,7 +278,7 @@ export function MiniPlayer() {
                                             sizes={isMobileOrTablet ? "64px" : "56px"}
                                             className="object-cover"
                                             priority
-                                            unoptimized={isLocalUrl(coverUrl)}
+                                            unoptimized
                                         />
                                     ) : (
                                         <MusicIcon className={cn("text-gray-500", isMobileOrTablet ? "w-7 h-7" : "w-6 h-6")} />

@@ -48,9 +48,7 @@ export function TopResult({ libraryArtist, discoveryArtist }: TopResultProps) {
                             fill
                             sizes="96px"
                             className="object-cover"
-                            unoptimized={api
-                                .getCoverArtUrl(imageUrl, 300)
-                                .startsWith("http://localhost")}
+                            unoptimized
                         />
                     ) : (
                         <Music className="w-12 h-12 text-gray-600" />

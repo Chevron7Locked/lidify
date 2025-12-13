@@ -79,7 +79,7 @@ const PlayableCard = memo(function PlayableCard({
                                     "object-cover transition-all",
                                     isHovered && "scale-105"
                                 )}
-                                unoptimized={isLocalUrl(coverArt)}
+                                unoptimized
                             />
                         ) : (
                             placeholderIcon || (
@@ -130,7 +130,7 @@ const PlayableCard = memo(function PlayableCard({
                                     "object-cover transition-all ",
                                     isHovered && "scale-110"
                                 )}
-                                unoptimized={isLocalUrl(coverArt)}
+                                unoptimized
                             />
                         ) : (
                             placeholderIcon || (

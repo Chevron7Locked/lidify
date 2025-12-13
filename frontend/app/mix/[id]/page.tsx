@@ -173,7 +173,7 @@ export default function MixPage() {
                                                         fill
                                                         className="object-cover"
                                                         sizes="(max-width: 768px) 86px, 112px"
-                                                        unoptimized={proxiedUrl ? isLocalUrl(proxiedUrl) : false}
+                                                        unoptimized
                                                     />
                                                 </div>
                                             );

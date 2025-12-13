@@ -155,7 +155,7 @@ export function OverlayPlayer() {
                                     sizes="(max-width: 768px) 320px, (max-width: 1024px) 400px, 500px"
                                     className="object-cover"
                                     priority
-                                    unoptimized={isLocalUrl(coverUrl)}
+                                    unoptimized
                                 />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center">

@@ -185,7 +185,7 @@ export function FullPlayer() {
                                         sizes="56px"
                                         className="object-cover"
                                         priority
-                                        unoptimized={isLocalUrl(coverUrl)}
+                                        unoptimized
                                     />
                                 ) : (
                                     <MusicIcon className="w-6 h-6 text-gray-500" />

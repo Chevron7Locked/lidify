@@ -44,7 +44,7 @@ export function ArtistHero({
                             sizes="100vw"
                             className="object-cover"
                             priority
-                            unoptimized={isLocalUrl(heroImage)}
+                            unoptimized
                         />
                     </div>
                     {/* Dynamic color gradient overlays */}
@@ -83,7 +83,7 @@ export function ArtistHero({
                                 sizes="(max-width: 768px) 172px, 224px"
                                 className="object-cover"
                                 priority
-                                unoptimized={isLocalUrl(heroImage)}
+                                unoptimized
                             />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center">

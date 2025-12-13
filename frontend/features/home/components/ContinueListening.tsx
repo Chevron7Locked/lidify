@@ -99,7 +99,7 @@ export function ContinueListening({ items }: ContinueListeningProps) {
                                         className="object-cover group-hover:scale-110 transition-all"
                                         sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
                                         priority={false}
-                                        unoptimized={isLocalUrl(imageSrc)}
+                                        unoptimized
                                     />
                                 ) : isPodcast ? (
                                     <Disc className="w-12 h-12 text-gray-600" />

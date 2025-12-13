@@ -77,7 +77,7 @@ function PlaylistMosaic({ items, size = 4, greyed = false }: { items?: PlaylistI
                 fill
                 className={cn("object-cover", greyed && "opacity-50 grayscale")}
                 sizes="200px"
-                unoptimized={isLocalUrl(coverUrls[0])}
+                unoptimized
             />
         );
     }
@@ -92,7 +92,7 @@ function PlaylistMosaic({ items, size = 4, greyed = false }: { items?: PlaylistI
                         fill
                         className="object-cover"
                         sizes="100px"
-                        unoptimized={isLocalUrl(url)}
+                        unoptimized
                     />
                 </div>
             ))}

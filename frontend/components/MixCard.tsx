@@ -50,7 +50,7 @@ const MixCard = memo(
                                                 fill
                                                 className="object-cover group-hover:scale-110 transition-all"
                                                 sizes="(max-width: 640px) 25vw, (max-width: 768px) 16vw, (max-width: 1024px) 12vw, (max-width: 1280px) 10vw, 8vw"
-                                                unoptimized={proxiedUrl ? isLocalUrl(proxiedUrl) : false}
+                                                unoptimized
                                             />
                                         </div>
                                     );
