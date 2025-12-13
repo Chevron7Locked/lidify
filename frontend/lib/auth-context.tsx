@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { api } from "./api";
-import { isCapacitorShell } from "./platform";
+import { isCapacitorShell, isNativePlatform } from "./platform";
 import { isServerConfigured, initServerUrlCache } from "./server-config";
 import { Preferences } from "@capacitor/preferences";
 
@@ -53,9 +53,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (tokenFromUrl) {
                     // Store the token from URL
                     api.setToken(tokenFromUrl);
-                    // In the Capacitor shell, await Preferences write to avoid racing a force-close right after redirect.
+                    // In the native app, await Preferences write to avoid racing a force-close right after redirect.
                     // api.setToken() writes to Preferences too, but not awaited (fire-and-forget).
-                    if (isCapacitorShell()) {
+                    if (isNativePlatform()) {
                         try {
                             await Preferences.set({
                                 key: "auth_token",

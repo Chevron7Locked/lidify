@@ -1,4 +1,4 @@
-import { isCapacitorShell } from "./platform";
+import { isCapacitorShell, isNativePlatform } from "./platform";
 import { getCachedServerUrl } from "./server-config";
 import { Preferences } from "@capacitor/preferences";
 
@@ -68,8 +68,8 @@ class ApiClient {
             return null;
         }
 
-        // Try Capacitor Preferences first (persistent in the Capacitor shell)
-        if (isCapacitorShell()) {
+        // Try Capacitor Preferences first (persistent in the native app, even on remote origins)
+        if (isNativePlatform()) {
             try {
                 const { value } = await Preferences.get({ key: AUTH_TOKEN_KEY });
                 if (value) {
@@ -119,8 +119,8 @@ class ApiClient {
             // Always save to localStorage
             localStorage.setItem(AUTH_TOKEN_KEY, token);
             
-            // Also save to Capacitor Preferences in the Capacitor shell
-            if (isCapacitorShell()) {
+            // Also save to Capacitor Preferences in the native app
+            if (isNativePlatform()) {
                 Preferences.set({ key: AUTH_TOKEN_KEY, value: token }).catch((err) => {
                     console.warn("[ApiClient] Preferences.set error:", err);
                 });
@@ -134,7 +134,7 @@ class ApiClient {
         if (typeof window !== "undefined") {
             localStorage.removeItem(AUTH_TOKEN_KEY);
             
-            if (isCapacitorShell()) {
+            if (isNativePlatform()) {
                 Preferences.remove({ key: AUTH_TOKEN_KEY }).catch((err) => {
                     console.warn("[ApiClient] Preferences.remove error:", err);
                 });

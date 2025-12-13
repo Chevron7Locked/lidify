@@ -101,9 +101,6 @@ const hasCapacitorBridge = (): boolean => {
 };
 
 export const isNativePlatform = (): boolean => {
-    // Critical: Only treat the app as "native" when running inside the Capacitor shell.
-    if (typeof window !== "undefined" && !isCapacitorShell()) return false;
-
     // First try the Capacitor bridge if available
     if (hasCapacitorBridge()) {
         try {
@@ -113,6 +110,10 @@ export const isNativePlatform = (): boolean => {
             // Fall through to fallback detection
         }
     }
+
+    // Fallback: only treat as native when it looks like a Capacitor shell.
+    // (This prevents mis-detecting random WebViews as native when the bridge isn't present.)
+    if (typeof window !== "undefined" && !isCapacitorShell()) return false;
 
     // Fallback: detect Capacitor WebView environment
     return isCapacitorWebView();
