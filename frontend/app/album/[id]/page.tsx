@@ -126,14 +126,14 @@ export default function AlbumPage({ params }: AlbumPageProps) {
         <div className="min-h-screen flex flex-col">
             <AlbumHero
                 album={album}
-                source={source || "library"}
+                source={source || "discovery"}
                 coverUrl={coverUrl}
                 colors={colors}
                 onReload={reloadAlbum}
             >
                 <AlbumActionBar
                     album={album}
-                    source={source || "library"}
+                    source={source || "discovery"}
                     colors={colors}
                     onPlayAll={() => playAlbum(album, 0)}
                     onShuffle={() => shufflePlay(album)}
@@ -175,7 +175,7 @@ export default function AlbumPage({ params }: AlbumPageProps) {
                         <TrackList
                             tracks={album.tracks}
                             album={album}
-                            source={source || "library"}
+                            source={source || "discovery"}
                             currentTrackId={currentTrack?.id}
                             colors={colors}
                             onPlayTrack={handlePlayTrack}

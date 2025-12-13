@@ -1,4 +1,4 @@
-import { isNativePlatform } from "./platform";
+import { isCapacitorShell } from "./platform";
 import { getCachedServerUrl } from "./server-config";
 import { Preferences } from "@capacitor/preferences";
 
@@ -8,7 +8,7 @@ const AUTH_TOKEN_KEY = "auth_token";
 const getApiBaseUrl = () => {
     // Server-side rendering
     if (typeof window === "undefined") {
-        return process.env.BACKEND_URL || "http://localhost:3006";
+        return process.env.BACKEND_URL || "http://127.0.0.1:3006";
     }
 
     // Explicit env var takes precedence
@@ -16,8 +16,8 @@ const getApiBaseUrl = () => {
         return process.env.NEXT_PUBLIC_API_URL;
     }
 
-    // Capacitor/Mobile: Use the user-configured server URL
-    if (isNativePlatform()) {
+    // Capacitor shell only: Use the user-configured server URL
+    if (isCapacitorShell()) {
         const cachedUrl = getCachedServerUrl();
         if (cachedUrl) {
             return cachedUrl;
@@ -68,8 +68,8 @@ class ApiClient {
             return null;
         }
 
-        // Try Capacitor Preferences first (persistent on native)
-        if (isNativePlatform()) {
+        // Try Capacitor Preferences first (persistent in the Capacitor shell)
+        if (isCapacitorShell()) {
             try {
                 const { value } = await Preferences.get({ key: AUTH_TOKEN_KEY });
                 if (value) {
@@ -119,8 +119,8 @@ class ApiClient {
             // Always save to localStorage
             localStorage.setItem(AUTH_TOKEN_KEY, token);
             
-            // Also save to Capacitor Preferences on native (more persistent)
-            if (isNativePlatform()) {
+            // Also save to Capacitor Preferences in the Capacitor shell
+            if (isCapacitorShell()) {
                 Preferences.set({ key: AUTH_TOKEN_KEY, value: token }).catch((err) => {
                     console.warn("[ApiClient] Preferences.set error:", err);
                 });
@@ -134,7 +134,7 @@ class ApiClient {
         if (typeof window !== "undefined") {
             localStorage.removeItem(AUTH_TOKEN_KEY);
             
-            if (isNativePlatform()) {
+            if (isCapacitorShell()) {
                 Preferences.remove({ key: AUTH_TOKEN_KEY }).catch((err) => {
                     console.warn("[ApiClient] Preferences.remove error:", err);
                 });

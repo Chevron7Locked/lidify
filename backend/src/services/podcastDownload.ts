@@ -66,6 +66,34 @@ export async function getCachedFilePath(episodeId: string): Promise<string | nul
         
         // File must be > 0 bytes to be valid
         if (stats.size > 0) {
+            // Strong validation: if we know the canonical remote file size, require the cache to match.
+            // This prevents "cached=true" when we only downloaded part of the file (which breaks seeking and causes 416s).
+            try {
+                const episode = await prisma.podcastEpisode.findUnique({
+                    where: { id: episodeId },
+                    select: { fileSize: true },
+                });
+                if (episode?.fileSize && episode.fileSize > 0) {
+                    const expected = episode.fileSize;
+                    const actual = stats.size;
+                    const variance = Math.abs(actual - expected) / expected;
+                    if (variance > 0.01) {
+                        console.log(
+                            `[PODCAST-DL] Episode size mismatch vs episode.fileSize for ${episodeId}: actual ${actual} vs expected ${expected} (variance ${Math.round(
+                                variance * 100
+                            )}%), deleting cache`
+                        );
+                        await fs.unlink(cachedPath).catch(() => {});
+                        await prisma.podcastDownload.deleteMany({
+                            where: { episodeId },
+                        });
+                        return null;
+                    }
+                }
+            } catch {
+                // If this check fails, fall back to prior DB-record based validation
+            }
+
             // Check database record exists
             const dbRecord = await prisma.podcastDownload.findFirst({
                 where: { episodeId }
@@ -177,11 +205,57 @@ async function performDownload(
             decompress: false
         });
         
-        const contentLength = parseInt(response.headers['content-length'] || '0', 10);
-        console.log(`[PODCAST-DL] Downloading ${episodeId} (${Math.round(contentLength / 1024 / 1024)}MB)`);
+        const contentLength = parseInt(response.headers["content-length"] || "0", 10);
+        let expectedBytes = Number.isFinite(contentLength) && contentLength > 0 ? contentLength : 0;
+
+        // If the origin provides Content-Length, treat it as ground truth and persist it.
+        // This prevents us from "accepting" partial caches that later break seeking.
+        if (expectedBytes > 0) {
+            try {
+                const episode = await prisma.podcastEpisode.findUnique({
+                    where: { id: episodeId },
+                    select: { fileSize: true },
+                });
+                const existing = episode?.fileSize || 0;
+                if (!existing) {
+                    await prisma.podcastEpisode.update({
+                        where: { id: episodeId },
+                        data: { fileSize: expectedBytes },
+                    });
+                } else {
+                    const variance = Math.abs(existing - expectedBytes) / existing;
+                    if (variance > 0.01) {
+                        await prisma.podcastEpisode.update({
+                            where: { id: episodeId },
+                            data: { fileSize: expectedBytes },
+                        });
+                    }
+                }
+            } catch {
+                // Non-fatal
+            }
+        } else {
+            // Fallback: use DB fileSize if present (better than nothing)
+            try {
+                const episode = await prisma.podcastEpisode.findUnique({
+                    where: { id: episodeId },
+                    select: { fileSize: true },
+                });
+                if (episode?.fileSize && episode.fileSize > 0) {
+                    expectedBytes = episode.fileSize;
+                }
+            } catch {}
+        }
+
+        console.log(
+            `[PODCAST-DL] Downloading ${episodeId} (${expectedBytes > 0 ? Math.round(expectedBytes / 1024 / 1024) : 0}MB)`
+        );
         
         // Initialize progress tracking
-        downloadProgress.set(episodeId, { bytesDownloaded: 0, totalBytes: contentLength });
+        downloadProgress.set(episodeId, {
+            bytesDownloaded: 0,
+            totalBytes: expectedBytes || 0,
+        });
         
         // Write to temp file first with progress tracking
         const writeStream = (await import('fs')).createWriteStream(tempPath);
@@ -232,12 +306,16 @@ async function performDownload(
             throw new Error('Downloaded file is empty');
         }
         
-        // Check if download is complete (file size should match content-length if provided)
-        if (contentLength > 0 && stats.size < contentLength) {
-            const percentComplete = Math.round((stats.size / contentLength) * 100);
-            console.error(`[PODCAST-DL] Incomplete download for ${episodeId}: ${stats.size}/${contentLength} bytes (${percentComplete}%)`);
+        // Check completeness when we know an expected size (prefer Content-Length).
+        // Allow a small variance because some servers are inconsistent at the byte level.
+        if (expectedBytes > 0) {
+            const variance = Math.abs(stats.size - expectedBytes) / expectedBytes;
+            if (variance > 0.01) {
+            const percentComplete = Math.round((stats.size / expectedBytes) * 100);
+            console.error(`[PODCAST-DL] Incomplete download for ${episodeId}: ${stats.size}/${expectedBytes} bytes (${percentComplete}%)`);
             await fs.unlink(tempPath).catch(() => {});
-            throw new Error(`Download incomplete: got ${stats.size} bytes, expected ${contentLength}`);
+            throw new Error(`Download incomplete: got ${stats.size} bytes, expected ${expectedBytes}`);
+            }
         }
         
         // Move temp file to final location

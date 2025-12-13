@@ -63,6 +63,49 @@ class DeezerService {
         return params;
     }
 
+    private normalizeTrackTitle(title: string): string {
+        // Normalize common "decorations" that break preview search matching across providers:
+        // - " - Remastered 2006", "(Remastered 2006)", "- Radio Edit", "(Live)", etc.
+        // Keep this conservative: we generate variants and try multiple searches.
+        let t = (title || "").trim();
+
+        // Remove trailing decorations like "- Remastered 2006", "- Radio Edit", "- Live", etc.
+        t = t.replace(
+            /\s*-\s*(remaster(?:ed)?(?:\s*\d{4})?|radio edit|edit|live|mono|stereo|single version|album version|bonus track|deluxe(?: edition)?|explicit|clean|version)\s*$/i,
+            ""
+        );
+
+        // Remove parenthetical decorations like "(Remastered 2006)", "(Live)", "(Radio Edit)", etc.
+        t = t.replace(
+            /\s*\((remaster(?:ed)?(?:\s*\d{4})?|radio edit|edit|live|mono|stereo|single version|album version|bonus track|deluxe(?: edition)?|explicit|clean|version)\)\s*$/i,
+            ""
+        );
+
+        // Collapse whitespace
+        t = t.replace(/\s+/g, " ").trim();
+        return t;
+    }
+
+    private getTrackTitleVariants(trackTitle: string): string[] {
+        const variants = new Set<string>();
+        const original = (trackTitle || "").trim();
+        if (original) variants.add(original);
+
+        const normalized = this.normalizeTrackTitle(original);
+        if (normalized) variants.add(normalized);
+
+        // Also try removing "(feat. ...)" from the title as an extra variant (common mismatch).
+        const withoutFeat = original
+            .replace(/\s*\((feat\.|ft\.|featuring)\s+[^)]+\)\s*$/i, "")
+            .trim();
+        if (withoutFeat) variants.add(withoutFeat);
+
+        const normalizedWithoutFeat = this.normalizeTrackTitle(withoutFeat);
+        if (normalizedWithoutFeat) variants.add(normalizedWithoutFeat);
+
+        return Array.from(variants);
+    }
+
     /**
      * Search for an artist by name and get their image
      */
@@ -241,19 +284,25 @@ class DeezerService {
                 `  Searching Deezer for track "${trackTitle}" by ${artistName}...`
             );
 
-            // Try multiple search strategies for better results
-            const searches = [
+            const titleVariants = this.getTrackTitleVariants(trackTitle);
+            const artistPrimary = artistName
+                .split(/&|feat\.|ft\.|featuring/i)[0]
+                .trim();
+
+            // Try multiple search strategies for better results, for each title variant
+            const searches: string[] = [];
+            for (const title of titleVariants) {
                 // Strategy 1: Exact match with quotes
-                `artist:"${artistName}" track:"${trackTitle}"`,
+                searches.push(`artist:"${artistName}" track:"${title}"`);
                 // Strategy 2: Just track title (for collaborations where artist name is complex)
-                `"${trackTitle}"`,
+                searches.push(`"${title}"`);
                 // Strategy 3: First artist name + track (for "Artist1 & Artist2" collaborations)
-                `artist:"${artistName
-                    .split(/&|feat\.|ft\.|featuring/i)[0]
-                    .trim()}" track:"${trackTitle}"`,
+                if (artistPrimary && artistPrimary !== artistName) {
+                    searches.push(`artist:"${artistPrimary}" track:"${title}"`);
+                }
                 // Strategy 4: Simple unquoted search
-                `${artistName} ${trackTitle}`,
-            ];
+                searches.push(`${artistName} ${title}`);
+            }
 
             for (const query of searches) {
                 try {
@@ -269,13 +318,18 @@ class DeezerService {
                     if (data.data && data.data.length > 0) {
                         // Find the best match based on title similarity
                         for (const track of data.data) {
+                            const want = trackTitle.toLowerCase();
+                            const got = String(track.title || "").toLowerCase();
+                            const wantNorm = this.normalizeTrackTitle(want);
+                            const gotNorm = this.normalizeTrackTitle(got);
+
                             const titleMatch =
-                                track.title
-                                    .toLowerCase()
-                                    .includes(trackTitle.toLowerCase()) ||
-                                trackTitle
-                                    .toLowerCase()
-                                    .includes(track.title.toLowerCase());
+                                got.includes(want) ||
+                                want.includes(got) ||
+                                (wantNorm &&
+                                    gotNorm &&
+                                    (gotNorm.includes(wantNorm) ||
+                                        wantNorm.includes(gotNorm)));
 
                             if (titleMatch && track.preview) {
                                 console.log(

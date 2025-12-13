@@ -12,6 +12,8 @@ export default function OnboardingPage() {
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [error, setError] = useState("");
+    const showPasswordMismatch = error === "Passwords don't match";
+    const showPasswordTooShort = error === "Password must be at least 6 characters";
 
     // Step 1: Account creation
     const [username, setUsername] = useState("");
@@ -176,18 +178,9 @@ export default function OnboardingPage() {
 
     return (
         <div className="min-h-screen relative overflow-hidden">
-            {/* Background with yellow-purple gradient matching the site */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a] via-purple-900/20 to-[#0a0a0a]">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#ecb200]/10 via-purple-900/15 to-transparent" />
-            </div>
-
-            {/* Animated gradient blobs */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/4 -left-48 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] animate-pulse" />
-                <div
-                    className="absolute bottom-1/4 -right-48 w-96 h-96 bg-[#ecb200]/10 rounded-full blur-[120px] animate-pulse"
-                    style={{ animationDelay: "1s" }}
-                />
+            {/* Dark background (matches login) */}
+            <div className="absolute inset-0 bg-[#000]">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#ecb200]/5 via-transparent to-transparent" />
             </div>
 
             {/* Show loading spinner while checking session */}
@@ -236,18 +229,18 @@ export default function OnboardingPage() {
                                         <div
                                             className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
                                                 s.num === step
-                                                    ? "bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/30 scale-110"
+                                                    ? "bg-[#ecb200] text-black shadow-lg shadow-[#ecb200]/20 scale-110"
                                                     : s.num < step
-                                                    ? "bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-purple-400 border border-purple-500/30"
-                                                    : "bg-white/5 text-white/40 border border-white/10"
+                                                    ? "bg-white/5 text-white/80 border border-[#333]"
+                                                    : "bg-white/5 text-white/40 border border-[#333]"
                                             }`}
                                         >
-                                            {s.num < step ? "" : s.num}
+                                            {s.num}
                                         </div>
                                         <span
                                             className={`text-xs mt-2 transition-all ${
                                                 s.num === step
-                                                    ? "text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 font-medium"
+                                                    ? "text-[#ecb200] font-medium"
                                                     : "text-white/40"
                                             }`}
                                         >
@@ -258,7 +251,7 @@ export default function OnboardingPage() {
                                         <div
                                             className={`w-16 h-0.5 mx-4 mb-6 transition-all ${
                                                 s.num < step
-                                                    ? "bg-gradient-to-r from-purple-500/30 to-pink-500/30"
+                                                    ? "bg-[#ecb200]/25"
                                                     : "bg-white/10"
                                             }`}
                                         />
@@ -268,7 +261,7 @@ export default function OnboardingPage() {
                         </div>
 
                         {/* Main Content Card */}
-                        <div className="bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+                        <div className="bg-[#111] rounded-2xl border border-[#333] shadow-2xl overflow-hidden">
                             <div className="p-8 md:p-12">
                                 {step === 1 && (
                                     <div className="space-y-6">
@@ -298,7 +291,7 @@ export default function OnboardingPage() {
                                                             e.target.value
                                                         )
                                                     }
-                                                    className="w-full px-4 py-3.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#ecb200]/50 focus:ring-2 focus:ring-[#ecb200]/20 transition-all"
+                                                    className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent transition-all backdrop-blur-sm"
                                                     placeholder="Choose a username"
                                                     required
                                                     minLength={3}
@@ -317,7 +310,11 @@ export default function OnboardingPage() {
                                                             e.target.value
                                                         )
                                                     }
-                                                    className="w-full px-4 py-3.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#ecb200]/50 focus:ring-2 focus:ring-[#ecb200]/20 transition-all"
+                                                    className={`w-full px-4 py-3.5 bg-white/5 border rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent transition-all backdrop-blur-sm ${
+                                                        showPasswordTooShort
+                                                            ? "border-red-500/50"
+                                                            : "border-white/10"
+                                                    }`}
                                                     placeholder="At least 6 characters"
                                                     required
                                                     minLength={6}
@@ -336,29 +333,27 @@ export default function OnboardingPage() {
                                                             e.target.value
                                                         )
                                                     }
-                                                    className="w-full px-4 py-3.5 bg-black/40 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#ecb200]/50 focus:ring-2 focus:ring-[#ecb200]/20 transition-all"
+                                                    className={`w-full px-4 py-3.5 bg-white/5 border rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent transition-all backdrop-blur-sm ${
+                                                        showPasswordMismatch
+                                                            ? "border-red-500/50"
+                                                            : "border-white/10"
+                                                    }`}
                                                     placeholder="Confirm your password"
                                                     required
                                                 />
                                             </div>
 
                                             {error && (
-                                                <div className="flex items-center gap-2 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-                                                    <span className="text-red-500">
-                                                        
-                                                    </span>
-                                                    <p className="text-red-500 text-sm">
+                                                <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-lg p-4 text-sm text-red-400">
                                                         {error}
-                                                    </p>
                                                 </div>
                                             )}
 
                                             <button
                                                 type="submit"
                                                 disabled={loading}
-                                                className="w-full bg-white text-black font-bold py-4 rounded-full hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-2xl hover:shadow-white/30 relative group overflow-hidden mt-8"
+                                                className="w-full py-4 bg-[#ecb200] text-black font-bold rounded-full hover:bg-[#ffc933] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl hover:shadow-[#ecb200]/20 relative group overflow-hidden mt-8"
                                             >
-                                                <div className="absolute inset-0 bg-white blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-200" />
                                                 <span className="relative z-10 flex items-center justify-center gap-2">
                                                     {loading ? (
                                                         <>
@@ -580,14 +575,14 @@ export default function OnboardingPage() {
                                         <div className="flex gap-3 mt-8">
                                             <button
                                                 onClick={() => setStep(3)}
-                                                className="flex-1 bg-white/5 border border-white/10 text-white/70 font-medium py-4 rounded-full hover:bg-white/10 transition-all"
+                                                className="flex-1 bg-white/5 border border-[#333] text-white/70 font-medium py-4 rounded-full hover:bg-white/10 transition-all"
                                             >
                                                 Skip for Now
                                             </button>
                                             <button
                                                 onClick={handleNextStep}
                                                 disabled={loading}
-                                                className="flex-1 bg-white text-black font-bold py-4 rounded-full hover:scale-105 transition-all disabled:opacity-50 shadow-2xl hover:shadow-white/30"
+                                                className="flex-1 py-4 bg-[#ecb200] text-black font-bold rounded-full hover:bg-[#ffc933] transition-all disabled:opacity-50 shadow-2xl hover:shadow-[#ecb200]/20"
                                             >
                                                 {loading
                                                     ? "Saving..."
@@ -609,11 +604,11 @@ export default function OnboardingPage() {
                                             </p>
                                         </div>
 
-                                        <div className="bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-transparent border border-purple-500/20 rounded-xl p-6 mt-8">
+                                        <div className="bg-[#0f0f0f] border border-[#333] rounded-xl p-6 mt-8">
                                             <div className="flex items-start gap-4">
-                                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                <div className="w-12 h-12 bg-[#ecb200]/10 border border-[#ecb200]/20 rounded-xl flex items-center justify-center flex-shrink-0">
                                                     <svg
-                                                        className="w-6 h-6 text-purple-400"
+                                                        className="w-6 h-6 text-[#ecb200]"
                                                         fill="none"
                                                         stroke="currentColor"
                                                         viewBox="0 0 24 24"
@@ -647,9 +642,9 @@ export default function OnboardingPage() {
 
                                             <div className="grid grid-cols-2 gap-3 mt-6">
                                                 <div className="flex items-center gap-2 text-sm">
-                                                    <div className="w-5 h-5 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                                                    <div className="w-5 h-5 bg-white/10 rounded-full flex items-center justify-center flex-shrink-0 border border-white/10">
                                                         <svg
-                                                            className="w-3 h-3 text-purple-400"
+                                                            className="w-3 h-3 text-white/70"
                                                             fill="none"
                                                             stroke="currentColor"
                                                             viewBox="0 0 24 24"
@@ -737,7 +732,7 @@ export default function OnboardingPage() {
                                                 }
                                                 className={`relative w-14 h-8 rounded-full transition-all ${
                                                     enrichmentEnabled
-                                                        ? "bg-gradient-to-r from-purple-500 to-pink-500"
+                                                        ? "bg-[#ecb200]"
                                                         : "bg-white/20"
                                                 }`}
                                             >
@@ -774,16 +769,15 @@ export default function OnboardingPage() {
                                                     );
                                                     router.push("/");
                                                 }}
-                                                className="flex-1 bg-white/5 border border-white/10 text-white/70 font-medium py-4 rounded-full hover:bg-white/10 transition-all"
+                                                className="flex-1 bg-white/5 border border-[#333] text-white/70 font-medium py-4 rounded-full hover:bg-white/10 transition-all"
                                             >
                                                 Skip Enrichment
                                             </button>
                                             <button
                                                 onClick={handleNextStep}
                                                 disabled={loading}
-                                                className="flex-1 bg-white text-black font-bold py-4 rounded-full hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:hover:scale-100 shadow-2xl hover:shadow-white/30 relative group overflow-hidden"
+                                                className="flex-1 py-4 bg-[#ecb200] text-black font-bold rounded-full hover:bg-[#ffc933] transition-all duration-200 disabled:opacity-50 disabled:hover:scale-100 shadow-2xl hover:shadow-[#ecb200]/20 relative group overflow-hidden"
                                             >
-                                                <div className="absolute inset-0 bg-white blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-200" />
                                                 <span className="relative z-10 flex items-center justify-center gap-2">
                                                     {loading ? (
                                                         <>
@@ -855,8 +849,8 @@ function IntegrationCard({
         <div
             className={`border rounded-xl transition-all ${
                 enabled
-                    ? "bg-gradient-to-br from-purple-500/5 via-pink-500/5 to-transparent border-purple-500/20"
-                    : "bg-white/5 border-white/10"
+                    ? "bg-[#0f0f0f] border-[#ecb200]/25"
+                    : "bg-white/5 border-[#333]"
             }`}
         >
             <div className="p-5">
@@ -865,8 +859,8 @@ function IntegrationCard({
                         <div
                             className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                                 enabled
-                                    ? "bg-gradient-to-br from-purple-500/20 to-pink-500/20 text-purple-400"
-                                    : "bg-white/5 text-white/40"
+                                    ? "bg-[#ecb200]/10 border border-[#ecb200]/20 text-[#ecb200]"
+                                    : "bg-white/5 border border-[#333] text-white/40"
                             }`}
                         >
                             {icon}
@@ -882,7 +876,7 @@ function IntegrationCard({
                         onClick={onToggle}
                         className={`relative w-12 h-7 rounded-full transition-all ${
                             enabled
-                                ? "bg-gradient-to-r from-purple-500 to-pink-500"
+                                ? "bg-[#ecb200]"
                                 : "bg-white/20"
                         }`}
                     >

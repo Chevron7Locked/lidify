@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { isNativePlatform } from "@/lib/platform";
+import { isCapacitorShell } from "@/lib/platform";
 
 /**
  * Hook to handle native app lifecycle events
@@ -15,7 +15,9 @@ export function useAppLifecycle() {
     const lastBackPress = useRef<number>(0);
 
     useEffect(() => {
-        if (!isNativePlatform()) return;
+        // Only attach Capacitor plugin listeners in the Capacitor shell origin.
+        // Remote/LAN origins inside the WebView must behave like web (plugins not available).
+        if (!isCapacitorShell()) return;
 
         let backButtonHandle: any = null;
         let appStateHandle: any = null;

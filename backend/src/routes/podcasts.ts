@@ -894,10 +894,15 @@ router.get("/:podcastId/episodes/:episodeId/stream", async (req, res) => {
     try {
         const { podcastId, episodeId } = req.params;
         const userId = req.user?.id;
+        const podcastDebug = process.env.PODCAST_DEBUG === "1";
 
         console.log(`\n [PODCAST STREAM] Request:`);
         console.log(`   Podcast ID: ${podcastId}`);
         console.log(`   Episode ID: ${episodeId}`);
+        if (podcastDebug) {
+            console.log(`   Range: ${req.headers.range || "none"}`);
+            console.log(`   UA: ${req.headers["user-agent"] || "unknown"}`);
+        }
 
         const episode = await prisma.podcastEpisode.findUnique({
             where: { id: episodeId },
@@ -905,6 +910,13 @@ router.get("/:podcastId/episodes/:episodeId/stream", async (req, res) => {
 
         if (!episode) {
             return res.status(404).json({ error: "Episode not found" });
+        }
+
+        if (podcastDebug) {
+            console.log(`   Episode DB: title="${episode.title}"`);
+            console.log(`   Episode DB: guid="${episode.guid}"`);
+            console.log(`   Episode DB: audioUrl="${episode.audioUrl}"`);
+            console.log(`   Episode DB: mimeType="${episode.mimeType || "unknown"}" fileSize=${episode.fileSize || 0}`);
         }
 
         const range = req.headers.range;
@@ -921,6 +933,9 @@ router.get("/:podcastId/episodes/:episodeId/stream", async (req, res) => {
             try {
                 const stats = await fs.promises.stat(cachedPath);
                 const fileSize = stats.size;
+                if (podcastDebug) {
+                    console.log(`   Cache file size: ${fileSize}`);
+                }
 
                 if (fileSize === 0) {
                     throw new Error("Cached file is empty");
@@ -936,12 +951,38 @@ router.get("/:podcastId/episodes/:episodeId/stream", async (req, res) => {
                     // Validate range bounds
                     if (start >= fileSize) {
                         console.log(
-                            `    Range start ${start} >= file size ${fileSize}, sending 416`
+                            `    Range start ${start} >= file size ${fileSize}, clamping to EOF`
                         );
-                        res.status(416).json({
-                            error: "Range not satisfiable",
+                        // Browsers can occasionally request a range start beyond EOF during media seeking.
+                        // Returning 416 can cause some clients to stall; instead clamp to a small window near EOF and serve 206.
+                        // NOTE: Serving only the last byte is not a valid decodable audio chunk for many formats/clients.
+                        const clampWindowBytes = 1024 * 1024; // 1MB window near EOF
+                        const clampedStart = Math.max(0, fileSize - clampWindowBytes);
+                        res.writeHead(206, {
+                            "Content-Range": `bytes ${clampedStart}-${fileSize - 1}/${fileSize}`,
+                            "Accept-Ranges": "bytes",
+                            "Content-Length": fileSize - clampedStart,
+                            "Content-Type": episode.mimeType || "audio/mpeg",
+                            "Cache-Control": "public, max-age=3600",
+                            "Access-Control-Allow-Origin": req.headers.origin || "*",
+                            "Access-Control-Allow-Credentials": "true",
                         });
-                        return;
+                        const fileStream = fs.createReadStream(cachedPath, {
+                            start: clampedStart,
+                            end: fileSize - 1,
+                        });
+                        fileStream.pipe(res);
+                        fileStream.on("error", (err) => {
+                            console.error("    Cache stream error:", err);
+                            if (!res.headersSent) {
+                                res.status(500).json({
+                                    error: "Failed to stream episode",
+                                });
+                            } else {
+                                res.end();
+                            }
+                        });
+                        return; // Exit after starting clamped cache stream
                     }
 
                     const validEnd = Math.min(end, fileSize - 1);

@@ -127,7 +127,7 @@ export function AlbumActionBar({
                     </button>
                 )}
 
-                {/* Download Album button - only for unowned albums */}
+                {/* Download Album button - prominent for unowned albums */}
                 {showDownload && (
                     <button
                         data-tv-card
@@ -136,16 +136,18 @@ export function AlbumActionBar({
                         onClick={onDownloadAlbum}
                         disabled={isPendingDownload}
                         className={cn(
-                            "flex items-center gap-2 px-4 py-2 md:px-6 md:py-3",
-                            "bg-white/10 hover:bg-white/20 rounded-full",
-                            "transition-all duration-200",
+                            "flex items-center gap-2 transition-all duration-200",
                             "hover:scale-105 active:scale-95",
-                            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
+                            // Make it prominent and match the play button size for unowned
+                            "px-6 py-3 md:px-8 md:py-4 rounded-full font-semibold",
+                            "bg-gradient-to-r from-[#ecb200] to-[#f5c518] text-black",
+                            "shadow-lg shadow-[#ecb200]/20 hover:shadow-xl hover:shadow-[#ecb200]/30"
                         )}
                         aria-label="Download album"
                     >
-                        <Download className="w-5 h-5" />
-                        <span className="hidden md:inline font-medium">
+                        <Download className="w-5 h-5 md:w-6 md:h-6" />
+                        <span className="font-bold">
                             {isPendingDownload
                                 ? "Downloading..."
                                 : "Download Album"}

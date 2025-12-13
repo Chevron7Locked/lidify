@@ -9,6 +9,7 @@ import { Loader2, Server, CheckCircle, XCircle, Wifi, Link2 } from "lucide-react
 import { isNativePlatform } from "@/lib/platform";
 import { serverConfig, initServerUrlCache, updateServerUrlCache } from "@/lib/server-config";
 import { useDeepLink } from "@/hooks/useDeepLink";
+import { GalaxyBackground } from "@/components/ui/GalaxyBackground";
 
 interface Artist {
     id: string;
@@ -263,6 +264,12 @@ export default function LoginPage() {
             <div className="absolute inset-0 bg-[#000]">
                 {/* Subtle accent gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-[#ecb200]/5 via-transparent to-transparent" />
+
+                {/* Ultra-subtle starfield texture (dialed down vs the main app) */}
+                <div className="opacity-[0.08]">
+                    <GalaxyBackground primaryColor="#ecb200" secondaryColor="#ecb200" />
+                </div>
+
                 {artists.length > 0 && currentArtist?.heroUrl && (
                     <>
                         <div

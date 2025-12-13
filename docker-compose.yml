@@ -36,6 +36,8 @@ services:
             # Lidarr webhook callback URL - how Lidarr can reach Lidify
             # Use backend:3006 for same-network communication, or external IP:3030 for external Lidarr
             LIDIFY_CALLBACK_URL: ${LIDIFY_CALLBACK_URL:-http://backend:3006}
+            # Debug: enable extra podcast stream/cache logging
+            PODCAST_DEBUG: ${PODCAST_DEBUG:-0}
         volumes:
             - ${MUSIC_PATH:-./music}:/music
             - backend_cache:/app/cache
@@ -49,15 +51,7 @@ services:
                 condition: service_healthy
         restart: unless-stopped
         healthcheck:
-            test:
-                [
-                    "CMD",
-                    "wget",
-                    "--no-verbose",
-                    "--tries=1",
-                    "--spider",
-                    "http://localhost:3006/health",
-                ]
+            test: ["CMD", "node", "healthcheck.js"]
             interval: 30s
             timeout: 10s
             retries: 3
@@ -68,26 +62,24 @@ services:
             context: ./frontend
             dockerfile: Dockerfile
             args:
-                NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3006}
+                # Prefer relative /api requests (Next.js rewrites will proxy to backend).
+                # If you need a custom API URL, set NEXT_PUBLIC_API_URL explicitly.
+                NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
         container_name: lidify_frontend
         environment:
             NODE_ENV: ${NODE_ENV:-production}
-            NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3006}
+            # Used by next.config.ts rewrites() inside the container.
+            # IMPORTANT: "localhost" inside a container refers to itself, not the host.
+            BACKEND_URL: ${BACKEND_URL:-http://backend:3006}
+            # Exposed to the browser; leave empty by default so the app uses /api via rewrites.
+            NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
         ports:
             - "${FRONTEND_PORT:-3030}:3030"
         depends_on:
             - backend
         restart: unless-stopped
         healthcheck:
-            test:
-                [
-                    "CMD",
-                    "wget",
-                    "--no-verbose",
-                    "--tries=1",
-                    "--spider",
-                    "http://localhost:3030",
-                ]
+            test: ["CMD", "node", "healthcheck.js"]
             interval: 30s
             timeout: 10s
             retries: 3
@@ -109,7 +101,15 @@ services:
             - "${POSTGRES_PORT:-5432}:5432"
         restart: unless-stopped
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lidifydb}"]
+            # IMPORTANT:
+            # pg_isready defaults to connecting to a database with the same name as the user.
+            # Our default user is "lidifydb" but default database is "lidify",
+            # so without -d this will spam logs with: FATAL: database "lidifydb" does not exist
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U ${POSTGRES_USER:-lidifydb} -d ${POSTGRES_DB:-lidify}",
+                ]
             interval: 10s
             timeout: 5s
             retries: 5

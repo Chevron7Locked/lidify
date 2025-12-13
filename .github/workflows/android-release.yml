@@ -225,20 +225,30 @@ jobs:
                   // ALWAYS check both Preferences AND localStorage for reads (migration safety)
                   // ALWAYS write to both for consistency
                   const Storage = {
-                      async get(key) {
-                          // Try Capacitor Preferences first
-                          try {
-                              if (window.Capacitor?.Plugins?.Preferences) {
-                                  const result = await window.Capacitor.Plugins.Preferences.get({ key });
-                                  if (result.value !== null && result.value !== undefined) {
-                                      return result.value;
+                      async get(key, retries = 3) {
+                          // Try Capacitor Preferences first (with retries for timing issues)
+                          for (let attempt = 1; attempt <= retries; attempt++) {
+                              try {
+                                  if (window.Capacitor?.Plugins?.Preferences) {
+                                      const result = await window.Capacitor.Plugins.Preferences.get({ key });
+                                      if (result.value !== null && result.value !== undefined) {
+                                          console.log(`[Storage] Got ${key} from Preferences (attempt ${attempt})`);
+                                          return result.value;
+                                      }
+                                  }
+                              } catch (e) {
+                                  console.warn(`[Storage] Preferences error (attempt ${attempt}):`, e);
+                                  if (attempt < retries) {
+                                      await new Promise(r => setTimeout(r, 100 * attempt));
                                   }
                               }
-                          } catch (e) {
-                              console.warn('[Storage] Capacitor Preferences error:', e);
                           }
                           // Fall back to localStorage (migration from old storage)
-                          return localStorage.getItem(key);
+                          const localValue = localStorage.getItem(key);
+                          if (localValue) {
+                              console.log(`[Storage] Got ${key} from localStorage fallback`);
+                          }
+                          return localValue;
                       },
                       async set(key, value) {
                           // Write to BOTH for consistency
@@ -461,8 +471,15 @@ jobs:
                   }
                   
                   async function init() {
+                      console.log('[Shell] init() starting...');
+                      console.log('[Shell] Capacitor available:', !!window.Capacitor);
+                      console.log('[Shell] Preferences available:', !!window.Capacitor?.Plugins?.Preferences);
+                      
                       const savedUrl = await Storage.get(SERVER_KEY);
                       const savedToken = await Storage.get(TOKEN_KEY);
+                      
+                      console.log('[Shell] Saved URL:', savedUrl || 'none');
+                      console.log('[Shell] Saved token:', savedToken ? 'exists (' + savedToken.length + ' chars)' : 'none');
                       
                       if (savedUrl) {
                           currentServer = savedUrl;
@@ -471,6 +488,7 @@ jobs:
                           showView('loader');
                           
                           const valid = await validateServer(savedUrl);
+                          console.log('[Shell] Server validation:', valid ? 'success' : 'failed');
                           if (!valid) {
                               showView('server');
                               document.getElementById('serverUrl').value = savedUrl;
@@ -479,23 +497,33 @@ jobs:
                           }
                           
                           if (savedToken) {
+                              console.log('[Shell] Validating saved token...');
                               try {
                                   const response = await fetch(savedUrl + '/api/auth/status', {
                                       headers: { 'Authorization': 'Bearer ' + savedToken },
                                       signal: AbortSignal.timeout(10000)
                                   });
                                   
+                                  console.log('[Shell] Token validation response:', response.status);
+                                  
                                   if (response.ok) {
+                                      console.log('[Shell] Token valid, redirecting to app...');
                                       loaderText.textContent = 'Loading Lidify...';
                                       window.location.replace(savedUrl + '/?token=' + encodeURIComponent(savedToken));
                                       return;
+                                  } else {
+                                      console.log('[Shell] Token invalid (status ' + response.status + '), clearing...');
                                   }
-                              } catch (e) {}
+                              } catch (e) {
+                                  console.log('[Shell] Token validation error:', e.message);
+                              }
                               await Storage.remove(TOKEN_KEY);
                           }
                           
+                          console.log('[Shell] Showing login form');
                           showView('login');
                       } else {
+                          console.log('[Shell] No saved URL, showing server setup');
                           showView('server');
                       }
                   }
@@ -520,7 +548,39 @@ jobs:
                   });
                   document.getElementById('back2FABtn').addEventListener('click', back2FA);
                   
-                  init();
+                  // Wait for Capacitor to be fully ready before initializing
+                  // This ensures Preferences plugin is available for reading saved tokens
+                  function waitForCapacitor(callback, maxWait = 3000) {
+                      const startTime = Date.now();
+                      
+                      function check() {
+                          // Check if Capacitor and Preferences are ready
+                          if (window.Capacitor?.Plugins?.Preferences) {
+                              console.log('[Shell] Capacitor ready, initializing...');
+                              callback();
+                              return;
+                          }
+                          
+                          // Timeout - proceed anyway (will fall back to localStorage)
+                          if (Date.now() - startTime > maxWait) {
+                              console.log('[Shell] Capacitor timeout, proceeding with localStorage fallback');
+                              callback();
+                              return;
+                          }
+                          
+                          // Check again in 50ms
+                          setTimeout(check, 50);
+                      }
+                      
+                      check();
+                  }
+                  
+                  // Also listen for deviceready event (Cordova/Capacitor standard)
+                  document.addEventListener('deviceready', () => {
+                      console.log('[Shell] deviceready event fired');
+                  }, false);
+                  
+                  waitForCapacitor(init);
               </script>
           </body>
           </html>

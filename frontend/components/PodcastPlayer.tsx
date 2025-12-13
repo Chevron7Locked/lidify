@@ -230,7 +230,7 @@ export function PodcastPlayer({
 
     const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
     const streamUrl = `${
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:3006"
+        process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3006"
     }/podcasts/${podcastId}/episodes/${episode.id}/stream`;
 
     return (

@@ -1,4 +1,4 @@
-# Lidify All-in-One Docker Image
+# Lidify All-in-One Docker Image (Hardened)
 # Contains: Backend, Frontend, PostgreSQL, Redis
 # Usage: docker run -d -p 3030:3030 -v /path/to/music:/music lidify/lidify
 
@@ -11,7 +11,6 @@ RUN apk add --no-cache \
     redis \
     supervisor \
     ffmpeg \
-    wget \
     tini \
     openssl \
     bash \
@@ -36,6 +35,7 @@ RUN npx prisma generate
 # Copy backend source
 COPY backend/src ./src
 COPY backend/docker-entrypoint.sh ./
+COPY backend/healthcheck.js ./healthcheck-backend.js
 
 # Create log directory (cache will be in /data volume)
 RUN mkdir -p /app/backend/logs
@@ -57,9 +57,22 @@ ENV NEXT_PUBLIC_API_URL=
 RUN npm run build
 
 # ============================================
+# SECURITY HARDENING
+# ============================================
+# Remove dangerous tools AFTER all builds are complete
+# Keep: bash (supervisor), su-exec (postgres user switching)
+RUN rm -rf /sbin/apk /usr/bin/apk /etc/apk /lib/apk /var/cache/apk && \
+    rm -f /usr/bin/wget /usr/bin/curl /bin/wget /bin/curl 2>/dev/null || true && \
+    rm -f /usr/bin/nc /bin/nc /usr/bin/ncat /usr/bin/netcat 2>/dev/null || true && \
+    rm -f /usr/bin/ftp /usr/bin/tftp /usr/bin/telnet 2>/dev/null || true
+
+# ============================================
 # CONFIGURATION
 # ============================================
 WORKDIR /app
+
+# Copy healthcheck script
+COPY healthcheck-prod.js /app/healthcheck.js
 
 # Create supervisord config
 RUN cat > /etc/supervisord.conf << 'EOF'
@@ -87,7 +100,7 @@ stderr_logfile=/var/log/supervisor/redis_err.log
 priority=20
 
 [program:backend]
-command=/bin/sh -c "sleep 5 && cd /app/backend && npx tsx src/index.ts"
+command=/bin/bash -c "sleep 5 && cd /app/backend && npx tsx src/index.ts"
 autostart=true
 autorestart=true
 stdout_logfile=/var/log/supervisor/backend.log
@@ -96,7 +109,7 @@ directory=/app/backend
 priority=30
 
 [program:frontend]
-command=/bin/sh -c "sleep 10 && cd /app/frontend && npm start"
+command=/bin/bash -c "sleep 10 && cd /app/frontend && npm start"
 autostart=true
 autorestart=true
 stdout_logfile=/var/log/supervisor/frontend.log
@@ -105,10 +118,26 @@ environment=NODE_ENV="production",BACKEND_URL="http://localhost:3006",PORT="3030
 priority=40
 EOF
 
-# Create startup script
+# Create startup script with root check
 RUN cat > /app/start.sh << 'EOF'
 #!/bin/bash
 set -e
+
+# Security check: Warn if running internal services as root
+# Note: This container runs multiple services, some require root for initial setup
+# but individual services (postgres, backend processes) run as non-root users
+
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║  🔒 Lidify Production Container (Hardened)                   ║"
+echo "║                                                              ║"
+echo "║  Security measures enabled:                                  ║"
+echo "║  ✓ Download tools removed (wget, curl, nc)                   ║"
+echo "║  ✓ Package manager removed (apk)                             ║"
+echo "║  ✓ PostgreSQL runs as 'postgres' user                        ║"
+echo "║  ✓ Secrets auto-generated and persisted                      ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
 
 # Initialize PostgreSQL if not already done
 if [ ! -f /data/postgres/PG_VERSION ]; then
@@ -187,9 +216,9 @@ RUN chmod +x /app/start.sh
 # Expose ports
 EXPOSE 3030
 
-# Health check
+# Health check using Node.js (no wget)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3030 || exit 1
+    CMD ["node", "/app/healthcheck.js"]
 
 # Volumes
 VOLUME ["/music", "/data"]
@@ -197,4 +226,3 @@ VOLUME ["/music", "/data"]
 # Use tini for proper signal handling
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["/app/start.sh"]
-

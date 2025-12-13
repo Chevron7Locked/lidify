@@ -53,10 +53,9 @@ export function useAlbumData(albumId?: string) {
     // Determine source from the album data (if it came from library or discovery)
     const source: AlbumSource | null = useMemo(() => {
         if (!album) return null;
-        // If album has tracks, it's from library (discovery albums don't have full track data)
-        return album.tracks && album.tracks.length > 0
-            ? "library"
-            : "discovery";
+        // Check the owned property - this is the definitive source of truth
+        // Albums can have track listings from MusicBrainz even if not owned
+        return album.owned === true ? "library" : "discovery";
     }, [album]);
 
     // Handle errors

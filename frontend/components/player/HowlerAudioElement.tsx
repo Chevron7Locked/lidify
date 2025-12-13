@@ -6,16 +6,33 @@ import { useAudioControls } from "@/lib/audio-controls-context";
 import { api } from "@/lib/api";
 import { howlerEngine } from "@/lib/howler-engine";
 import { audioSeekEmitter } from "@/lib/audio-seek-emitter";
-import { isNativePlatform } from "@/lib/platform";
-import { useEffect, useRef, memo, useCallback } from "react";
+import { isCapacitorShell } from "@/lib/platform";
+import { useEffect, useLayoutEffect, useRef, memo, useCallback } from "react";
 
 // Capacitor imports for native platform
 let KeepAwake: any = null;
 let CapacitorMusicControls: any = null;
 let BackgroundMode: any = null;
 
-// Dynamic import for Capacitor plugins (only on native)
-if (typeof window !== "undefined") {
+function podcastDebugEnabled(): boolean {
+    try {
+        return (
+            typeof window !== "undefined" &&
+            window.localStorage?.getItem("lidifyPodcastDebug") === "1"
+        );
+    } catch {
+        return false;
+    }
+}
+
+function podcastDebugLog(message: string, data?: Record<string, unknown>) {
+    if (!podcastDebugEnabled()) return;
+    // eslint-disable-next-line no-console
+    console.log(`[PodcastDebug] ${message}`, data || {});
+}
+
+// Dynamic import for Capacitor plugins (only in the Capacitor shell origin)
+if (typeof window !== "undefined" && isCapacitorShell()) {
     import("@capacitor-community/keep-awake")
         .then((m) => {
             KeepAwake = m.KeepAwake;
@@ -85,6 +102,7 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
         setIsBuffering,
         targetSeekPosition,
         setTargetSeekPosition,
+        canSeek,
         setCanSeek,
         setDownloadProgress,
     } = useAudioPlayback();
@@ -94,7 +112,8 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
 
     // Refs
     const lastTrackIdRef = useRef<string | null>(null);
-    const lastPlayingStateRef = useRef<boolean>(false);
+    // Initialize to current isPlaying state to handle remounts correctly
+    const lastPlayingStateRef = useRef<boolean>(isPlaying);
     const progressSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const lastProgressSaveRef = useRef<number>(0);
     const mediaControlsInitialized = useRef<boolean>(false);
@@ -106,6 +125,8 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     const cachePollingRef = useRef<NodeJS.Timeout | null>(null); // Polling for podcast cache
     const seekCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Seek detection timeout
     const cacheStatusPollingRef = useRef<NodeJS.Timeout | null>(null); // Polling cache status for canSeek
+    const seekReloadListenerRef = useRef<(() => void) | null>(null); // Track current seek-reload listener to prevent stacking
+    const seekReloadInProgressRef = useRef<boolean>(false); // Guard against pause events during seek-reload
     
     // Background playback recovery refs
     const expectedPlayingRef = useRef<boolean>(false); // What we EXPECT the playback state to be
@@ -115,9 +136,9 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     const watchdogIntervalRef = useRef<NodeJS.Timeout | null>(null); // Watchdog for detecting playback interruptions
     const lastPlaybackCheckRef = useRef<number>(0); // Last time we checked playback position
 
-    // Check if native platform on mount
+    // Check if we're in the Capacitor shell origin on mount (remote origins should behave like web)
     useEffect(() => {
-        isNative.current = isNativePlatform();
+        isNative.current = isCapacitorShell();
     }, []);
 
     // Reset duration when nothing is playing
@@ -213,6 +234,18 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
         };
 
         const handlePause = () => {
+            // Ignore pause events while loading a new track
+            // (loading a new track stops the old one, triggering 'pause')
+            if (isLoadingRef.current) {
+                return;
+            }
+            
+            // Ignore pause events during seek-reload operations
+            // (reload() calls cleanup() which stops the Howl, triggering 'pause')
+            if (seekReloadInProgressRef.current) {
+                return;
+            }
+            
             if (!isUserInitiatedRef.current) {
                 setIsPlaying(false);
             }
@@ -343,7 +376,18 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
 
         // Prevent duplicate loads - check both the ref AND loading state
         if (currentMediaId === lastTrackIdRef.current) {
-            return; // Already loaded this track
+            // Track is already loaded, but we might need to restart playback
+            // Check both React state (lastPlayingStateRef) AND current isPlaying prop
+            // The isPlaying prop handles the case where next() just set it to true
+            const shouldPlay = lastPlayingStateRef.current || isPlaying;
+            const isCurrentlyPlaying = howlerEngine.isPlaying();
+            
+            
+            if (shouldPlay && !isCurrentlyPlaying) {
+                howlerEngine.seek(0);
+                howlerEngine.play();
+            }
+            return;
         }
 
         if (isLoadingRef.current) {
@@ -368,9 +412,22 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
             const [podcastId, episodeId] = currentPodcast.id.split(":");
             streamUrl = api.getPodcastEpisodeStreamUrl(podcastId, episodeId);
             startTime = currentPodcast.progress?.currentTime || 0;
+            podcastDebugLog("load podcast", {
+                currentPodcastId: currentPodcast.id,
+                podcastId,
+                episodeId,
+                title: currentPodcast.title,
+                podcastTitle: currentPodcast.podcastTitle,
+                startTime,
+                loadId: thisLoadId,
+            });
         }
 
         if (streamUrl) {
+            // Capture Howler playing state BEFORE load() stops it
+            // This handles HMR/remount case where React state is reset but Howler was playing
+            const wasHowlerPlayingBeforeLoad = howlerEngine.isPlaying();
+            
             // Set fallback duration immediately
             const fallbackDuration =
                 currentTrack?.duration ||
@@ -394,6 +451,13 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
 
             // Load the audio - DON'T pass isPlaying here, handle autoplay separately
             howlerEngine.load(streamUrl, false, format);
+            if (playbackType === "podcast" && currentPodcast) {
+                podcastDebugLog("howlerEngine.load()", {
+                    url: streamUrl,
+                    format,
+                    loadId: thisLoadId,
+                });
+            }
 
             // Wait for load to complete, then handle autoplay and seeking
             const handleLoaded = () => {
@@ -408,11 +472,30 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                 if (startTime > 0) {
                     howlerEngine.seek(startTime);
                 }
+                if (playbackType === "podcast" && currentPodcast) {
+                    podcastDebugLog("loaded", {
+                        loadId: thisLoadId,
+                        durationHowler: howlerEngine.getDuration(),
+                        howlerTime: howlerEngine.getCurrentTime(),
+                        actualTime: howlerEngine.getActualCurrentTime(),
+                        startTime,
+                        canSeek,
+                    });
+                }
 
-                // Auto-play if isPlaying was true when we started loading
-                // We read the current state, not the closure value
-                if (lastPlayingStateRef.current) {
+
+                // Auto-play if:
+                // 1. isPlaying state was true (normal case)
+                // 2. OR Howler was playing before we loaded (handles HMR/remount case)
+                const shouldAutoPlay = lastPlayingStateRef.current || wasHowlerPlayingBeforeLoad;
+                
+                
+                if (shouldAutoPlay) {
                     howlerEngine.play();
+                    // Sync React state if Howler was playing but state was false
+                    if (!lastPlayingStateRef.current) {
+                        setIsPlaying(true);
+                    }
                 }
 
                 howlerEngine.off("load", handleLoaded);
@@ -509,7 +592,8 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     }, [currentPodcast, playbackType, setCanSeek, setDownloadProgress]);
 
     // Keep lastPlayingStateRef always in sync (for use by track loading effect)
-    useEffect(() => {
+    // Using useLayoutEffect to ensure this runs BEFORE the track loading effect
+    useLayoutEffect(() => {
         lastPlayingStateRef.current = isPlaying;
     }, [isPlaying]);
 
@@ -565,6 +649,15 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                         podcastId,
                         episodeId
                     );
+                    podcastDebugLog("cache poll", {
+                        podcastId,
+                        episodeId,
+                        pollCount,
+                        cached: status.cached,
+                        downloading: status.downloading,
+                        downloadProgress: status.downloadProgress,
+                        targetTime,
+                    });
 
                     if (status.cached) {
                         // Cache is ready! Clear polling and reload
@@ -574,6 +667,11 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                         }
 
                         // Reload the audio (it will now stream from cache)
+                        podcastDebugLog("cache ready -> howlerEngine.reload()", {
+                            podcastId,
+                            episodeId,
+                            targetTime,
+                        });
                         howlerEngine.reload();
 
                         // Wait for load, then seek and play
@@ -583,6 +681,13 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                             howlerEngine.seek(targetTime);
                             setCurrentTime(targetTime);
                             howlerEngine.play();
+                            podcastDebugLog("post-reload seek+play", {
+                                podcastId,
+                                episodeId,
+                                targetTime,
+                                howlerTime: howlerEngine.getCurrentTime(),
+                                actualTime: howlerEngine.getActualCurrentTime(),
+                            });
 
                             // Clear buffering state
                             setIsBuffering(false);
@@ -618,13 +723,14 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     // Handle seeking via event emitter
     useEffect(() => {
         const handleSeek = async (time: number) => {
+            // CRITICAL: Capture playing state FIRST, before ANY operations
+            const wasPlayingAtSeekStart = howlerEngine.isPlaying();
+            
             // Update UI immediately to show target position
             setCurrentTime(time);
 
-            // Perform the seek
-            howlerEngine.seek(time);
-
-            // For podcasts, verify seek worked and handle caching if needed
+            // For podcasts, use the reload+seek pattern (don't call howlerEngine.seek directly)
+            // Direct seek causes browser to send conflicting range requests
             if (playbackType === "podcast" && currentPodcast) {
                 // Clear any pending seek check
                 if (seekCheckTimeoutRef.current) {
@@ -639,11 +745,48 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                         episodeId
                     );
 
-                    // If cached, the seek should work - browser will request the range
-                    // Give it more time to load (2 seconds for large seeks)
+                    // If cached, Howler.seek() is unreliable for streaming audio.
+                    // The browser often sends BOTH a range request at the seek position AND
+                    // a reload from bytes=0-, causing playback to restart from the beginning.
+                    // 
+                    // The ONLY reliable way to seek in streaming audio is to reload the source
+                    // and seek AFTER load completes (same pattern as cache-ready polling).
                     if (status.cached) {
-                        // For cached files, don't enter buffering mode
-                        // Just trust that the seek will work eventually
+                        podcastDebugLog("seek: cached=true, using reload+seek pattern", {
+                            time,
+                            podcastId,
+                            episodeId,
+                        });
+                        
+                        // Clean up any previous seek-reload listener to prevent stacking
+                        if (seekReloadListenerRef.current) {
+                            howlerEngine.off("load", seekReloadListenerRef.current);
+                            seekReloadListenerRef.current = null;
+                        }
+                        
+                        // Mark seek-reload in progress to prevent pause handler from firing
+                        seekReloadInProgressRef.current = true;
+                        
+                        // Reload the audio source, then seek after load
+                        howlerEngine.reload();
+                        
+                        const onLoad = () => {
+                            howlerEngine.off("load", onLoad);
+                            seekReloadListenerRef.current = null;
+                            seekReloadInProgressRef.current = false;
+                            
+                            howlerEngine.seek(time);
+                            setCurrentTime(time);
+                            
+                            // Resume playback if it was playing before the seek started
+                            if (wasPlayingAtSeekStart) {
+                                howlerEngine.play();
+                                setIsPlaying(true);
+                            }
+                        };
+                        
+                        seekReloadListenerRef.current = onLoad;
+                        howlerEngine.on("load", onLoad);
                         return;
                     }
                 } catch (e) {
@@ -651,7 +794,9 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                     console.warn("[HowlerAudioElement] Could not check cache status:", e);
                 }
 
-                // File is NOT cached - check if seek actually worked after a delay
+                // File is NOT cached - try direct seek and verify it worked
+                howlerEngine.seek(time);
+                
                 seekCheckTimeoutRef.current = setTimeout(() => {
                     try {
                         // Use the ACTUAL HTML5 audio position, not Howler's reported position
@@ -661,6 +806,13 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                         // If seek appears to have failed (actual position is far from target)
                         // This happens when: seek to 7000s but actual audio is at 0-30s
                         const seekFailed = time > 30 && actualPos < 30;
+                        podcastDebugLog("seek check", {
+                            time,
+                            actualPos,
+                            seekFailed,
+                            podcastId,
+                            episodeId,
+                        });
 
                         if (seekFailed) {
                             // Pause playback while we wait for cache
@@ -681,14 +833,18 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                         );
                     }
                 }, 1000); // Increased from 500ms to 1000ms for streaming seeks
+                return;
             }
+            
+            // For non-podcast types (tracks, audiobooks), use direct seek
+            howlerEngine.seek(time);
         };
 
         const unsubscribe = audioSeekEmitter.subscribe(handleSeek);
         return unsubscribe;
     }, [setCurrentTime, playbackType, currentPodcast, setIsBuffering, setTargetSeekPosition, setIsPlaying, startCachePolling]);
 
-    // Cleanup cache polling and seek timeout on unmount
+    // Cleanup cache polling, seek timeout, and seek-reload listener on unmount
     useEffect(() => {
         return () => {
             if (cachePollingRef.current) {
@@ -696,6 +852,10 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
             }
             if (seekCheckTimeoutRef.current) {
                 clearTimeout(seekCheckTimeoutRef.current);
+            }
+            if (seekReloadListenerRef.current) {
+                howlerEngine.off("load", seekReloadListenerRef.current);
+                seekReloadListenerRef.current = null;
             }
         };
     }, []);
@@ -753,18 +913,29 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
             currentPodcast?.podcastTitle ||
             "";
         const album = currentTrack?.album || "";
-        const cover =
-            currentTrack?.coverArt ||
-            currentAudiobook?.coverUrl ||
-            currentPodcast?.coverUrl ||
-            "";
+        
+        // Build full cover URL - the plugin needs a complete HTTP URL, not just an ID
+        const coverUrl = currentTrack?.coverArt
+            ? api.getCoverArtUrl(currentTrack.coverArt, 256)
+            : currentAudiobook?.coverUrl
+              ? api.getCoverArtUrl(currentAudiobook.coverUrl, 256)
+              : currentPodcast?.coverUrl
+                ? api.getCoverArtUrl(currentPodcast.coverUrl, 256)
+                : "";
 
         try {
+            console.log("[NativeAudio] Creating/updating media notification", {
+                title,
+                artist,
+                album,
+                hasCover: Boolean(coverUrl),
+                isPlaying,
+            });
             await CapacitorMusicControls.create({
                 track: title,
                 artist: artist,
                 album: album,
-                cover: cover,
+                cover: coverUrl,
                 hasPrev: true,
                 hasNext: true,
                 hasClose: true,
@@ -773,7 +944,9 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                 prevIcon: "media_prev",
                 nextIcon: "media_next",
                 closeIcon: "media_close",
-                notificationIcon: "notification_icon",
+                // Must match an existing Android drawable resource name.
+                // This project already ships `ic_stat_icon.png` in res/drawable-*dpi.
+                notificationIcon: "ic_stat_icon",
                 isPlaying: isPlaying,
             });
 

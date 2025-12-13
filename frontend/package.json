@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "next dev -p 3030",
     "build": "next build",
-    "start": "next start -p 3030",
+    "start": "next start -H 0.0.0.0 -p 3030",
     "lint": "eslint",
     "cap:sync": "npx cap sync android",
     "cap:open": "npx cap open android",

@@ -33,12 +33,22 @@ export function OverlayPlayer() {
         seek,
         duration: playbackDuration,
     } = useAudio();
-    const duration =
-        playbackDuration ||
-        currentTrack?.duration ||
-        currentAudiobook?.duration ||
-        currentPodcast?.duration ||
-        0;
+    const duration = (() => {
+        // Prefer canonical durations for long-form media to avoid stale/misreported playbackDuration.
+        if (playbackType === "podcast" && currentPodcast?.duration) {
+            return currentPodcast.duration;
+        }
+        if (playbackType === "audiobook" && currentAudiobook?.duration) {
+            return currentAudiobook.duration;
+        }
+        return (
+            playbackDuration ||
+            currentTrack?.duration ||
+            currentAudiobook?.duration ||
+            currentPodcast?.duration ||
+            0
+        );
+    })();
 
     if (!currentTrack && !currentAudiobook && !currentPodcast) return null;
 

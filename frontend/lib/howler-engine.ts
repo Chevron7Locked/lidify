@@ -5,7 +5,7 @@
  * Handles: play, pause, seek, volume, track changes, events
  */
 
-import { Howl, Howler } from "howler";
+import { Howl } from "howler";
 
 export type HowlerEventType =
     | "play"
@@ -32,7 +32,6 @@ interface HowlerEngineState {
 
 class HowlerEngine {
     private howl: Howl | null = null;
-    private nextHowl: Howl | null = null; // For crossfade
     private timeUpdateInterval: NodeJS.Timeout | null = null;
     private eventListeners: Map<HowlerEventType, Set<HowlerEventCallback>> =
         new Map();
@@ -46,14 +45,12 @@ class HowlerEngine {
     };
     private isLoading: boolean = false; // Guard against duplicate loads
     private userInitiatedPlay: boolean = false; // Track if play was user-initiated
-    private fadeInDuration = 100; // ms - quick fade to avoid pop
-    private fadeOutDuration = 100; // ms - quick fade to avoid pop  
-    private crossfadeDuration = 100; // ms - very short crossfade for instant feel while avoiding pops
     private retryCount: number = 0; // Track retry attempts
     private maxRetries: number = 3; // Max retry attempts for load errors
     private pendingAutoplay: boolean = false; // Track pending autoplay for retries
     private lastFormat: string | undefined; // Store format for retries
-    private isCrossfading: boolean = false; // Track if currently crossfading
+    private readonly popFadeMs: number = 10; // ms - micro-fade to reduce click/pop on track changes
+    private shouldRetryLoads: boolean = false; // Only retry transient load errors where it helps (Android WebView)
 
     constructor() {
         // Initialize event listener maps
@@ -78,7 +75,12 @@ class HowlerEngine {
      * @param autoplay - Whether to auto-play after loading
      * @param format - Audio format hint (mp3, flac, etc.) - required for URLs without extensions
      */
-    load(src: string, autoplay: boolean = false, format?: string): void {
+    load(
+        src: string,
+        autoplay: boolean = false,
+        format?: string,
+        isRetry: boolean = false
+    ): void {
         // Don't reload if same source and already loaded
         if (this.state.currentSrc === src && this.howl) {
             if (autoplay && !this.state.isPlaying) {
@@ -105,14 +107,19 @@ class HowlerEngine {
         const isAndroidWebView = typeof navigator !== "undefined" && 
             /wv/.test(navigator.userAgent.toLowerCase()) && 
             /android/.test(navigator.userAgent.toLowerCase());
+        this.shouldRetryLoads = isAndroidWebView;
+
+        // Check if this is a podcast/audiobook stream (they need HTML5 Audio for Range request support)
+        const isPodcastOrAudiobook = src.includes("/api/podcasts/") || src.includes("/api/audiobooks/");
 
         // Build Howl config
         // Note: On Android WebView, HTML5 Audio causes crackling/popping on track changes
         // Use Web Audio API on Android for smoother playback (trades streaming for quality)
-        // HTML5 Audio is still used on desktop/iOS for better streaming support
+        // EXCEPTION: Podcasts always use HTML5 Audio because they need Range request support
+        // for seeking in large files. Web Audio would try to download the entire ~100MB file.
         const howlConfig: any = {
             src: [src],
-            html5: !isAndroidWebView, // Use Web Audio API on Android to prevent crackling
+            html5: isPodcastOrAudiobook || !isAndroidWebView, // HTML5 for podcasts/audiobooks OR non-Android
             autoplay: false, // We'll handle autoplay with fade
             preload: true,
             volume: this.state.isMuted ? 0 : this.state.volume,
@@ -123,7 +130,11 @@ class HowlerEngine {
         // Store for potential retry
         this.pendingAutoplay = autoplay;
         this.lastFormat = format;
-        this.retryCount = 0; // Reset retry count for new load
+        // Reset retry count only when this is NOT a retry attempt.
+        // If we reset on retries, we can end up in an infinite retry loop.
+        if (!isRetry) {
+            this.retryCount = 0;
+        }
 
         // Add format hints (required for URLs without file extensions)
         // Include multiple formats as fallbacks - browser will try them in order
@@ -156,7 +167,7 @@ class HowlerEngine {
                 this.isLoading = false;
 
                 // Retry logic for transient errors (common on Android WebView)
-                if (this.retryCount < this.maxRetries && this.state.currentSrc) {
+                if (this.shouldRetryLoads && this.retryCount < this.maxRetries && this.state.currentSrc) {
                     this.retryCount++;
                     console.log(`[HowlerEngine] Retrying load (attempt ${this.retryCount}/${this.maxRetries})...`);
 
@@ -171,7 +182,7 @@ class HowlerEngine {
 
                     // Wait a bit before retrying
                     setTimeout(() => {
-                        this.load(srcToRetry, autoplayToRetry, formatToRetry);
+                        this.load(srcToRetry, autoplayToRetry, formatToRetry, true);
                     }, 500 * this.retryCount); // Exponential backoff
                     return;
                 }
@@ -422,144 +433,38 @@ class HowlerEngine {
     }
 
     /**
-     * Load new track with crossfade from current track
-     */
-    private loadWithCrossfade(src: string, format?: string): void {
-        this.isCrossfading = true;
-        const oldHowl = this.howl;
-        const targetVolume = this.state.isMuted ? 0 : this.state.volume;
-
-        // Detect Android WebView for audio mode selection
-        const isAndroidWebView = typeof navigator !== "undefined" && 
-            /wv/.test(navigator.userAgent.toLowerCase()) && 
-            /android/.test(navigator.userAgent.toLowerCase());
-
-        // Build config for new track
-        // Use Web Audio API on Android to prevent crackling during crossfade
-        const howlConfig: any = {
-            src: [src],
-            html5: !isAndroidWebView, // Web Audio API on Android for smooth crossfade
-            autoplay: false,
-            preload: true,
-            volume: 0, // Start silent for fade in
-        };
-
-        if (format) {
-            const formats = [format];
-            if (!formats.includes("mp3")) formats.push("mp3");
-            if (!formats.includes("flac")) formats.push("flac");
-            howlConfig.format = formats;
-        } else {
-            howlConfig.format = ["mp3", "flac", "mp4", "webm", "wav"];
-        }
-
-        this.state.currentSrc = src;
-        this.pendingAutoplay = true;
-        this.lastFormat = format;
-
-        this.nextHowl = new Howl({
-            ...howlConfig,
-            onload: () => {
-                this.isLoading = false;
-                
-                // Fade out and immediately cleanup old track
-                if (oldHowl) {
-                    oldHowl.fade(targetVolume, 0, this.crossfadeDuration);
-                    // Stop immediately after fade completes - don't leave it running
-                    setTimeout(() => {
-                        try {
-                            oldHowl.stop();
-                            oldHowl.unload();
-                        } catch (e) {
-                            // Ignore cleanup errors
-                        }
-                    }, this.crossfadeDuration + 10); // Minimal delay after fade
-                }
-
-                // Switch to new howl
-                this.howl = this.nextHowl;
-                this.nextHowl = null;
-                this.state.duration = this.howl?.duration() || 0;
-                this.emit("load", { duration: this.state.duration });
-
-                // Start playing with fade in
-                this.howl?.play();
-                this.howl?.fade(0, targetVolume, this.crossfadeDuration);
-                
-                setTimeout(() => {
-                    this.isCrossfading = false;
-                }, this.crossfadeDuration);
-            },
-            onloaderror: (id, error) => {
-                console.error("[HowlerEngine] Crossfade load error:", error);
-                this.isLoading = false;
-                this.isCrossfading = false;
-                this.nextHowl?.unload();
-                this.nextHowl = null;
-                this.emit("loaderror", { error });
-            },
-            onplayerror: (id, error) => {
-                console.error("[HowlerEngine] Crossfade play error:", error);
-                this.state.isPlaying = false;
-                this.isCrossfading = false;
-                this.emit("playerror", { error });
-            },
-            onplay: () => {
-                this.state.isPlaying = true;
-                this.startTimeUpdates();
-                this.emit("play");
-            },
-            onpause: () => {
-                this.state.isPlaying = false;
-                this.stopTimeUpdates();
-                this.emit("pause");
-            },
-            onstop: () => {
-                this.state.isPlaying = false;
-                this.state.currentTime = 0;
-                this.stopTimeUpdates();
-                this.emit("stop");
-            },
-            onend: () => {
-                this.state.isPlaying = false;
-                this.stopTimeUpdates();
-                this.emit("end");
-            },
-            onseek: () => {
-                if (this.howl) {
-                    this.state.currentTime = this.howl.seek() as number;
-                    this.emit("seek", { time: this.state.currentTime });
-                }
-            },
-        });
-    }
-
-    /**
      * Cleanup current Howl instance
      */
     private cleanup(): void {
         this.stopTimeUpdates();
-        this.isCrossfading = false;
-
-        if (this.nextHowl) {
-            try {
-                this.nextHowl.stop();
-                this.nextHowl.unload();
-            } catch (e) {
-                // Ignore
-            }
-            this.nextHowl = null;
-        }
 
         if (this.howl) {
-            // Stop playback first
+            const oldHowl = this.howl;
+            const wasPlaying = this.state.isPlaying;
+            const targetVolume = this.state.isMuted ? 0 : this.state.volume;
+
+            // Detach immediately so new loads don't race with cleanup.
+            this.howl = null;
+
             try {
-                this.howl.stop();
-                this.howl.unload();
-            } catch (e) {
+                if (wasPlaying) {
+                    // Micro-fade before stop/unload to reduce click/pop artifacts.
+                    oldHowl.fade(targetVolume, 0, this.popFadeMs);
+                    setTimeout(() => {
+                        try {
+                            oldHowl.stop();
+                            oldHowl.unload();
+                        } catch {
+                            // ignore
+                        }
+                    }, this.popFadeMs + 2);
+                } else {
+                    oldHowl.stop();
+                    oldHowl.unload();
+                }
+            } catch {
                 // Ignore errors during cleanup
             }
-            this.howl = null;
         }
 
         // Note: Removed Howler.unload() - it was unloading ALL audio globally
@@ -578,7 +483,6 @@ class HowlerEngine {
         this.cleanup();
         this.isLoading = false;
         this.eventListeners.clear();
-        Howler.unload();
     }
 }
 

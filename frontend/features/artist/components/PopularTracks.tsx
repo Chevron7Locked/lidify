@@ -67,11 +67,25 @@ export const PopularTracks: React.FC<PopularTracksProps> = ({
                     ? { borderLeftColor: colors?.vibrant || '#a855f7' }
                     : undefined
                 }
-                onClick={() => onPlayTrack(track)}
+                onClick={(e) => {
+                  // For unowned tracks (no valid album), play preview instead
+                  const isUnowned = !track.album?.id || !track.album?.title || track.album.title === 'Unknown Album';
+                  if (isUnowned) {
+                    onPreview(track, e);
+                  } else {
+                    onPlayTrack(track);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    onPlayTrack(track);
+                    // Same logic for keyboard navigation
+                    const isUnowned = !track.album?.id || !track.album?.title || track.album.title === 'Unknown Album';
+                    if (isUnowned) {
+                      onPreview(track, e as unknown as React.MouseEvent);
+                    } else {
+                      onPlayTrack(track);
+                    }
                   }
                 }}
               >

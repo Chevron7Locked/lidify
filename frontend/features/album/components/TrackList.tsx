@@ -80,6 +80,15 @@ const TrackRow = memo(function TrackRow({
     onPlayTrack(track, index);
   }, [track, index, onPlayTrack]);
 
+  const handleRowClick = useCallback((e: React.MouseEvent) => {
+    // For unowned tracks, play preview instead of local file
+    if (isPreviewOnly) {
+      onPreview(track, e);
+    } else {
+      onPlayTrack(track, index);
+    }
+  }, [isPreviewOnly, track, index, onPlayTrack, onPreview]);
+
   return (
     <div
       data-track-row
@@ -96,11 +105,15 @@ const TrackRow = memo(function TrackRow({
           ? { borderLeftColor: colors?.vibrant || '#a855f7' }
           : undefined
       }
-      onClick={handlePlayTrack}
+      onClick={handleRowClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          handlePlayTrack();
+          if (isPreviewOnly) {
+            onPreview(track, e as unknown as React.MouseEvent);
+          } else {
+            handlePlayTrack();
+          }
         }
       }}
     >
@@ -189,7 +202,8 @@ const TrackRow = memo(function TrackRow({
     prevProps.track.id === nextProps.track.id &&
     prevProps.isPlaying === nextProps.isPlaying &&
     prevProps.isPreviewPlaying === nextProps.isPreviewPlaying &&
-    prevProps.index === nextProps.index
+    prevProps.index === nextProps.index &&
+    prevProps.isOwned === nextProps.isOwned
   );
 });
 

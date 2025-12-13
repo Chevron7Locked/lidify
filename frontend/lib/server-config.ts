@@ -1,6 +1,6 @@
 "use client";
 
-import { isNativePlatform } from "./platform";
+import { isCapacitorShell } from "./platform";
 import { Preferences } from "@capacitor/preferences";
 
 const SERVER_URL_KEY = "lidify_server_url";
@@ -20,8 +20,8 @@ export const serverConfig = {
             return null;
         }
         
-        // Try Capacitor Preferences first (persistent on native)
-        if (isNativePlatform()) {
+        // Try Capacitor Preferences first (persistent in the Capacitor shell)
+        if (isCapacitorShell()) {
             try {
                 const { value } = await Preferences.get({ key: SERVER_URL_KEY });
                 if (value) {
@@ -46,7 +46,7 @@ export const serverConfig = {
         if (typeof window !== "undefined") {
             localStorage.setItem(SERVER_URL_KEY, normalizedUrl);
             
-            if (isNativePlatform()) {
+            if (isCapacitorShell()) {
                 try {
                     await Preferences.set({ key: SERVER_URL_KEY, value: normalizedUrl });
                 } catch (error) {
@@ -63,7 +63,7 @@ export const serverConfig = {
         if (typeof window !== "undefined") {
             localStorage.removeItem(SERVER_URL_KEY);
             
-            if (isNativePlatform()) {
+            if (isCapacitorShell()) {
                 try {
                     await Preferences.remove({ key: SERVER_URL_KEY });
                 } catch (error) {

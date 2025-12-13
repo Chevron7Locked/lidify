@@ -14,7 +14,7 @@ import { GradientSpinner } from "../ui/GradientSpinner";
 import { ReactNode } from "react";
 import { useIsMobile, useIsTablet } from "@/hooks/useMediaQuery";
 import { useIsTV } from "@/lib/tv-utils";
-import { isNativePlatform } from "@/lib/platform";
+import { isAndroidWebView, isNativePlatform } from "@/lib/platform";
 import { useAppLifecycle } from "@/hooks/useAppLifecycle";
 
 const publicPaths = ["/login", "/register", "/onboarding", "/sync"];
@@ -63,12 +63,13 @@ export function AuthenticatedLayout({ children }: { children: ReactNode }) {
 
         // Desktop/Mobile/Tablet Layout
         const isNative = isNativePlatform();
+        const isInAndroidWebView = isAndroidWebView();
         return (
             <PlayerModeWrapper>
                 <div 
                     className="h-screen bg-black overflow-hidden flex flex-col"
                     style={{ 
-                        paddingTop: isNative 
+                        paddingTop: (isNative || isInAndroidWebView)
                             ? 'calc(max(env(safe-area-inset-top, 0px), 52px) + 64px)' 
                             : '64px' // Web: just the header height
                     }}

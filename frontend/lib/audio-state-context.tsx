@@ -10,6 +10,23 @@ import {
 } from "react";
 import { api } from "@/lib/api";
 
+function queueDebugEnabled(): boolean {
+    try {
+        return (
+            typeof window !== "undefined" &&
+            window.localStorage?.getItem("lidifyQueueDebug") === "1"
+        );
+    } catch {
+        return false;
+    }
+}
+
+function queueDebugLog(message: string, data?: Record<string, unknown>) {
+    if (!queueDebugEnabled()) return;
+    // eslint-disable-next-line no-console
+    console.log(`[QueueDebug] ${message}`, data || {});
+}
+
 export type PlayerMode = "full" | "mini" | "overlay";
 
 export interface Track {
@@ -49,6 +66,8 @@ export interface Podcast {
     } | null;
 }
 
+type SetStateAction<T> = T | ((prev: T) => T);
+
 interface AudioStateContextType {
     // Media state
     currentTrack: Track | null;
@@ -76,21 +95,23 @@ interface AudioStateContextType {
     repeatOneCount: number;
 
     // State setters (for controls context)
-    setCurrentTrack: (track: Track | null) => void;
-    setCurrentAudiobook: (audiobook: Audiobook | null) => void;
-    setCurrentPodcast: (podcast: Podcast | null) => void;
-    setPlaybackType: (type: "track" | "audiobook" | "podcast" | null) => void;
-    setQueue: (queue: Track[] | ((prev: Track[]) => Track[])) => void;
-    setCurrentIndex: (index: number | ((prev: number) => number)) => void;
-    setIsShuffle: (shuffle: boolean | ((prev: boolean) => boolean)) => void;
-    setRepeatMode: (mode: "off" | "one" | "all") => void;
-    setShuffleIndices: (indices: number[]) => void;
-    setPlayerMode: (mode: PlayerMode) => void;
-    setPreviousPlayerMode: (mode: PlayerMode) => void;
-    setVolume: (volume: number) => void;
-    setIsMuted: (muted: boolean) => void;
-    setLastServerSync: (date: Date | null) => void;
-    setRepeatOneCount: (count: number) => void;
+    setCurrentTrack: (track: SetStateAction<Track | null>) => void;
+    setCurrentAudiobook: (audiobook: SetStateAction<Audiobook | null>) => void;
+    setCurrentPodcast: (podcast: SetStateAction<Podcast | null>) => void;
+    setPlaybackType: (
+        type: SetStateAction<"track" | "audiobook" | "podcast" | null>
+    ) => void;
+    setQueue: (queue: SetStateAction<Track[]>) => void;
+    setCurrentIndex: (index: SetStateAction<number>) => void;
+    setIsShuffle: (shuffle: SetStateAction<boolean>) => void;
+    setRepeatMode: (mode: SetStateAction<"off" | "one" | "all">) => void;
+    setShuffleIndices: (indices: SetStateAction<number[]>) => void;
+    setPlayerMode: (mode: SetStateAction<PlayerMode>) => void;
+    setPreviousPlayerMode: (mode: SetStateAction<PlayerMode>) => void;
+    setVolume: (volume: SetStateAction<number>) => void;
+    setIsMuted: (muted: SetStateAction<boolean>) => void;
+    setLastServerSync: (date: SetStateAction<Date | null>) => void;
+    setRepeatOneCount: (count: SetStateAction<number>) => void;
 }
 
 const AudioStateContext = createContext<AudioStateContextType | undefined>(
@@ -377,8 +398,11 @@ export function AudioStateProvider({ children }: { children: ReactNode }) {
                 // Limit queue to first 100 items to reduce payload size
                 // Backend also limits to 100, so this matches server storage
                 const limitedQueue = queue?.slice(0, 100);
-                const adjustedIndex = Math.min(currentIndex, (limitedQueue?.length || 1) - 1);
-                
+                const adjustedIndex = Math.min(
+                    currentIndex,
+                    (limitedQueue?.length || 1) - 1
+                );
+
                 const result = await api.savePlaybackState({
                     playbackType,
                     trackId: currentTrack?.id,
@@ -389,6 +413,14 @@ export function AudioStateProvider({ children }: { children: ReactNode }) {
                     isShuffle,
                 });
                 setLastServerSync(new Date(result.updatedAt));
+                queueDebugLog("Saved playback state to server", {
+                    playbackType,
+                    trackId: currentTrack?.id,
+                    queueLen: limitedQueue?.length || 0,
+                    currentIndex: adjustedIndex,
+                    isShuffle,
+                    updatedAt: result.updatedAt,
+                });
             } catch (err: any) {
                 if (err.message !== "Not authenticated") {
                     console.error(
@@ -529,6 +561,15 @@ export function AudioStateProvider({ children }: { children: ReactNode }) {
                         JSON.stringify(serverState.queue) !==
                         JSON.stringify(queue)
                     ) {
+                        queueDebugLog("Polling applied server queue", {
+                            serverQueueLen: serverState.queue?.length || 0,
+                            localQueueLen: queue?.length || 0,
+                            serverCurrentIndex: serverState.currentIndex || 0,
+                            localCurrentIndex: currentIndex,
+                            serverIsShuffle: serverState.isShuffle,
+                            localIsShuffle: isShuffle,
+                            serverUpdatedAt: serverState.updatedAt,
+                        });
                         setQueue(serverState.queue || []);
                         setCurrentIndex(serverState.currentIndex || 0);
                         setIsShuffle(serverState.isShuffle || false);

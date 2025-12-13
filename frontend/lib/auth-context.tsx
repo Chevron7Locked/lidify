@@ -9,8 +9,9 @@ import {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { api } from "./api";
-import { isNativePlatform } from "./platform";
+import { isCapacitorShell } from "./platform";
 import { isServerConfigured, initServerUrlCache } from "./server-config";
+import { Preferences } from "@capacitor/preferences";
 
 interface User {
     id: string;
@@ -52,14 +53,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (tokenFromUrl) {
                     // Store the token from URL
                     api.setToken(tokenFromUrl);
+                    // In the Capacitor shell, await Preferences write to avoid racing a force-close right after redirect.
+                    // api.setToken() writes to Preferences too, but not awaited (fire-and-forget).
+                    if (isCapacitorShell()) {
+                        try {
+                            await Preferences.set({
+                                key: "auth_token",
+                                value: tokenFromUrl,
+                            });
+                        } catch (err) {
+                            console.warn(
+                                "[AUTH] Preferences.set failed for tokenFromUrl:",
+                                err
+                            );
+                        }
+                    }
                     // Clean up URL (remove token param)
                     const cleanUrl = window.location.pathname;
                     window.history.replaceState({}, "", cleanUrl);
                 }
             }
 
-            // On native platforms, wait for server URL to be configured
-            if (isNativePlatform()) {
+            // Only the Capacitor shell should require server URL configuration.
+            if (isCapacitorShell()) {
                 try {
                     const serverUrl = await initServerUrlCache();
                     if (!serverUrl) {

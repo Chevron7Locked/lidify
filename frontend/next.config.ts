@@ -3,6 +3,21 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
     // For Capacitor: Uses dev server for dynamic routes
     // Static export doesn't work with dynamic routes like /album/[id]
+    
+    // Allow dev origins - Android emulator uses 10.0.2.2 to reach host
+    allowedDevOrigins: [
+        // Local dev (browser on host)
+        "http://127.0.0.1:3030",
+        "http://127.0.0.1",
+        "127.0.0.1",
+        "http://localhost:3030",
+        "http://localhost",
+        "localhost",
+        "http://10.0.2.2:3030",
+        "http://10.0.2.2",
+        "10.0.2.2",
+    ],
+    
     typescript: {
         ignoreBuildErrors: true, // Temporarily ignore TS errors for Capacitor setup
     },
@@ -94,7 +109,7 @@ const nextConfig: NextConfig = {
     // Proxy API requests to backend (for Docker all-in-one container)
     // All backend routes are prefixed with /api for clear separation
     async rewrites() {
-        const backendUrl = process.env.BACKEND_URL || "http://localhost:3006";
+        const backendUrl = process.env.BACKEND_URL || "http://127.0.0.1:3006";
         
         return [
             // Proxy all /api/* requests to backend

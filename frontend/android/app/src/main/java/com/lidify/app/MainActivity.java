@@ -9,6 +9,11 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Switch from the launch (splash) theme to the normal theme.
+        // Without this, `AppTheme.NoActionBarLaunch`'s windowBackground can stay forever,
+        // making it look like the splash screen never hides.
+        setTheme(R.style.AppTheme_NoActionBar);
+
         super.onCreate(savedInstanceState);
         
         // Enable edge-to-edge display

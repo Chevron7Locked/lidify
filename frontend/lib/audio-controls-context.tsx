@@ -21,6 +21,23 @@ import { preloadImages } from "@/utils/imageCache";
 import { api } from "@/lib/api";
 import { audioSeekEmitter } from "./audio-seek-emitter";
 
+function queueDebugEnabled(): boolean {
+    try {
+        return (
+            typeof window !== "undefined" &&
+            window.localStorage?.getItem("lidifyQueueDebug") === "1"
+        );
+    } catch {
+        return false;
+    }
+}
+
+function queueDebugLog(message: string, data?: Record<string, unknown>) {
+    if (!queueDebugEnabled()) return;
+    // eslint-disable-next-line no-console
+    console.log(`[QueueDebug] ${message}`, data || {});
+}
+
 interface AudioControlsContextType {
     // Track methods
     playTrack: (track: Track) => void;
@@ -70,18 +87,81 @@ const AudioControlsContext = createContext<
 export function AudioControlsProvider({ children }: { children: ReactNode }) {
     const state = useAudioState();
     const playback = useAudioPlayback();
-    
+    const upNextInsertRef = useRef<number>(0);
+    const shuffleInsertPosRef = useRef<number>(0);
+    const lastQueueInsertAtRef = useRef<number | null>(null);
+    const lastCursorTrackIndexRef = useRef<number | null>(null);
+    const lastCursorIsShuffleRef = useRef<boolean | null>(null);
+
     // Ref to track repeat-one timeout for cleanup
     const repeatTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Cleanup timeout on unmount
     useEffect(() => {
+        queueDebugLog("AudioControlsProvider mounted");
         return () => {
             if (repeatTimeoutRef.current) {
                 clearTimeout(repeatTimeoutRef.current);
             }
+            queueDebugLog("AudioControlsProvider unmounted");
         };
     }, []);
+
+    // Keep a stable "Up Next" insertion cursor like Spotify:
+    // - When the current track changes, reset to "right after current"
+    // - Each addToQueue inserts at the cursor and advances it
+    useEffect(() => {
+        if (state.playbackType !== "track") {
+            upNextInsertRef.current = 0;
+            shuffleInsertPosRef.current = 0;
+            lastCursorTrackIndexRef.current = null;
+            lastCursorIsShuffleRef.current = null;
+            return;
+        }
+        const prevIdx = lastCursorTrackIndexRef.current;
+        const prevShuffle = lastCursorIsShuffleRef.current;
+        const trackChanged = prevIdx !== state.currentIndex;
+        const shuffleToggled = prevShuffle !== state.isShuffle;
+
+        // Up-next cursor should never move backwards unless track changes / shuffle toggles
+        const baseUpNext = state.currentIndex + 1;
+        upNextInsertRef.current =
+            trackChanged || shuffleToggled
+                ? baseUpNext
+                : Math.max(upNextInsertRef.current, baseUpNext);
+
+        if (state.isShuffle) {
+            const currentShufflePos = state.shuffleIndices.indexOf(
+                state.currentIndex
+            );
+            const baseShufflePos =
+                currentShufflePos >= 0 ? currentShufflePos + 1 : 0;
+            // Do NOT reset to base on every shuffleIndices update; only move forward.
+            shuffleInsertPosRef.current =
+                trackChanged || shuffleToggled
+                    ? baseShufflePos
+                    : Math.max(shuffleInsertPosRef.current, baseShufflePos);
+        } else {
+            shuffleInsertPosRef.current = 0;
+        }
+
+        lastCursorTrackIndexRef.current = state.currentIndex;
+        lastCursorIsShuffleRef.current = state.isShuffle;
+        queueDebugLog("Cursor updated", {
+            currentIndex: state.currentIndex,
+            isShuffle: state.isShuffle,
+            upNextCursor: upNextInsertRef.current,
+            shuffleCursor: shuffleInsertPosRef.current,
+            shuffleIndicesLen: state.shuffleIndices?.length || 0,
+            queueLen: state.queue?.length || 0,
+        });
+    }, [
+        state.currentIndex,
+        state.playbackType,
+        state.isShuffle,
+        state.shuffleIndices,
+        state.queue.length,
+    ]);
 
     // Generate shuffled indices
     const generateShuffleIndices = useCallback(
@@ -119,6 +199,12 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
             if (tracks.length === 0) {
                 return;
             }
+            queueDebugLog("playTracks()", {
+                tracksLen: tracks.length,
+                startIndex,
+                firstTrackId: tracks[0]?.id,
+                startTrackId: tracks[startIndex]?.id,
+            });
 
             state.setPlaybackType("track");
             state.setCurrentAudiobook(null);
@@ -211,7 +297,10 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
                 clearTimeout(repeatTimeoutRef.current);
             }
             // Short delay for audio element state synchronization
-            repeatTimeoutRef.current = setTimeout(() => playback.setIsPlaying(true), 10);
+            repeatTimeoutRef.current = setTimeout(
+                () => playback.setIsPlaying(true),
+                10
+            );
             return;
         }
 
@@ -222,6 +311,11 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
             const currentShufflePos = state.shuffleIndices.indexOf(
                 state.currentIndex
             );
+            queueDebugLog("next() shuffle", {
+                currentIndex: state.currentIndex,
+                currentShufflePos,
+                shuffleIndicesLen: state.shuffleIndices.length,
+            });
             if (currentShufflePos < state.shuffleIndices.length - 1) {
                 nextIndex = state.shuffleIndices[currentShufflePos + 1];
             } else {
@@ -243,6 +337,12 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
             }
         }
 
+        queueDebugLog("next() chosen", {
+            isShuffle: state.isShuffle,
+            nextIndex,
+            nextTrackId: state.queue[nextIndex]?.id,
+            queueLen: state.queue.length,
+        });
         state.setCurrentIndex(nextIndex);
         state.setCurrentTrack(state.queue[nextIndex]);
         playback.setCurrentTime(0);
@@ -280,6 +380,15 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
 
     const addToQueue = useCallback(
         (track: Track) => {
+            queueDebugLog("addToQueue() entry", {
+                trackId: track?.id,
+                queueLen: state.queue.length,
+                currentIndex: state.currentIndex,
+                playbackType: state.playbackType,
+                isShuffle: state.isShuffle,
+                upNextCursor: upNextInsertRef.current,
+                shuffleCursor: shuffleInsertPosRef.current,
+            });
             // If no tracks are playing (empty queue or non-track playback), start fresh
             if (state.queue.length === 0 || state.playbackType !== "track") {
                 state.setPlaybackType("track");
@@ -291,29 +400,84 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
                 playback.setIsPlaying(true);
                 playback.setCurrentTime(0);
                 state.setShuffleIndices([0]);
+                queueDebugLog("addToQueue() started fresh queue", {
+                    trackId: track?.id,
+                });
                 return;
             }
-            
-            // Add track after current track using functional update to get fresh state
-            const currentIdx = state.currentIndex;
-            
+
+            // Spotify-style: "Add to queue" should add to the Up Next list.
+            // Maintain a cursor so multiple adds preserve order and don't all land in the same slot.
+            const playingIdx = state.currentIndex;
+            const plannedInsertAt = upNextInsertRef.current;
+
             state.setQueue((prevQueue) => {
+                const insertAt = Math.min(
+                    Math.max(0, plannedInsertAt),
+                    prevQueue.length
+                );
+                // Keep existing log payload shape: it expects insertAt === currentIdx + 1.
+                const currentIdx = insertAt - 1;
                 const newQueue = [...prevQueue];
-                newQueue.splice(currentIdx + 1, 0, track);
+                newQueue.splice(insertAt, 0, track);
+                upNextInsertRef.current = insertAt + 1;
+                lastQueueInsertAtRef.current = insertAt;
+                queueDebugLog("addToQueue() applied", {
+                    plannedInsertAt,
+                    insertAt,
+                    playingIdx,
+                    prevLen: prevQueue.length,
+                    newLen: newQueue.length,
+                    insertedTrackId: track?.id,
+                    nextUpSliceIds: newQueue
+                        .slice(state.currentIndex + 1, state.currentIndex + 6)
+                        .map((t) => t?.id),
+                });
+
                 return newQueue;
             });
-            
+
             // Update shuffle indices if shuffle is on - use functional update
             if (state.isShuffle) {
                 state.setShuffleIndices((prevIndices) => {
                     if (prevIndices.length === 0) return prevIndices;
-                    // Add the new index at a random position (except before current)
-                    const newIndex = state.queue.length; // This will be the index of the new track
-                    const newIndices = [...prevIndices];
-                    // Insert at a random position after the current shuffle position
-                    const currentShufflePos = newIndices.indexOf(currentIdx);
-                    const insertPos = currentShufflePos + 1 + Math.floor(Math.random() * (newIndices.length - currentShufflePos));
-                    newIndices.splice(insertPos, 0, newIndex);
+                    // Shuffle mode: still support "Up Next" by inserting into the shuffle order
+                    // right after the current shuffle position, preserving add order.
+                    // We cannot perfectly know the queue insertAt here without atomically coupling
+                    // queue+shuffle state; we approximate using the planned insert index and adjust.
+                    const insertAtCandidate =
+                        lastQueueInsertAtRef.current ?? plannedInsertAt;
+                    const insertAt = Math.min(
+                        Math.max(0, insertAtCandidate),
+                        state.queue.length
+                    );
+                    const shifted = prevIndices.map((i) =>
+                        i >= insertAt ? i + 1 : i
+                    );
+                    const currentShufflePos = shifted.indexOf(playingIdx);
+                    const baseInsertPos =
+                        currentShufflePos >= 0 ? currentShufflePos + 1 : 0;
+                    const insertPos = Math.min(
+                        Math.max(baseInsertPos, shuffleInsertPosRef.current),
+                        shifted.length
+                    );
+                    const newIndices = [...shifted];
+                    newIndices.splice(insertPos, 0, insertAt);
+                    shuffleInsertPosRef.current = insertPos + 1;
+                    const newIndex = insertAt;
+                    const currentIdx = playingIdx;
+                    queueDebugLog("addToQueue() shuffleIndices updated", {
+                        currentIdx,
+                        insertAt,
+                        insertPos,
+                        prevIndicesLen: prevIndices.length,
+                        newIndicesLen: newIndices.length,
+                        nextShuffleSlice: newIndices.slice(
+                            Math.max(0, insertPos - 2),
+                            insertPos + 3
+                        ),
+                    });
+
                     return newIndices;
                 });
             }
@@ -389,12 +553,17 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
 
     const seek = useCallback(
         (time: number) => {
+            // Prefer canonical durations for long-form media. If both exist, take the safer minimum.
+            const mediaDuration =
+                state.playbackType === "podcast"
+                    ? state.currentPodcast?.duration || 0
+                    : state.playbackType === "audiobook"
+                    ? state.currentAudiobook?.duration || 0
+                    : state.currentTrack?.duration || 0;
             const maxDuration =
-                playback.duration ||
-                state.currentTrack?.duration ||
-                state.currentAudiobook?.duration ||
-                state.currentPodcast?.duration ||
-                0;
+                mediaDuration > 0 && playback.duration > 0
+                    ? Math.min(mediaDuration, playback.duration)
+                    : mediaDuration || playback.duration || 0;
             const clampedTime =
                 maxDuration > 0
                     ? Math.min(Math.max(time, 0), maxDuration)
@@ -405,33 +574,43 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
 
             // Keep audiobook/podcast progress in sync locally so detail pages reflect scrubs
             if (state.playbackType === "audiobook" && state.currentAudiobook) {
-                const duration = state.currentAudiobook.duration || 0;
-                const progressPercent =
-                    duration > 0 ? (clampedTime / duration) * 100 : 0;
-                state.setCurrentAudiobook({
-                    ...state.currentAudiobook,
-                    progress: {
-                        currentTime: clampedTime,
-                        progress: progressPercent,
-                        isFinished: false,
-                        lastPlayedAt: new Date(),
-                    },
+                // IMPORTANT: use functional update to avoid stale-closure overwrites
+                // (seeking must never be able to swap the currently-playing audiobook)
+                state.setCurrentAudiobook((prev) => {
+                    if (!prev) return prev;
+                    const duration = prev.duration || 0;
+                    const progressPercent =
+                        duration > 0 ? (clampedTime / duration) * 100 : 0;
+                    return {
+                        ...prev,
+                        progress: {
+                            currentTime: clampedTime,
+                            progress: progressPercent,
+                            isFinished: false,
+                            lastPlayedAt: new Date(),
+                        },
+                    };
                 });
             } else if (
                 state.playbackType === "podcast" &&
                 state.currentPodcast
             ) {
-                const duration = state.currentPodcast.duration || 0;
-                const progressPercent =
-                    duration > 0 ? (clampedTime / duration) * 100 : 0;
-                state.setCurrentPodcast({
-                    ...state.currentPodcast,
-                    progress: {
-                        currentTime: clampedTime,
-                        progress: progressPercent,
-                        isFinished: false,
-                        lastPlayedAt: new Date(),
-                    },
+                // IMPORTANT: use functional update to avoid stale-closure overwrites
+                // (seeking must never be able to swap the currently-playing episode)
+                state.setCurrentPodcast((prev) => {
+                    if (!prev) return prev;
+                    const duration = prev.duration || 0;
+                    const progressPercent =
+                        duration > 0 ? (clampedTime / duration) * 100 : 0;
+                    return {
+                        ...prev,
+                        progress: {
+                            currentTime: clampedTime,
+                            progress: progressPercent,
+                            isFinished: false,
+                            lastPlayedAt: new Date(),
+                        },
+                    };
                 });
             }
 

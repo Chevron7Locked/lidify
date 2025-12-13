@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { isNativePlatform } from "@/lib/platform";
+import { isCapacitorShell } from "@/lib/platform";
 import { serverConfig, updateServerUrlCache } from "@/lib/server-config";
 import { api } from "@/lib/api";
 
@@ -82,7 +82,8 @@ export function useDeepLink() {
     }, [router]);
 
     useEffect(() => {
-        if (!isNativePlatform()) return;
+        // Only attach Capacitor App listeners in the Capacitor shell origin.
+        if (!isCapacitorShell()) return;
 
         let urlOpenHandle: any = null;
 
