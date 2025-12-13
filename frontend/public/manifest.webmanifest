@@ -4,7 +4,8 @@
   "description": "Self-hosted music streaming with Lidarr integration",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",
   "categories": ["music", "entertainment"],
@@ -50,6 +51,20 @@
       "type": "image/webp",
       "sizes": "512x512",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Search",
+      "short_name": "Search",
+      "url": "/search",
+      "icons": [{ "src": "assets/icons/icon-96.webp", "sizes": "96x96" }]
+    },
+    {
+      "name": "Library",
+      "short_name": "Library",
+      "url": "/library",
+      "icons": [{ "src": "assets/icons/icon-96.webp", "sizes": "96x96" }]
     }
   ]
 }
