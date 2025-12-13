@@ -1,17 +1,28 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+// ============================================================================
+// DEVELOPMENT MODE: Set your dev server URL here for local testing with plugins
+// Comment out for production builds!
+// ============================================================================
+const DEV_SERVER_URL = 'http://192.168.50.112:3030'; // Your LAN IP
+// const DEV_SERVER_URL = undefined; // Uncomment for production build
+
 const config: CapacitorConfig = {
   appId: 'com.lidify.app',
   appName: 'Lidify',
   webDir: 'out',
 
-  // No server.url - load from bundled shell HTML
-  // Shell asks user for their server URL
-  // IMPORTANT: the shell then navigates to the user’s server origin (remote URL).
-  // Allow navigation to arbitrary self-hosted servers inside the WebView.
-  server: {
-    allowNavigation: ["*"],
-  },
+  server: DEV_SERVER_URL 
+    ? {
+        // DEV MODE: Proxy dev server through localhost - plugins work!
+        url: DEV_SERVER_URL,
+        cleartext: true, // Allow HTTP
+      }
+    : {
+        // PRODUCTION MODE: Bundle shell, navigate to user's server
+        // WARNING: Plugins won't work on remote origins!
+        allowNavigation: ["*"],
+      },
   
   android: {
     backgroundColor: '#000000',

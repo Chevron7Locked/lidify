@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { howlerEngine } from "@/lib/howler-engine";
 import { audioSeekEmitter } from "@/lib/audio-seek-emitter";
 import { isCapacitorShell } from "@/lib/platform";
-import { useEffect, useLayoutEffect, useRef, memo, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, memo, useCallback, useMemo } from "react";
 
 // Capacitor imports for native platform
 let KeepAwake: any = null;
@@ -113,7 +113,6 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     const lastPlayingStateRef = useRef<boolean>(isPlaying);
     const progressSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const lastProgressSaveRef = useRef<number>(0);
-    const mediaControlsInitialized = useRef<boolean>(false);
     const mediaControlsCreated = useRef<boolean>(false); // Track if create() has been called
     // Check native status synchronously to avoid timing race conditions
     // The Capacitor bridge is available as soon as the page loads in the WebView
@@ -133,6 +132,10 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     const cacheStatusPollingRef = useRef<NodeJS.Timeout | null>(null); // Polling cache status for canSeek
     const seekReloadListenerRef = useRef<(() => void) | null>(null); // Track current seek-reload listener to prevent stacking
     const seekReloadInProgressRef = useRef<boolean>(false); // Guard against pause events during seek-reload
+    
+    // Media controls throttling to prevent rapid repeated calls
+    const lastMediaControlsUpdateRef = useRef<number>(0);
+    const lastMediaControlsDataRef = useRef<string>(""); // Track what we last sent to avoid duplicates
     
     // Background playback recovery refs
     const expectedPlayingRef = useRef<boolean>(false); // What we EXPECT the playback state to be
@@ -899,16 +902,16 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
         };
     }, [playbackType, isPlaying, saveAudiobookProgress, savePodcastProgress]);
 
-    // Native media controls setup callback
-    const updateNativeMediaControls = useCallback(async () => {
-        console.log("[NativeAudio] updateNativeMediaControls called", {
-            isNative: isNative.current,
-            hasPlugin: !!CapacitorMusicControls,
-            hasTrack: !!(currentTrack || currentAudiobook || currentPodcast),
-        });
-        
+    // Track key for deduplication - only changes when the actual media changes
+    const currentMediaKey = useMemo(() => {
+        const title = currentTrack?.title || currentAudiobook?.title || currentPodcast?.title || "";
+        const artist = currentTrack?.artist?.name || currentAudiobook?.author || currentPodcast?.podcastTitle || "";
+        return `${title}|${artist}`;
+    }, [currentTrack, currentAudiobook, currentPodcast]);
+
+    // Native media controls - CREATE notification (only when track changes)
+    const createNativeMediaControls = useCallback(async () => {
         if (!isNative.current || !CapacitorMusicControls) {
-            console.log("[NativeAudio] Skipping media controls - not native or plugin not loaded");
             return;
         }
 
@@ -933,14 +936,19 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                 ? api.getCoverArtUrl(currentPodcast.coverUrl, 256)
                 : "";
 
+        // Deduplicate: skip if same track and created recently (within 3s)
+        const now = Date.now();
+        const timeSinceLastCreate = now - lastMediaControlsUpdateRef.current;
+        
+        if (currentMediaKey === lastMediaControlsDataRef.current && timeSinceLastCreate < 3000) {
+            return;
+        }
+        
+        lastMediaControlsUpdateRef.current = now;
+        lastMediaControlsDataRef.current = currentMediaKey;
+
         try {
-            console.log("[NativeAudio] Creating/updating media notification", {
-                title,
-                artist,
-                album,
-                hasCover: Boolean(coverUrl),
-                isPlaying,
-            });
+            console.log("[NativeAudio] Creating media notification for:", title);
             await CapacitorMusicControls.create({
                 track: title,
                 artist: artist,
@@ -949,68 +957,123 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                 hasPrev: true,
                 hasNext: true,
                 hasClose: true,
+                // dismissable: false keeps the notification persistent (foreground service)
+                dismissable: false,
                 playIcon: "media_play",
                 pauseIcon: "media_pause",
                 prevIcon: "media_prev",
                 nextIcon: "media_next",
                 closeIcon: "media_close",
-                // Must match an existing Android drawable resource name.
-                // This project already ships `ic_stat_icon.png` in res/drawable-*dpi.
                 notificationIcon: "ic_stat_icon",
-                isPlaying: isPlaying,
+                isPlaying: true, // Always create as playing - we update state separately
             });
 
-            // Mark that create() has completed - safe to call updateIsPlaying now
+            // Mark that create() has completed
             mediaControlsCreated.current = true;
-
-            // Set up control event listeners (only once)
-            if (!mediaControlsInitialized.current) {
-                mediaControlsInitialized.current = true;
-
-                CapacitorMusicControls.addListener(
-                    "controlsNotification",
-                    (action: any) => {
-                        switch (action.message) {
-                            case "music-controls-play":
-                                resume();
-                                break;
-                            case "music-controls-pause":
-                                pause();
-                                break;
-                            case "music-controls-next":
-                                next();
-                                break;
-                            case "music-controls-previous":
-                                previous();
-                                break;
-                            case "music-controls-destroy":
-                                pause();
-                                break;
-                        }
-                    }
-                );
-            }
+            console.log("[NativeAudio] Media notification created successfully");
         } catch (err) {
-            console.error(
-                "[HowlerAudioElement] Failed to update media controls:",
-                err
-            );
+            console.error("[NativeAudio] Failed to create media controls:", err);
         }
-    }, [
-        currentTrack,
-        currentAudiobook,
-        currentPodcast,
-        isPlaying,
-        pause,
-        resume,
-        next,
-        previous,
-    ]);
+    }, [currentTrack, currentAudiobook, currentPodcast, currentMediaKey]);
 
-    // Update native media controls when track changes
+    // Native media controls - UPDATE play/pause state only (lightweight)
+    const updateNativePlayState = useCallback(async (playing: boolean) => {
+        if (!isNative.current || !CapacitorMusicControls || !mediaControlsCreated.current) {
+            return;
+        }
+
+        try {
+            await CapacitorMusicControls.updateIsPlaying({ isPlaying: playing });
+        } catch (err) {
+            // Silently fail - updateIsPlaying may not be supported or notification may have been destroyed
+        }
+    }, []);
+
+    // Store control functions in refs so the event callback always has fresh references
+    const pauseRef = useRef(pause);
+    const resumeRef = useRef(resume);
+    const nextRef = useRef(next);
+    const previousRef = useRef(previous);
+    
+    // Keep refs updated
     useEffect(() => {
-        updateNativeMediaControls();
-    }, [updateNativeMediaControls]);
+        pauseRef.current = pause;
+        resumeRef.current = resume;
+        nextRef.current = next;
+        previousRef.current = previous;
+    }, [pause, resume, next, previous]);
+
+    // Set up event listeners for media control buttons
+    // NOTE: capacitor-music-controls-plugin v6.x uses triggerJSEvent on document,
+    // NOT notifyListeners, so we must use document.addEventListener!
+    useEffect(() => {
+        if (!isNative.current) {
+            console.log("[NativeAudio] Skipping listener setup - not native");
+            return;
+        }
+
+        console.log("[NativeAudio] Setting up media control event listeners (document event)");
+
+        // Handler for the DOM event fired by the plugin
+        const handleControlEvent = (event: Event) => {
+            try {
+                // Capacitor's native bridge uses document.createEvent('Events') and copies
+                // eventData properties DIRECTLY onto the event object (not into event.detail).
+                // So we access event.message, not event.detail.message!
+                const message = (event as any).message;
+                console.log("[NativeAudio] Control event received, message:", message);
+                
+                switch (message) {
+                    case "music-controls-play":
+                        console.log("[NativeAudio] -> Resuming playback");
+                        resumeRef.current();
+                        break;
+                    case "music-controls-pause":
+                        console.log("[NativeAudio] -> Pausing playback");
+                        pauseRef.current();
+                        break;
+                    case "music-controls-next":
+                        console.log("[NativeAudio] -> Next track");
+                        nextRef.current();
+                        break;
+                    case "music-controls-previous":
+                        console.log("[NativeAudio] -> Previous track");
+                        previousRef.current();
+                        break;
+                    case "music-controls-destroy":
+                        console.log("[NativeAudio] -> Destroy (pausing)");
+                        pauseRef.current();
+                        break;
+                    default:
+                        console.log("[NativeAudio] Unknown control message:", message);
+                }
+            } catch (err) {
+                console.error("[NativeAudio] Failed to parse control event:", err, event);
+            }
+        };
+
+        // Add DOM event listener
+        document.addEventListener("controlsNotification", handleControlEvent);
+        console.log("[NativeAudio] Media control listener registered on document");
+
+        // Cleanup: remove listener on unmount
+        return () => {
+            console.log("[NativeAudio] Cleaning up media control event listeners");
+            document.removeEventListener("controlsNotification", handleControlEvent);
+        };
+    }, []); // Empty deps - set up once, refs handle updates
+
+    // Create native media controls when track changes
+    useEffect(() => {
+        if (currentTrack || currentAudiobook || currentPodcast) {
+            createNativeMediaControls();
+        }
+    }, [currentMediaKey, createNativeMediaControls]);
+
+    // Update native play/pause state when isPlaying changes
+    useEffect(() => {
+        updateNativePlayState(isPlaying);
+    }, [isPlaying, updateNativePlayState]);
 
     // On Android 13+, request POST_NOTIFICATIONS permission (via LocalNotifications) on first user-initiated playback.
     // We trigger this on playback start (not at app boot) to avoid early-start permission hangs on some devices.
@@ -1053,13 +1116,6 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
             }
         })();
     }, [isPlaying]);
-
-    // Ensure the native media notification exists while playing (not just on track change).
-    useEffect(() => {
-        if (!isNative.current) return;
-        if (!isPlaying) return;
-        updateNativeMediaControls();
-    }, [isPlaying, updateNativeMediaControls]);
 
     // Background playback watchdog - detects and recovers from stream interruptions
     useEffect(() => {
