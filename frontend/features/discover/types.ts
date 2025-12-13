@@ -24,6 +24,7 @@ export interface UnavailableAlbum {
   deezerTrackId: string | null;
   deezerAlbumId: string | null;
   available: false;
+  attemptNumber?: number;
 }
 
 export interface DiscoverPlaylist {

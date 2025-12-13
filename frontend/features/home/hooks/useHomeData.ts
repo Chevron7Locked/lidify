@@ -87,7 +87,7 @@ export function useHomeData(): UseHomeDataReturn {
     };
 
     // Process recently listened data - can contain artists, podcasts, or audiobooks
-    const items = recentlyListenedData?.items || recentlyListenedData?.artists || [];
+    const items = recentlyListenedData?.artists || [];
 
     // Calculate overall loading state - true if any query is loading
     const isLoading =

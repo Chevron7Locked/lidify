@@ -1,26 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    // For Capacitor: Uses dev server for dynamic routes
-    // Static export doesn't work with dynamic routes like /album/[id]
-    
-    // Allow dev origins - Android emulator uses 10.0.2.2 to reach host
+    // Allow dev origins for local network testing
     allowedDevOrigins: [
-        // Local dev (browser on host)
         "http://127.0.0.1:3030",
         "http://127.0.0.1",
         "127.0.0.1",
         "http://localhost:3030",
         "http://localhost",
         "localhost",
-        "http://10.0.2.2:3030",
-        "http://10.0.2.2",
-        "10.0.2.2",
     ],
     
-    typescript: {
-        ignoreBuildErrors: true, // Temporarily ignore TS errors for Capacitor setup
-    },
     images: {
         remotePatterns: [
             {
@@ -56,12 +46,6 @@ const nextConfig: NextConfig = {
                 pathname: "/**",
             },
             {
-                protocol: "http",
-                hostname: "localhost",
-                port: "3006",
-                pathname: "/**",
-            },
-            {
                 protocol: "https",
                 hostname: "assets.pippa.io",
                 pathname: "/**",
@@ -81,18 +65,9 @@ const nextConfig: NextConfig = {
         deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
         imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
         minimumCacheTTL: 60 * 60 * 24 * 7, // Cache for 7 days
-        // Allow private IPs in development for local backend
         dangerouslyAllowSVG: true,
-        unoptimized: true, // Must be true for static export (Capacitor requirement)
     },
-    reactStrictMode: false, // Disable strict mode to suppress hydration warnings
-    // Suppress hydration errors in production
-    ...(process.env.NODE_ENV === "production" && {
-        onDemandEntries: {
-            maxInactiveAge: 25 * 1000,
-            pagesBufferLength: 2,
-        },
-    }),
+    reactStrictMode: false,
     async headers() {
         return [
             {
@@ -107,17 +82,14 @@ const nextConfig: NextConfig = {
         ];
     },
     // Proxy API requests to backend (for Docker all-in-one container)
-    // All backend routes are prefixed with /api for clear separation
     async rewrites() {
         const backendUrl = process.env.BACKEND_URL || "http://127.0.0.1:3006";
         
         return [
-            // Proxy all /api/* requests to backend
             {
                 source: "/api/:path*",
                 destination: `${backendUrl}/api/:path*`,
             },
-            // Health check endpoint (at root for container health checks)
             {
                 source: "/health",
                 destination: `${backendUrl}/health`,

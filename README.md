@@ -12,9 +12,20 @@ Lidify is built for music lovers who want the convenience of streaming services 
 
 ---
 
+## A Note on Native Apps
+
+I got a little ambitious trying to ship both a polished web app AND a native Android app at the same time. Turns out, trying to half-ass two things is worse than whole-assing one thing.
+
+Lidify's web app and PWA are the priority. Once the core experience is solid and properly tested, a native mobile app (likely React Native) is on the roadmap. The PWA works great for most cases for now.
+
+Thanks for your patience while I work through this.
+
+---
+
 ## Table of Contents
 
 -   [Features](#features)
+-   [Mobile Support](#mobile-support)
 -   [Quick Start](#quick-start)
 -   [Configuration](#configuration)
 -   [Integrations](#integrations)
@@ -85,8 +96,8 @@ Lidify is built for music lovers who want the convenience of streaming services 
 
 ### Mobile and TV
 
--   **Android App** - Native Android application with full feature parity
--   **Android TV** - Fully optimized 10-foot interface with D-pad/remote navigation, now-playing bar, and simplified browsing
+-   **Progressive Web App (PWA)** - Install Lidify on your phone or tablet for a native-like experience
+-   **Android TV** - Fully optimized 10-foot interface with D-pad/remote navigation
 -   **Responsive Web** - Works on any device with a modern browser
 
 <p align="center">
@@ -94,6 +105,45 @@ Lidify is built for music lovers who want the convenience of streaming services 
   <img src="assets/screenshots/mobile-player.png" alt="Mobile Player" width="280">
   <img src="assets/screenshots/mobile-library.png" alt="Mobile Library" width="280">
 </p>
+
+---
+
+## Mobile Support
+
+### Progressive Web App (PWA)
+
+Lidify works as a PWA on mobile devices, giving you a native app-like experience without needing to download from an app store.
+
+**To install on Android:**
+
+1. Open your Lidify server in Chrome
+2. Tap the menu (⋮)
+3. Select "Add to Home Screen" or "Install app"
+
+**To install on iOS:**
+
+1. Open your Lidify server in Safari
+2. Tap the Share button
+3. Select "Add to Home Screen"
+
+**PWA Features:**
+
+-   Full streaming functionality
+-   Background audio playback
+-   Lock screen / notification media controls (via Media Session API)
+-   Offline caching for faster loads
+-   Installable icon on home screen
+
+### Android TV
+
+Lidify includes a dedicated interface optimized for television displays:
+
+-   Large artwork and readable text from across the room
+-   Full D-pad and remote navigation support
+-   Persistent Now Playing bar for quick access to playback controls
+-   Simplified navigation focused on browsing and playback
+
+The TV interface is automatically enabled when accessing Lidify from an Android TV device's browser.
 
 ---
 
@@ -146,23 +196,23 @@ Create a `docker-compose.yml` file:
 
 ```yaml
 services:
-  lidify:
-    image: chevron7locked/lidify:latest
-    container_name: lidify
-    ports:
-      - "3030:3030"
-    volumes:
-      - /path/to/your/music:/music
-      - lidify_data:/data
-    environment:
-      - TZ=America/New_York
-    # Required for Lidarr webhook integration on Linux
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    restart: unless-stopped
+    lidify:
+        image: chevron7locked/lidify:latest
+        container_name: lidify
+        ports:
+            - "3030:3030"
+        volumes:
+            - /path/to/your/music:/music
+            - lidify_data:/data
+        environment:
+            - TZ=America/New_York
+        # Required for Lidarr webhook integration on Linux
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        restart: unless-stopped
 
 volumes:
-  lidify_data:
+    lidify_data:
 ```
 
 Then run:
@@ -178,30 +228,6 @@ docker compose pull
 docker compose up -d
 ```
 
-### Android App
-
-Download the latest APK from [GitHub Releases](https://github.com/Chevron7Locked/lidify/releases):
-
-**`lidify-vX.X.X.apk`** - Works on phones, tablets, AND Android TV
-
-The app automatically detects your device type and switches between:
-- **Mobile UI** - Touch-optimized interface for phones and tablets
-- **TV UI** - 10-foot interface with D-pad/remote navigation for Android TV
-
-**Installation:**
-
-1. Download `lidify-vX.X.X.apk` from [Releases](https://github.com/Chevron7Locked/lidify/releases)
-2. Install on your device (you may need to enable "Install from unknown sources")
-3. On first launch, enter your Lidify server URL (e.g., `http://192.168.1.100:3030`)
-4. Log in with your Lidify account
-
-**Features:**
-
-- Full feature parity with web interface
-- Background playback with notification controls
-- Works on phones, tablets, and Android TV
-- Automatic UI adaptation based on device type
-
 ---
 
 Lidify will begin scanning your music library automatically. Depending on the size of your collection, this may take a few minutes to several hours.
@@ -214,11 +240,11 @@ Lidify will begin scanning your music library automatically. Depending on the si
 
 The unified Lidify container handles most configuration automatically. Here are the available options:
 
-| Variable              | Default                              | Description                           |
-| --------------------- | ------------------------------------ | ------------------------------------- |
-| `SESSION_SECRET`      | Auto-generated                       | Session encryption key (recommended to set for persistence across restarts) |
-| `TZ`                  | `UTC`                                | Timezone for the container            |
-| `LIDIFY_CALLBACK_URL` | `http://host.docker.internal:3030`   | URL for Lidarr webhook callbacks (see [Lidarr integration](#lidarr)) |
+| Variable              | Default                            | Description                                                                 |
+| --------------------- | ---------------------------------- | --------------------------------------------------------------------------- |
+| `SESSION_SECRET`      | Auto-generated                     | Session encryption key (recommended to set for persistence across restarts) |
+| `TZ`                  | `UTC`                              | Timezone for the container                                                  |
+| `LIDIFY_CALLBACK_URL` | `http://host.docker.internal:3030` | URL for Lidarr webhook callbacks (see [Lidarr integration](#lidarr))        |
 
 The music library path is configured via Docker volume mount (`-v /path/to/music:/music`).
 
@@ -271,7 +297,7 @@ If you're using **custom Docker networks** with static IPs, set the callback URL
 
 ```yaml
 environment:
-  - LIDIFY_CALLBACK_URL=http://YOUR_LIDIFY_IP:3030
+    - LIDIFY_CALLBACK_URL=http://YOUR_LIDIFY_IP:3030
 ```
 
 Use the IP address that Lidarr can reach. If both containers are on the same Docker network, use Lidify's container IP.
@@ -394,37 +420,6 @@ When using the web interface, these keyboard shortcuts are available during play
 | Arrow Right | Seek forward 10 seconds  |
 | Arrow Left  | Seek backward 10 seconds |
 
-### Android App
-
-Lidify includes a native Android application built with Capacitor:
-
--   Full feature parity with the web interface
--   Background playback with media controls
--   Works on phones, tablets, and Android TV devices
-
-<p align="center">
-  <img src="assets/screenshots/mobile-login.png" alt="Mobile Login" width="280">
-  <img src="assets/screenshots/mobile-artist.png" alt="Mobile Artist" width="280">
-  <img src="assets/screenshots/mobile-podcasts.png" alt="Mobile Podcasts" width="280">
-</p>
-
-**Installation:**
-
-1. Download the latest APK from [GitHub Releases](https://github.com/chevron7locked/lidify/releases)
-2. Install the APK on your Android device (you may need to enable "Install from unknown sources")
-3. On first launch, enter your Lidify server URL (e.g., `http://192.168.1.100:3030`)
-4. Log in with your Lidify credentials
-
-**Building from source:**
-
-```bash
-cd frontend
-npm ci
-NODE_ENV=production npx cap sync android
-# Open in Android Studio or build via CLI:
-cd android && ./gradlew assembleRelease
-```
-
 ### Android TV
 
 Lidify includes a dedicated interface optimized for television displays:
@@ -433,9 +428,8 @@ Lidify includes a dedicated interface optimized for television displays:
 -   Full D-pad and remote navigation support
 -   Persistent Now Playing bar for quick access to playback controls
 -   Simplified navigation focused on browsing and playback
--   Same APK works on phones, tablets, and TV - automatically detects device type
 
-The TV interface is automatically enabled when accessing Lidify from an Android TV device. No separate installation required.
+The TV interface is automatically enabled when accessing Lidify from an Android TV device. Access it through your TV's web browser.
 
 ---
 
@@ -516,9 +510,9 @@ Lidify consists of several components working together:
 
 Lidify is under active development. Here's what's planned:
 
--   **Offline Mode** - Download tracks for offline playback on mobile devices
+-   **Native Mobile App** - React Native application for iOS and Android
+-   **Offline Mode** - Download tracks for offline playback
 -   **Windows Executable** - Standalone app for Windows users who prefer not to use Docker
--   **iOS App** - Native iOS application (if there's sufficient demand)
 -   **Mood Playlists** - Generate playlists based on audio characteristics and mood classification
 
 Contributions and suggestions are welcome.
@@ -557,4 +551,4 @@ If you encounter issues or have questions:
 
 ---
 
-_Built with care for the self-hosted community._
+_Built with love for the self-hosted community._

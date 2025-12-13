@@ -9,9 +9,6 @@ import {
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { api } from "./api";
-import { isCapacitorShell, isNativePlatform } from "./platform";
-import { isServerConfigured, initServerUrlCache } from "./server-config";
-import { Preferences } from "@capacitor/preferences";
 
 interface User {
     id: string;
@@ -34,7 +31,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const publicPaths = ["/login", "/register", "/onboarding", "/sync", "/setup"];
+const publicPaths = ["/login", "/register", "/onboarding", "/sync"];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -46,59 +43,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         // Check if user has valid session on mount ONLY
         const checkAuth = async () => {
-            // Check for token in URL (from shell redirect after login)
+            // Check for token in URL (from redirect after login)
             if (typeof window !== "undefined") {
                 const urlParams = new URLSearchParams(window.location.search);
                 const tokenFromUrl = urlParams.get("token");
                 if (tokenFromUrl) {
                     // Store the token from URL
                     api.setToken(tokenFromUrl);
-                    // In the native app, await Preferences write to avoid racing a force-close right after redirect.
-                    // api.setToken() writes to Preferences too, but not awaited (fire-and-forget).
-                    if (isNativePlatform()) {
-                        try {
-                            await Preferences.set({
-                                key: "auth_token",
-                                value: tokenFromUrl,
-                            });
-                        } catch (err) {
-                            console.warn(
-                                "[AUTH] Preferences.set failed for tokenFromUrl:",
-                                err
-                            );
-                        }
-                    }
                     // Clean up URL (remove token param)
                     const cleanUrl = window.location.pathname;
                     window.history.replaceState({}, "", cleanUrl);
-                }
-            }
-
-            // Only the Capacitor shell should require server URL configuration.
-            if (isCapacitorShell()) {
-                try {
-                    const serverUrl = await initServerUrlCache();
-                    if (!serverUrl) {
-                        // No server configured - go to login to configure
-                        setIsLoading(false);
-                        if (pathname !== "/login") {
-                            router.push("/login");
-                        }
-                        return;
-                    }
-                    // Refresh API base URL with configured server
-                    api.refreshBaseUrl();
-
-                    // Initialize auth token from storage
-                    // On Android WebView, localStorage may not be ready at module load time
-                    await api.initToken();
-                } catch (err) {
-                    // Server config failed - go to login
-                    setIsLoading(false);
-                    if (pathname !== "/login") {
-                        router.push("/login");
-                    }
-                    return;
                 }
             }
 

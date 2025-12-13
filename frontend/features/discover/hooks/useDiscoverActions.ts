@@ -12,7 +12,7 @@ export function useDiscoverActions(
     setPendingGeneration?: (pending: boolean) => void,
     updateTrackLiked?: (albumId: string, isLiked: boolean) => void
 ) {
-    const { playTracks, isPlaying, pause, play } = useAudio();
+    const { playTracks, isPlaying, pause, resume } = useAudio();
 
     const handleGenerate = useCallback(async () => {
         if (isGenerating) {
@@ -122,9 +122,9 @@ export function useDiscoverActions(
         if (isPlaying) {
             pause();
         } else {
-            play();
+            resume();
         }
-    }, [isPlaying, pause, play]);
+    }, [isPlaying, pause, resume]);
 
     return {
         handleGenerate,

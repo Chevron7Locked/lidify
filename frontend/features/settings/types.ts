@@ -36,8 +36,6 @@ export interface SystemSettings {
     musicPath: string;
     downloadPath: string;
     // Advanced
-    maxConcurrentDownloads: number;
-    downloadRetryAttempts: number;
     transcodeCacheMaxGb: number;
     maxCacheSizeMb: number;
     autoSync: boolean;

@@ -2,25 +2,33 @@ import Link from "next/link";
 import Image from "next/image";
 import { Music } from "lucide-react";
 import { api } from "@/lib/api";
-import { Artist } from "../types";
+import { Artist, DiscoverResult } from "../types";
 
 interface TopResultProps {
     libraryArtist?: Artist;
-    discoveryArtist?: Artist;
+    discoveryArtist?: DiscoverResult;
 }
 
 export function TopResult({ libraryArtist, discoveryArtist }: TopResultProps) {
     // Prefer library artist over discovery
-    const artist = libraryArtist || discoveryArtist;
-
-    if (!artist) {
+    if (!libraryArtist && !discoveryArtist) {
         return null;
     }
 
     const isLibrary = !!libraryArtist;
+    
+    // Get the display name
+    const name = libraryArtist?.name || discoveryArtist?.name || "";
+    
+    // Get the artist ID for linking
     const artistId = isLibrary
-        ? artist.id
-        : artist.mbid || encodeURIComponent(artist.name);
+        ? libraryArtist!.id
+        : discoveryArtist?.mbid || encodeURIComponent(name);
+
+    // Get the image URL
+    const imageUrl = isLibrary 
+        ? libraryArtist?.heroUrl 
+        : discoveryArtist?.image;
 
     return (
         <section data-tv-section="search-top-result">
@@ -33,26 +41,15 @@ export function TopResult({ libraryArtist, discoveryArtist }: TopResultProps) {
                 tabIndex={0}
             >
                 <div className="relative w-24 h-24 bg-[#181818] rounded-full flex items-center justify-center overflow-hidden shrink-0">
-                    {isLibrary && artist.heroUrl ? (
+                    {imageUrl ? (
                         <Image
-                            src={api.getCoverArtUrl(artist.heroUrl, 300)}
-                            alt={artist.name}
+                            src={api.getCoverArtUrl(imageUrl, 300)}
+                            alt={name}
                             fill
                             sizes="96px"
                             className="object-cover"
                             unoptimized={api
-                                .getCoverArtUrl(artist.heroUrl, 300)
-                                .startsWith("http://localhost")}
-                        />
-                    ) : artist.image ? (
-                        <Image
-                            src={api.getCoverArtUrl(artist.image, 300)}
-                            alt={artist.name}
-                            fill
-                            sizes="96px"
-                            className="object-cover"
-                            unoptimized={api
-                                .getCoverArtUrl(artist.image, 300)
+                                .getCoverArtUrl(imageUrl, 300)
                                 .startsWith("http://localhost")}
                         />
                     ) : (
@@ -61,7 +58,7 @@ export function TopResult({ libraryArtist, discoveryArtist }: TopResultProps) {
                 </div>
                 <div className="flex-1">
                     <h3 className="text-3xl font-bold text-white mb-2">
-                        {artist.name}
+                        {name}
                     </h3>
                     <p className="text-sm text-white font-bold">Artist</p>
                 </div>

@@ -1,10 +1,6 @@
-import { isCapacitorShell, isNativePlatform } from "./platform";
-import { getCachedServerUrl } from "./server-config";
-import { Preferences } from "@capacitor/preferences";
-
 const AUTH_TOKEN_KEY = "auth_token";
 
-// Dynamically determine API URL based on platform and configuration
+// Dynamically determine API URL based on configuration
 const getApiBaseUrl = () => {
     // Server-side rendering
     if (typeof window === "undefined") {
@@ -14,16 +10,6 @@ const getApiBaseUrl = () => {
     // Explicit env var takes precedence
     if (process.env.NEXT_PUBLIC_API_URL) {
         return process.env.NEXT_PUBLIC_API_URL;
-    }
-
-    // Capacitor shell only: Use the user-configured server URL
-    if (isCapacitorShell()) {
-        const cachedUrl = getCachedServerUrl();
-        if (cachedUrl) {
-            return cachedUrl;
-        }
-        // Fallback for development - should redirect to /setup if not configured
-        return "http://10.0.2.2:3006"; // Android emulator fallback (10.0.2.2 = host PC)
     }
 
     // Docker all-in-one mode: Use relative URLs (Next.js rewrites will proxy)
@@ -49,9 +35,9 @@ class ApiClient {
         // Don't set baseUrl in constructor - determine it dynamically on each request
         this.baseUrl = baseUrl || "";
 
-        // Try to load token synchronously (may fail on Android WebView at module load time)
+        // Try to load token synchronously
         if (typeof window !== "undefined") {
-            this.token = localStorage.getItem("auth_token");
+            this.token = localStorage.getItem(AUTH_TOKEN_KEY);
             if (this.token) {
                 this.tokenInitialized = true;
             }
@@ -60,7 +46,6 @@ class ApiClient {
 
     /**
      * Initialize the auth token from storage
-     * Check BOTH Preferences and localStorage for migration safety
      * Call this early in the app lifecycle to ensure the token is loaded
      */
     async initToken(): Promise<string | null> {
@@ -68,21 +53,6 @@ class ApiClient {
             return null;
         }
 
-        // Try Capacitor Preferences first (persistent in the native app, even on remote origins)
-        if (isNativePlatform()) {
-            try {
-                const { value } = await Preferences.get({ key: AUTH_TOKEN_KEY });
-                if (value) {
-                    this.token = value;
-                    this.tokenInitialized = true;
-                    return this.token;
-                }
-            } catch (error) {
-                console.warn("[ApiClient] Preferences.get error:", error);
-            }
-        }
-
-        // Fall back to localStorage (migration from old storage or web)
         const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
         if (storedToken) {
             this.token = storedToken;
@@ -107,38 +77,23 @@ class ApiClient {
     }
 
     // Refresh the base URL from configuration
-    // Call this after server URL is configured in mobile app
     refreshBaseUrl(): void {
         this.baseUrl = "";
     }
 
-    // Store JWT token - write to BOTH localStorage and Preferences for consistency
+    // Store JWT token
     setToken(token: string) {
         this.token = token;
         if (typeof window !== "undefined") {
-            // Always save to localStorage
             localStorage.setItem(AUTH_TOKEN_KEY, token);
-            
-            // Also save to Capacitor Preferences in the native app
-            if (isNativePlatform()) {
-                Preferences.set({ key: AUTH_TOKEN_KEY, value: token }).catch((err) => {
-                    console.warn("[ApiClient] Preferences.set error:", err);
-                });
-            }
         }
     }
 
-    // Clear JWT token - remove from BOTH storage locations
+    // Clear JWT token
     clearToken() {
         this.token = null;
         if (typeof window !== "undefined") {
             localStorage.removeItem(AUTH_TOKEN_KEY);
-            
-            if (isNativePlatform()) {
-                Preferences.remove({ key: AUTH_TOKEN_KEY }).catch((err) => {
-                    console.warn("[ApiClient] Preferences.remove error:", err);
-                });
-            }
         }
     }
 

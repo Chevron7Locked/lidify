@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { SystemSettings } from "../../types";
 import { api } from "@/lib/api";
@@ -158,47 +157,6 @@ export function AdvancedSettingsSection({
                             cached content
                         </p>
                     </div>
-                </div>
-
-                {/* Download Settings */}
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-white">
-                        Download Settings
-                    </h3>
-
-                    {/* Max Concurrent Downloads */}
-                    <Input
-                        label="Max Concurrent Downloads"
-                        type="number"
-                        min={1}
-                        max={10}
-                        value={settings.maxConcurrentDownloads}
-                        onChange={(e) =>
-                            onUpdate({
-                                maxConcurrentDownloads: Math.min(
-                                    10,
-                                    Math.max(1, parseInt(e.target.value) || 1)
-                                ),
-                            })
-                        }
-                    />
-
-                    {/* Download Retry Attempts */}
-                    <Input
-                        label="Download Retry Attempts"
-                        type="number"
-                        min={1}
-                        max={10}
-                        value={settings.downloadRetryAttempts}
-                        onChange={(e) =>
-                            onUpdate({
-                                downloadRetryAttempts: Math.min(
-                                    10,
-                                    Math.max(1, parseInt(e.target.value) || 1)
-                                ),
-                            })
-                        }
-                    />
                 </div>
 
                 {/* Automation Settings */}

@@ -11,11 +11,10 @@ import { PlayerModeWrapper } from "../player/PlayerModeWrapper";
 import { DownloadNotifications } from "../DownloadNotifications";
 import { GalaxyBackground } from "../ui/GalaxyBackground";
 import { GradientSpinner } from "../ui/GradientSpinner";
+import { PWAInstallPrompt } from "../PWAInstallPrompt";
 import { ReactNode } from "react";
 import { useIsMobile, useIsTablet } from "@/hooks/useMediaQuery";
 import { useIsTV } from "@/lib/tv-utils";
-import { isAndroidWebView, isNativePlatform } from "@/lib/platform";
-import { useAppLifecycle } from "@/hooks/useAppLifecycle";
 
 const publicPaths = ["/login", "/register", "/onboarding", "/sync"];
 
@@ -26,9 +25,6 @@ export function AuthenticatedLayout({ children }: { children: ReactNode }) {
     const isTablet = useIsTablet();
     const isTV = useIsTV();
     const isMobileOrTablet = isMobile || isTablet;
-
-    // Handle native app lifecycle (back button, app state changes)
-    useAppLifecycle();
 
     const isPublicPage = publicPaths.includes(pathname);
 
@@ -62,17 +58,11 @@ export function AuthenticatedLayout({ children }: { children: ReactNode }) {
         }
 
         // Desktop/Mobile/Tablet Layout
-        const isNative = isNativePlatform();
-        const isInAndroidWebView = isAndroidWebView();
         return (
             <PlayerModeWrapper>
                 <div 
                     className="h-screen bg-black overflow-hidden flex flex-col"
-                    style={{ 
-                        paddingTop: (isNative || isInAndroidWebView)
-                            ? 'calc(max(env(safe-area-inset-top, 0px), 52px) + 64px)' 
-                            : '64px' // Web: just the header height
-                    }}
+                    style={{ paddingTop: '64px' }}
                 >
                     <MediaControlsHandler />
                     <TopBar />
@@ -88,13 +78,13 @@ export function AuthenticatedLayout({ children }: { children: ReactNode }) {
                     </div>
                     <UniversalPlayer />
                     <DownloadNotifications />
+                    <PWAInstallPrompt />
                 </div>
             </PlayerModeWrapper>
         );
     }
 
     // If not authenticated on a protected page, auth context will redirect
-    // Show loading while redirect happens
     return (
         <div className="min-h-screen flex items-center justify-center bg-black">
             <div className="flex flex-col items-center gap-4">

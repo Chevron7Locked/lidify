@@ -7,6 +7,7 @@ export interface EmptyStateProps {
     icon: ReactNode;
     title: string;
     description: string;
+    children?: ReactNode;
     action?: {
         label: string;
         onClick: () => void;
@@ -18,6 +19,7 @@ const EmptyState = memo(function EmptyState({
     icon,
     title,
     description,
+    children,
     action,
 }: EmptyStateProps) {
     return (
@@ -29,6 +31,7 @@ const EmptyState = memo(function EmptyState({
             <p className="text-sm md:text-base text-gray-500 mb-6 max-w-md">
                 {description}
             </p>
+            {children}
             {action && (
                 <Button
                     variant={action.variant || "primary"}

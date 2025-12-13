@@ -103,7 +103,7 @@ class HowlerEngine {
 
         this.state.currentSrc = src;
 
-        // Detect if running in Android WebView (Capacitor)
+        // Detect if running in Android WebView (for graceful degradation)
         const isAndroidWebView = typeof navigator !== "undefined" && 
             /wv/.test(navigator.userAgent.toLowerCase()) && 
             /android/.test(navigator.userAgent.toLowerCase());

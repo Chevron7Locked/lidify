@@ -55,7 +55,7 @@ export function usePreviewPlayer() {
                 }
             } else {
                 // Pause the main player if it's playing
-                if (howlerEngine.getIsPlaying()) {
+                if (howlerEngine.isPlaying()) {
                     howlerEngine.pause();
                     mainPlayerWasPausedRef.current = true;
                 }

@@ -21,7 +21,7 @@ export function usePlayerMode() {
 
         // Determine if we're on the EXACT page where the current media is playing
         const isOnCurrentMediaPage =
-            (currentTrack && pathname === `/album/${currentTrack.albumId}`) ||
+            (currentTrack && pathname === `/album/${currentTrack.album?.id}`) ||
             (currentAudiobook && pathname === `/audiobooks/${currentAudiobook.id}`) ||
             (currentPodcast && pathname.includes(`/podcasts/${currentPodcast.id}`));
 

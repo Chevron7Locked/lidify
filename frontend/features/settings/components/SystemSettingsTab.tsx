@@ -10,7 +10,7 @@ import { SystemSettings } from "../types";
 interface SystemSettingsTabProps {
     settings: SystemSettings;
     onUpdate: (updates: Partial<SystemSettings>) => void;
-    onTest: (service: string) => Promise<void>;
+    onTest: (service: string) => Promise<string | null | void>;
     onSave: () => Promise<void>;
     isSaving: boolean;
 }

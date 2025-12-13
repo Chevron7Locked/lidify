@@ -1,7 +1,9 @@
 import { useAuth } from "@/lib/auth-context";
 import { ChangePasswordSection } from "./sections/ChangePasswordSection";
 import { TwoFactorAuthSection } from "./sections/TwoFactorAuthSection";
-import { APIKeysSection } from "./sections/APIKeysSection";
+// API Keys Section - Backend functionality exists but disabled in UI
+// No real integrations use this yet. Re-enable when needed:
+// import { APIKeysSection } from "./sections/APIKeysSection";
 // LinkDeviceSection temporarily disabled - feature not ready for launch
 // import { LinkDeviceSection } from "./sections/LinkDeviceSection";
 import { UserManagementSection } from "./sections/UserManagementSection";
@@ -21,7 +23,9 @@ export function AccountTab({ onSave, isSaving }: AccountTabProps) {
 
             <TwoFactorAuthSection />
 
-            <APIKeysSection />
+            {/* API Keys Section - Backend functionality exists but disabled in UI
+                No real integrations use this yet. Re-enable when needed:
+                <APIKeysSection /> */}
 
             {/* LinkDeviceSection temporarily disabled - feature not ready for launch */}
             {/* <LinkDeviceSection /> */}

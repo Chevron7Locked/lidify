@@ -1,14 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { api } from "@/lib/api";
 import Image from "next/image";
-import { Loader2, Server, CheckCircle, XCircle, Wifi, Link2 } from "lucide-react";
-import { isNativePlatform } from "@/lib/platform";
-import { serverConfig, initServerUrlCache, updateServerUrlCache } from "@/lib/server-config";
-import { useDeepLink } from "@/hooks/useDeepLink";
+import { Loader2 } from "lucide-react";
 import { GalaxyBackground } from "@/components/ui/GalaxyBackground";
 
 interface Artist {
@@ -33,8 +29,7 @@ function LoginErrorHandler({ setError }: { setError: (error: string) => void }) 
 }
 
 export default function LoginPage() {
-    const router = useRouter();
-    const { login, isAuthenticated } = useAuth();
+    const { login } = useAuth();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [twoFactorToken, setTwoFactorToken] = useState("");
@@ -44,51 +39,6 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [artists, setArtists] = useState<Artist[]>([]);
     const [currentArtistIndex, setCurrentArtistIndex] = useState(0);
-    
-    // Server URL state for native platforms
-    const [serverUrlInput, setServerUrlInput] = useState("");
-    const [serverValidated, setServerValidated] = useState(false);
-    const [isValidatingServer, setIsValidatingServer] = useState(false);
-    const [serverError, setServerError] = useState("");
-    const [isNative, setIsNative] = useState(false);
-    const [isCheckingConfig, setIsCheckingConfig] = useState(true);
-    
-    // Device link code state
-    const [showDeviceLink, setShowDeviceLink] = useState(false);
-    const [deviceLinkCode, setDeviceLinkCode] = useState("");
-    const [isLinkingDevice, setIsLinkingDevice] = useState(false);
-
-    // Initialize deep link handler
-    useDeepLink();
-
-    // Check server configuration on mobile platforms
-    useEffect(() => {
-        const checkServerConfig = async () => {
-            const native = isNativePlatform();
-            setIsNative(native);
-            
-            if (!native) {
-                setIsCheckingConfig(false);
-                return; // Web doesn't need server config
-            }
-
-            try {
-                // Initialize the cache and check if configured
-                const url = await initServerUrlCache();
-                if (url) {
-                    setServerUrlInput(url);
-                    setServerValidated(true);
-                    // Refresh API base URL to use the configured server
-                    api.refreshBaseUrl();
-                }
-            } catch (err) {
-                // Stay on login page, let user enter server URL
-            }
-            setIsCheckingConfig(false);
-        };
-
-        checkServerConfig();
-    }, []);
 
     // Fetch featured artists for background rotation
     useEffect(() => {
@@ -127,89 +77,9 @@ export default function LoginPage() {
         return () => clearInterval(interval);
     }, [artists.length]);
 
-    // Validate and connect to server
-    const handleValidateServer = async () => {
-        if (!serverUrlInput.trim()) return;
-
-        setIsValidatingServer(true);
-        setServerError("");
-
-        // Add protocol if missing
-        let urlToTest = serverUrlInput.trim();
-        if (!urlToTest.startsWith("http://") && !urlToTest.startsWith("https://")) {
-            urlToTest = `http://${urlToTest}`;
-        }
-
-        try {
-            const result = await serverConfig.validateServerUrl(urlToTest);
-            
-            if (result.valid) {
-                // Save the server URL
-                await serverConfig.setServerUrl(urlToTest);
-                updateServerUrlCache(urlToTest);
-                setServerUrlInput(urlToTest);
-                setServerValidated(true);
-                // Refresh API base URL
-                api.refreshBaseUrl();
-            } else {
-                setServerError(result.error || "Failed to connect to server");
-            }
-        } catch (err: any) {
-            setServerError(err.message || "Failed to validate server");
-        } finally {
-            setIsValidatingServer(false);
-        }
-    };
-
-    // Change to a different server
-    const handleChangeServer = async () => {
-        await serverConfig.clearServerUrl();
-        updateServerUrlCache(null);
-        setServerValidated(false);
-        setServerError("");
-    };
-
-    // Handle device link code submission
-    const handleDeviceLinkSubmit = async () => {
-        if (!deviceLinkCode.trim() || !serverValidated) return;
-
-        setIsLinkingDevice(true);
-        setError("");
-
-        try {
-            // Verify the device link code
-            const response = await api.request<{ success: boolean; apiKey: string; userId: string; username: string }>(
-                `/device-link/verify`,
-                { 
-                    method: "POST",
-                    body: JSON.stringify({ 
-                        code: deviceLinkCode.trim().toUpperCase(),
-                        deviceName: "Mobile App"
-                    })
-                }
-            );
-
-            if (response.apiKey) {
-                api.setToken(response.apiKey);
-                window.location.href = "/";
-            }
-        } catch (err: any) {
-            setError(err.message || "Invalid or expired code");
-        } finally {
-            setIsLinkingDevice(false);
-        }
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
-
-        // On native, require server to be validated first
-        if (isNative && !serverValidated) {
-            await handleValidateServer();
-            return;
-        }
-
         setIsLoading(true);
 
         try {
@@ -255,7 +125,7 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen w-full relative overflow-hidden">
-            {/* Handle error from deep link/URL params */}
+            {/* Handle error from URL params */}
             <Suspense fallback={null}>
                 <LoginErrorHandler setError={setError} />
             </Suspense>
@@ -337,156 +207,70 @@ export default function LoginPage() {
 
                     {/* Login Card */}
                     <div className="bg-[#111] rounded-2xl p-8 md:p-10 border border-[#333] shadow-2xl">
-                        {isCheckingConfig ? (
-                            <div className="flex items-center justify-center py-8">
-                                <Loader2 className="w-8 h-8 text-white/50 animate-spin" />
-                            </div>
-                        ) : (
-                            <>
-                                <h1 className="text-3xl font-bold text-white mb-2 text-center">
-                                    {isNative && !serverValidated ? "Connect to Server" : "Welcome back"}
-                                </h1>
-                                <p className="text-white/60 text-center mb-8">
-                                    {isNative && !serverValidated 
-                                        ? "Enter your Lidify server URL to get started" 
-                                        : "Sign in to continue to Lidify"}
-                                </p>
+                        <h1 className="text-3xl font-bold text-white mb-2 text-center">
+                            Welcome back
+                        </h1>
+                        <p className="text-white/60 text-center mb-8">
+                            Sign in to continue to Lidify
+                        </p>
 
-                                <form onSubmit={handleSubmit} className="space-y-5">
-                                    {error && (
-                                        <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-lg p-4 text-sm text-red-400 animate-shake">
-                                            {error}
-                                        </div>
-                                    )}
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            {error && (
+                                <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-lg p-4 text-sm text-red-400 animate-shake">
+                                    {error}
+                                </div>
+                            )}
 
-                                    {/* Device Link Code Entry - TEMPORARILY DISABLED
-                                    {isNative && serverValidated && showDeviceLink && !requires2FA && (
-                                        <div className="animate-fade-in space-y-4">
-                                            ...
-                                        </div>
-                                    )}
-                                    */}
+                            {/* Step 1: Username & Password */}
+                            {!requires2FA && (
+                                <>
+                                    <div>
+                                        <label
+                                            htmlFor="username"
+                                            className="block text-sm font-semibold text-white/90 mb-2"
+                                        >
+                                            Username
+                                        </label>
+                                        <input
+                                            id="username"
+                                            type="text"
+                                            value={username}
+                                            onChange={(e) =>
+                                                setUsername(e.target.value)
+                                            }
+                                            placeholder="Enter your username"
+                                            required
+                                            autoFocus
+                                            autoCapitalize="none"
+                                            autoCorrect="off"
+                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent transition-all duration-200 backdrop-blur-sm"
+                                        />
+                                    </div>
 
-                                    {/* Quick Link Option - TEMPORARILY DISABLED
-                                    {isNative && serverValidated && !showDeviceLink && !requires2FA && (
-                                        <div className="mb-4">
-                                            ...
-                                        </div>
-                                    )}
-                                    */}
+                                    <div>
+                                        <label
+                                            htmlFor="password"
+                                            className="block text-sm font-semibold text-white/90 mb-2"
+                                        >
+                                            Password
+                                        </label>
+                                        <input
+                                            id="password"
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) =>
+                                                setPassword(e.target.value)
+                                            }
+                                            placeholder="Enter your password"
+                                            required
+                                            autoCapitalize="none"
+                                            autoCorrect="off"
+                                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent transition-all duration-200 backdrop-blur-sm"
+                                        />
+                                    </div>
+                                </>
+                            )}
 
-                                    {/* Server URL Field - Native platforms only, shown first */}
-                                    {isNative && !serverValidated && !requires2FA && (
-                                        <div className="animate-fade-in">
-                                            <label
-                                                htmlFor="serverUrl"
-                                                className="block text-sm font-semibold text-white/90 mb-2"
-                                            >
-                                                Server URL
-                                            </label>
-                                            <div className="relative">
-                                                <Server className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
-                                                <input
-                                                    id="serverUrl"
-                                                    type="url"
-                                                    value={serverUrlInput}
-                                                    onChange={(e) => {
-                                                        setServerUrlInput(e.target.value);
-                                                        setServerError("");
-                                                    }}
-                                                    placeholder="https://your-server.com or 192.168.1.100:3006"
-                                                    required
-                                                    autoFocus
-                                                    autoCapitalize="none"
-                                                    autoCorrect="off"
-                                                    autoComplete="off"
-                                                    className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent transition-all duration-200 backdrop-blur-sm"
-                                                />
-                                            </div>
-                                            
-                                            {/* Server validation error */}
-                                            {serverError && (
-                                                <div className="flex items-center gap-2 mt-2 text-red-400 text-sm">
-                                                    <XCircle className="w-4 h-4 flex-shrink-0" />
-                                                    <span>{serverError}</span>
-                                                </div>
-                                            )}
-
-                                            {/* Help text */}
-                                            <p className="text-xs text-white/40 mt-2">
-                                                Enter the URL of your self-hosted Lidify server
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {/* Connected server indicator - shown when validated */}
-                                    {isNative && serverValidated && !requires2FA && (
-                                        <div className="flex items-center justify-between p-3 bg-green-500/10 border border-green-500/20 rounded-lg animate-fade-in">
-                                            <div className="flex items-center gap-2">
-                                                <CheckCircle className="w-4 h-4 text-green-400" />
-                                                <span className="text-green-400 text-sm truncate max-w-[200px]">
-                                                    {serverUrlInput}
-                                                </span>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={handleChangeServer}
-                                                className="text-xs text-white/50 hover:text-white/80 transition-colors ml-2"
-                                            >
-                                                Change
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Step 1: Username & Password - only show after server is validated on native */}
-                                    {!requires2FA && (!isNative || serverValidated) && (
-                                        <>
-                                            <div>
-                                                <label
-                                                    htmlFor="username"
-                                                    className="block text-sm font-semibold text-white/90 mb-2"
-                                                >
-                                                    Username
-                                                </label>
-                                                <input
-                                                    id="username"
-                                                    type="text"
-                                                    value={username}
-                                                    onChange={(e) =>
-                                                        setUsername(e.target.value)
-                                                    }
-                                                    placeholder="Enter your username"
-                                                    required
-                                                    autoFocus={!isNative || serverValidated}
-                                                    autoCapitalize="none"
-                                                    autoCorrect="off"
-                                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent transition-all duration-200 backdrop-blur-sm"
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label
-                                                    htmlFor="password"
-                                                    className="block text-sm font-semibold text-white/90 mb-2"
-                                                >
-                                                    Password
-                                                </label>
-                                                <input
-                                                    id="password"
-                                                    type="password"
-                                                    value={password}
-                                                    onChange={(e) =>
-                                                        setPassword(e.target.value)
-                                                    }
-                                                    placeholder="Enter your password"
-                                                    required
-                                                    autoCapitalize="none"
-                                                    autoCorrect="off"
-                                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-transparent transition-all duration-200 backdrop-blur-sm"
-                                                />
-                                            </div>
-                                        </>
-                                    )}
                             {/* Step 2: 2FA Token Input */}
                             {requires2FA && (
                                 <div className="animate-fade-in space-y-4">
@@ -572,32 +356,24 @@ export default function LoginPage() {
                                     </div>
                                 </div>
                             )}
+
                             <button
                                 type="submit"
-                                disabled={isLoading || isValidatingServer}
+                                disabled={isLoading}
                                 className="w-full py-3.5 bg-[#ecb200] text-black font-bold rounded-lg hover:bg-[#ffc933] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <span className="flex items-center justify-center gap-2">
-                                    {isValidatingServer ? (
-                                        <>
-                                            <Loader2 className="w-5 h-5 animate-spin" />
-                                            Connecting...
-                                        </>
-                                    ) : isLoading ? (
+                                    {isLoading ? (
                                         <>
                                             <Loader2 className="w-5 h-5 animate-spin" />
                                             Signing in...
-                                        </>
-                                    ) : isNative && !serverValidated ? (
-                                        <>
-                                            <Wifi className="w-5 h-5" />
-                                            Connect to Server
                                         </>
                                     ) : (
                                         "Sign In"
                                     )}
                                 </span>
                             </button>
+
                             {requires2FA && (
                                 <button
                                     type="button"
@@ -607,14 +383,12 @@ export default function LoginPage() {
                                         setUseRecoveryCode(false);
                                         setError("");
                                     }}
-                                    className="text-xs text-white/50 hover:text-white/80 transition-colors"
+                                    className="w-full text-xs text-white/50 hover:text-white/80 transition-colors"
                                 >
                                     ← Back to login
                                 </button>
                             )}
                         </form>
-                            </>
-                        )}
                     </div>
 
                     {/* Footer */}

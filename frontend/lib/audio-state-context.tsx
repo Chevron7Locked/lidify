@@ -35,6 +35,7 @@ export interface Track {
     artist: { name: string; id?: string };
     album: { title: string; coverArt?: string; id?: string };
     duration: number;
+    filePath?: string;
 }
 
 export interface Audiobook {

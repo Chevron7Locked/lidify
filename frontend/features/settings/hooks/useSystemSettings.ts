@@ -22,8 +22,6 @@ const defaultSystemSettings: SystemSettings = {
     soulseekPassword: "",
     musicPath: "/music",
     downloadPath: "/downloads",
-    maxConcurrentDownloads: 3,
-    downloadRetryAttempts: 3,
     transcodeCacheMaxGb: 10,
     maxCacheSizeMb: 10240,
     autoSync: true,

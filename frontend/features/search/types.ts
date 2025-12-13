@@ -46,6 +46,7 @@ export interface SearchResult {
 
 export interface DiscoverResult {
     type: "music" | "podcast";
+    id?: string;
     name: string;
     mbid?: string;
     image?: string;

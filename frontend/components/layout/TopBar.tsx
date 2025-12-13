@@ -12,13 +12,8 @@ import { useDownloadContext } from "@/lib/download-context";
 import { useIsMobile, useIsTablet } from "@/hooks/useMediaQuery";
 import { useAuth } from "@/lib/auth-context";
 import Image from "next/image";
-import { isAndroidWebView, isNativePlatform } from "@/lib/platform";
 
 export function TopBar() {
-    // For UI spacing we care about "Android WebView" even on remote/LAN origins.
-    // (Plugins remain gated by isNativePlatform/isCapacitorShell elsewhere.)
-    const isNative = isNativePlatform();
-    const isInAndroidWebView = isAndroidWebView();
     const pathname = usePathname();
     const router = useRouter();
     const { logout } = useAuth();
@@ -146,14 +141,7 @@ export function TopBar() {
     return (
         <header 
             className="fixed top-0 left-0 right-0 bg-black flex items-center px-4 z-50"
-            style={(isNative || isInAndroidWebView) ? { 
-                // Native apps: Add safe area padding for status bar
-                paddingTop: 'max(env(safe-area-inset-top, 0px), 52px)',
-                height: 'calc(max(env(safe-area-inset-top, 0px), 52px) + 64px)'
-            } : {
-                // Web: Standard height, no extra padding
-                height: '64px'
-            }}
+            style={{ height: '64px' }}
         >
             {/* Mobile Layout: Hamburger + Home + Search */}
             {isMobile ? (
@@ -298,9 +286,6 @@ export function TopBar() {
                                         "animate-spin"
                                 )}
                             />
-                            {/* <span className="hidden lg:inline">
-                                {isPolling ? `${jobStatus?.progress || 0}%` : "Sync"}
-                            </span> */}
                         </button>
                         <Link
                             href="/settings"
