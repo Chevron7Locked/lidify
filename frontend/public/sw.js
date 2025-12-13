@@ -42,11 +42,17 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (request.method !== 'GET') return;
 
+  // Skip non-http(s) URLs (chrome-extension://, etc.)
+  if (!url.protocol.startsWith('http')) return;
+
   // Skip API requests - always go to network
   if (url.pathname.startsWith('/api/')) return;
 
   // Skip streaming endpoints
   if (url.pathname.includes('/stream')) return;
+  
+  // Skip Next.js image optimization endpoint
+  if (url.pathname.startsWith('/_next/image')) return;
 
   // For everything else, try network first, then cache
   event.respondWith(
