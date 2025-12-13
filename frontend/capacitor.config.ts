@@ -36,18 +36,8 @@ const config: CapacitorConfig = {
       style: 'dark',
       backgroundColor: '#000000',
     },
-    BackgroundMode: {
-      // Foreground service notification settings
-      title: 'Lidify',
-      text: 'Playing audio in background',
-      icon: 'ic_stat_icon',
-      importance: 'high',
-      visibility: 'public',
-      channelName: 'Audio Playback',
-      channelDescription: 'Keeps audio playing when app is in background',
-      // Keep the foreground service running
-      disableWebViewOptimizations: true,
-    },
+    // Music controls plugin handles foreground service notification for background audio
+    // No separate BackgroundMode plugin needed - it was causing conflicts
   },
 };
 

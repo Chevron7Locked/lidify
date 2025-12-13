@@ -12,7 +12,6 @@ import { useEffect, useLayoutEffect, useRef, memo, useCallback } from "react";
 // Capacitor imports for native platform
 let KeepAwake: any = null;
 let CapacitorMusicControls: any = null;
-let BackgroundMode: any = null;
 
 function podcastDebugEnabled(): boolean {
     try {
@@ -65,23 +64,6 @@ if (typeof window !== "undefined" && hasNativeBridge) {
         .catch((err) => {
             console.warn("[NativeAudio] MusicControls plugin not available:", err);
         });
-
-    import("@anuradev/capacitor-background-mode")
-        .then((m) => {
-            BackgroundMode = m.BackgroundMode;
-            console.log("[NativeAudio] BackgroundMode plugin loaded");
-            // Enable background mode for audio playback
-            BackgroundMode.enable()
-                .then(() => console.log("[NativeAudio] BackgroundMode enabled successfully"))
-                .catch((err: any) => console.warn("[NativeAudio] BackgroundMode enable failed:", err));
-            // Disable battery optimizations prompt
-            BackgroundMode.disableBatteryOptimizations()
-                .then(() => console.log("[NativeAudio] Battery optimizations disabled"))
-                .catch((err: any) => console.warn("[NativeAudio] Battery optimization disable failed:", err));
-        })
-        .catch((err) => {
-            console.warn("[NativeAudio] BackgroundMode plugin not available:", err);
-        });
 }
 
 /**
@@ -133,7 +115,14 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     const lastProgressSaveRef = useRef<number>(0);
     const mediaControlsInitialized = useRef<boolean>(false);
     const mediaControlsCreated = useRef<boolean>(false); // Track if create() has been called
-    const isNative = useRef<boolean>(false);
+    // Check native status synchronously to avoid timing race conditions
+    // The Capacitor bridge is available as soon as the page loads in the WebView
+    const isNative = useRef<boolean>(
+        typeof window !== "undefined" &&
+        (isCapacitorShell() ||
+            !!((window as any).Capacitor?.isNativePlatform?.() ||
+                (window as any).Capacitor))
+    );
     // One-time permission prompt guard (Android 13+ notifications)
     const notificationsPermissionRequestedRef = useRef<boolean>(false);
     const isUserInitiatedRef = useRef<boolean>(false); // Track if play/pause was user-initiated
@@ -152,15 +141,6 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     const maxReconnectAttempts = 5; // Max reconnection attempts
     const watchdogIntervalRef = useRef<NodeJS.Timeout | null>(null); // Watchdog for detecting playback interruptions
     const lastPlaybackCheckRef = useRef<number>(0); // Last time we checked playback position
-
-    // Check if we're in the Capacitor shell origin on mount.
-    // NOTE: In the SDK, we may be on a remote origin but still have the Capacitor bridge.
-    useEffect(() => {
-        isNative.current =
-            isCapacitorShell() ||
-            !!((window as any).Capacitor?.isNativePlatform?.() ||
-                (window as any).Capacitor);
-    }, []);
 
     // Reset duration when nothing is playing
     useEffect(() => {
@@ -1081,27 +1061,6 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
         updateNativeMediaControls();
     }, [isPlaying, updateNativeMediaControls]);
 
-    // Enable/disable background mode based on playback state
-    useEffect(() => {
-        if (!isNative.current || !BackgroundMode) return;
-        
-        if (isPlaying) {
-            BackgroundMode.enable()
-                .then(() => console.log("[NativeAudio] BackgroundMode enabled for playback"))
-                .catch(() => {});
-        } else {
-            // Keep enabled briefly after pause to allow resume
-            const timeout = setTimeout(() => {
-                if (!isPlaying && !expectedPlayingRef.current) {
-                    BackgroundMode.disable()
-                        .then(() => console.log("[NativeAudio] BackgroundMode disabled after timeout"))
-                        .catch(() => {});
-                }
-            }, 60000); // Keep enabled for 60 seconds after pause (increased from 30)
-            return () => clearTimeout(timeout);
-        }
-    }, [isPlaying]);
-
     // Background playback watchdog - detects and recovers from stream interruptions
     useEffect(() => {
         if (!isNative.current) return;
@@ -1135,11 +1094,6 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                     console.log(`[NativeAudio] Last position: ${lastKnownPositionRef.current}s`);
                     
                     reconnectAttemptsRef.current++;
-                    
-                    // Re-enable background mode
-                    if (BackgroundMode) {
-                        BackgroundMode.enable().catch(() => {});
-                    }
                     
                     // Try to resume playback from last known position
                     const position = lastKnownPositionRef.current;
@@ -1207,10 +1161,6 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
             if (isNative.current && CapacitorMusicControls) {
                 mediaControlsCreated.current = false;
                 CapacitorMusicControls.destroy().catch(() => {});
-            }
-
-            if (isNative.current && BackgroundMode) {
-                BackgroundMode.disable().catch(() => {});
             }
         };
     }, []);

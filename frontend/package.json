@@ -23,7 +23,6 @@
     "build:apk:release": "npm run build:android && cd android && gradlew assembleRelease"
   },
   "dependencies": {
-    "@anuradev/capacitor-background-mode": "^7.2.1",
     "@capacitor-community/keep-awake": "^7.1.0",
     "@capacitor-community/media": "^8.0.1",
     "@capacitor/android": "^7.4.4",
