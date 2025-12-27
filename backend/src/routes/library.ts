@@ -693,7 +693,7 @@ router.get("/artists", async (req, res) => {
             offset: offsetParam = "0",
             filter = "owned", // owned (default), discovery, all
         } = req.query;
-        const limit = Math.min(parseInt(limitParam as string, 10) || 500, 1000); // Max 1000
+        const limit = parseInt(limitParam as string, 10) || 500; // No max cap - support unlimited pagination
         const offset = parseInt(offsetParam as string, 10) || 0;
 
         // Build where clause based on filter
@@ -1577,7 +1577,7 @@ router.get("/albums", async (req, res) => {
             offset: offsetParam = "0",
             filter = "owned", // owned (default), discovery, all
         } = req.query;
-        const limit = Math.min(parseInt(limitParam as string, 10) || 500, 1000); // Max 1000
+        const limit = parseInt(limitParam as string, 10) || 500; // No max cap - support unlimited pagination
         const offset = parseInt(offsetParam as string, 10) || 0;
 
         let where: any = {
@@ -1721,34 +1721,39 @@ router.get("/albums/:id", async (req, res) => {
     }
 });
 
-// GET /library/tracks?albumId=&limit=100
+// GET /library/tracks?albumId=&limit=100&offset=0
 router.get("/tracks", async (req, res) => {
     try {
-        const { albumId, limit = "100" } = req.query;
-        const limitNum = parseInt(limit as string, 10);
+        const { albumId, limit: limitParam = "100", offset: offsetParam = "0" } = req.query;
+        const limit = parseInt(limitParam as string, 10) || 100;
+        const offset = parseInt(offsetParam as string, 10) || 0;
 
         const where: any = {};
         if (albumId) {
             where.albumId = albumId as string;
         }
 
-        const tracksData = await prisma.track.findMany({
-            where,
-            take: limitNum,
-            orderBy: albumId ? { trackNo: "asc" } : { id: "desc" },
-            include: {
-                album: {
-                    include: {
-                        artist: {
-                            select: {
-                                id: true,
-                                name: true,
+        const [tracksData, total] = await Promise.all([
+            prisma.track.findMany({
+                where,
+                skip: offset,
+                take: limit,
+                orderBy: albumId ? { trackNo: "asc" } : { id: "desc" },
+                include: {
+                    album: {
+                        include: {
+                            artist: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                },
                             },
                         },
                     },
                 },
-            },
-        });
+            }),
+            prisma.track.count({ where }),
+        ]);
 
         // Add coverArt field to albums
         const tracks = tracksData.map((track) => ({
@@ -1759,7 +1764,7 @@ router.get("/tracks", async (req, res) => {
             },
         }));
 
-        res.json({ tracks });
+        res.json({ tracks, total, offset, limit });
     } catch (error) {
         console.error("Get tracks error:", error);
         res.status(500).json({ error: "Failed to fetch tracks" });

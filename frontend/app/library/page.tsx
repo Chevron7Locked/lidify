@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAudio } from "@/lib/audio-context";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -8,6 +8,7 @@ import { Tab, DeleteDialogState } from "@/features/library/types";
 import {
     useLibraryData,
     LibraryFilter,
+    SortOption,
 } from "@/features/library/hooks/useLibraryData";
 import { api } from "@/lib/api";
 import { useLibraryActions } from "@/features/library/hooks/useLibraryActions";
@@ -17,8 +18,6 @@ import { ArtistsGrid } from "@/features/library/components/ArtistsGrid";
 import { AlbumsGrid } from "@/features/library/components/AlbumsGrid";
 import { TracksList } from "@/features/library/components/TracksList";
 import { Shuffle, ListFilter } from "lucide-react";
-
-type SortOption = "name" | "name-desc" | "recent" | "tracks";
 
 export default function LibraryPage() {
     const router = useRouter();
@@ -37,10 +36,13 @@ export default function LibraryPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [showFilters, setShowFilters] = useState(false);
 
-    // Use custom hooks
-    const { artists, albums, tracks, isLoading, reloadData } = useLibraryData({
+    // Use custom hooks with server-side pagination
+    const { artists, albums, tracks, isLoading, reloadData, pagination } = useLibraryData({
         activeTab,
         filter,
+        sortBy,
+        itemsPerPage,
+        currentPage,
     });
     const {
         playArtist,
@@ -61,84 +63,14 @@ export default function LibraryPage() {
         }
     }, [activeTab]);
 
-    // Sort and paginate data
-    const sortedArtists = useMemo(() => {
-        const sorted = [...artists];
-        switch (sortBy) {
-            case "name":
-                sorted.sort((a, b) => a.name.localeCompare(b.name));
-                break;
-            case "name-desc":
-                sorted.sort((a, b) => b.name.localeCompare(a.name));
-                break;
-            case "tracks":
-                sorted.sort(
-                    (a, b) => (b.trackCount || 0) - (a.trackCount || 0)
-                );
-                break;
-            default:
-                sorted.sort((a, b) => a.name.localeCompare(b.name));
-        }
-        return sorted;
-    }, [artists, sortBy]);
+    // Reset page when filter or sort changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filter, sortBy, itemsPerPage]);
 
-    const sortedAlbums = useMemo(() => {
-        const sorted = [...albums];
-        switch (sortBy) {
-            case "name":
-                sorted.sort((a, b) => a.title.localeCompare(b.title));
-                break;
-            case "name-desc":
-                sorted.sort((a, b) => b.title.localeCompare(a.title));
-                break;
-            case "recent":
-                sorted.sort((a, b) => (b.year || 0) - (a.year || 0));
-                break;
-            default:
-                sorted.sort((a, b) => a.title.localeCompare(b.title));
-        }
-        return sorted;
-    }, [albums, sortBy]);
-
-    const sortedTracks = useMemo(() => {
-        const sorted = [...tracks];
-        switch (sortBy) {
-            case "name":
-                sorted.sort((a, b) => a.title.localeCompare(b.title));
-                break;
-            case "name-desc":
-                sorted.sort((a, b) => b.title.localeCompare(a.title));
-                break;
-            default:
-                sorted.sort((a, b) => a.title.localeCompare(b.title));
-        }
-        return sorted;
-    }, [tracks, sortBy]);
-
-    // Paginate
-    const paginatedArtists = useMemo(() => {
-        const start = (currentPage - 1) * itemsPerPage;
-        return sortedArtists.slice(start, start + itemsPerPage);
-    }, [sortedArtists, currentPage, itemsPerPage]);
-
-    const paginatedAlbums = useMemo(() => {
-        const start = (currentPage - 1) * itemsPerPage;
-        return sortedAlbums.slice(start, start + itemsPerPage);
-    }, [sortedAlbums, currentPage, itemsPerPage]);
-
-    const paginatedTracks = useMemo(() => {
-        const start = (currentPage - 1) * itemsPerPage;
-        return sortedTracks.slice(start, start + itemsPerPage);
-    }, [sortedTracks, currentPage, itemsPerPage]);
-
-    // Total counts and pages
-    const totalItems =
-        activeTab === "artists"
-            ? artists.length
-            : activeTab === "albums"
-            ? albums.length
-            : tracks.length;
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    // Get total items and pages from pagination
+    const totalItems = pagination.total;
+    const totalPages = pagination.totalPages;
 
     // Delete confirmation dialog state
     const [deleteConfirm, setDeleteConfirm] = useState<DeleteDialogState>({
@@ -180,17 +112,13 @@ export default function LibraryPage() {
         playTracks(formattedTracks, startIndex);
     };
 
-    // Shuffle entire library
+    // Shuffle entire library - fetches all tracks for true shuffle
     const handleShuffleLibrary = async () => {
         try {
-            // Get all tracks if not already loaded
-            let allTracks = tracks;
-            if (activeTab !== "tracks" || tracks.length === 0) {
-                const { tracks: fetchedTracks } = await api.getTracks({
-                    limit: 1000,
-                });
-                allTracks = fetchedTracks;
-            }
+            // Fetch a large batch of tracks for shuffling
+            const { tracks: allTracks } = await api.getTracks({
+                limit: 10000,
+            });
 
             if (allTracks.length === 0) {
                 return;
@@ -271,7 +199,7 @@ export default function LibraryPage() {
 
                         {/* Item Count */}
                         <span className="text-sm text-gray-400 ml-2">
-                            {totalItems}{" "}
+                            {totalItems.toLocaleString()}{" "}
                             {activeTab === "artists"
                                 ? "artists"
                                 : activeTab === "albums"
@@ -289,10 +217,7 @@ export default function LibraryPage() {
                             activeTab === "albums") && (
                             <div className="flex items-center gap-1">
                                 <button
-                                    onClick={() => {
-                                        setFilter("owned");
-                                        setCurrentPage(1);
-                                    }}
+                                    onClick={() => setFilter("owned")}
                                     className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
                                         filter === "owned"
                                             ? "bg-[#ecb200] text-black"
@@ -302,10 +227,7 @@ export default function LibraryPage() {
                                     Owned
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        setFilter("discovery");
-                                        setCurrentPage(1);
-                                    }}
+                                    onClick={() => setFilter("discovery")}
                                     className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
                                         filter === "discovery"
                                             ? "bg-purple-500 text-white"
@@ -315,10 +237,7 @@ export default function LibraryPage() {
                                     Discovery
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        setFilter("all");
-                                        setCurrentPage(1);
-                                    }}
+                                    onClick={() => setFilter("all")}
                                     className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
                                         filter === "all"
                                             ? "bg-white/20 text-white"
@@ -333,10 +252,7 @@ export default function LibraryPage() {
                         {/* Sort Dropdown */}
                         <select
                             value={sortBy}
-                            onChange={(e) => {
-                                setSortBy(e.target.value as SortOption);
-                                setCurrentPage(1);
-                            }}
+                            onChange={(e) => setSortBy(e.target.value as SortOption)}
                             className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-white text-xs focus:outline-none focus:border-white/20 [&>option]:bg-[#1a1a1a] [&>option]:text-white"
                         >
                             <option value="name">Name (A-Z)</option>
@@ -352,10 +268,7 @@ export default function LibraryPage() {
                         {/* Items per page */}
                         <select
                             value={itemsPerPage}
-                            onChange={(e) => {
-                                setItemsPerPage(Number(e.target.value));
-                                setCurrentPage(1);
-                            }}
+                            onChange={(e) => setItemsPerPage(Number(e.target.value))}
                             className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-white text-xs focus:outline-none focus:border-white/20 [&>option]:bg-[#1a1a1a] [&>option]:text-white"
                         >
                             <option value={25}>25 per page</option>
@@ -368,7 +281,7 @@ export default function LibraryPage() {
 
                 {activeTab === "artists" && (
                     <ArtistsGrid
-                        artists={paginatedArtists}
+                        artists={artists}
                         isLoading={isLoading}
                         onPlay={playArtist}
                         onDelete={(id, name) =>
@@ -384,7 +297,7 @@ export default function LibraryPage() {
 
                 {activeTab === "albums" && (
                     <AlbumsGrid
-                        albums={paginatedAlbums}
+                        albums={albums}
                         isLoading={isLoading}
                         onPlay={playAlbum}
                         onDelete={(id, title) =>
@@ -400,7 +313,7 @@ export default function LibraryPage() {
 
                 {activeTab === "tracks" && (
                     <TracksList
-                        tracks={paginatedTracks}
+                        tracks={tracks}
                         isLoading={isLoading}
                         currentTrackId={currentTrack?.id}
                         onPlay={handlePlayTracks}
@@ -422,7 +335,7 @@ export default function LibraryPage() {
                     <div className="flex items-center justify-center gap-2 mt-8 pt-4 border-t border-white/5">
                         <button
                             onClick={() => setCurrentPage(1)}
-                            disabled={currentPage === 1}
+                            disabled={currentPage === 1 || isLoading}
                             className="px-3 py-1.5 text-xs text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             First
@@ -431,7 +344,7 @@ export default function LibraryPage() {
                             onClick={() =>
                                 setCurrentPage((p) => Math.max(1, p - 1))
                             }
-                            disabled={currentPage === 1}
+                            disabled={currentPage === 1 || isLoading}
                             className="px-3 py-1.5 text-xs text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Prev
@@ -445,14 +358,14 @@ export default function LibraryPage() {
                                     Math.min(totalPages, p + 1)
                                 )
                             }
-                            disabled={currentPage === totalPages}
+                            disabled={currentPage === totalPages || isLoading}
                             className="px-3 py-1.5 text-xs text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Next
                         </button>
                         <button
                             onClick={() => setCurrentPage(totalPages)}
-                            disabled={currentPage === totalPages}
+                            disabled={currentPage === totalPages || isLoading}
                             className="px-3 py-1.5 text-xs text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Last
