@@ -4,6 +4,7 @@ import { musicBrainzService } from "../services/musicbrainz";
 import { fanartService } from "../services/fanart";
 import { deezerService } from "../services/deezer";
 import { redisClient } from "../utils/redis";
+import { normalizeToArray } from "../utils/normalize";
 
 const router = Router();
 
@@ -528,7 +529,9 @@ router.get("/album/:mbid", async (req, res) => {
             coverUrl,
             coverArt: coverUrl, // Alias for compatibility
             bio: lastFmInfo?.wiki?.summary || null,
-            tags: lastFmInfo?.tags?.tag?.map((t: any) => t.name) || [],
+            tags: normalizeToArray(lastFmInfo?.tags?.tag) 
+                .map((t: any) => t?.name) 
+                .filter(Boolean),
             tracks: tracks.map((track: any, index: number) => ({
                 id: `mb-${releaseGroupId}-${track.id || index}`,
                 title: track.title,
