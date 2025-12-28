@@ -158,8 +158,10 @@ router.get("/discover/:nameOrMbid", async (req, res) => {
         }
 
         // Fallback to Last.fm (but filter placeholders)
+        // NORMALIZATION: lastFmInfo.image could be a single object or array
         if (!image && lastFmInfo?.image) {
-            const lastFmImage = lastFmService.getBestImage(lastFmInfo.image);
+            const images = normalizeToArray(lastFmInfo.image);
+            const lastFmImage = lastFmService.getBestImage(images);
             // Filter out Last.fm placeholder
             if (
                 lastFmImage &&
@@ -274,10 +276,13 @@ router.get("/discover/:nameOrMbid", async (req, res) => {
         }
 
         // Get similar artists from Last.fm and fetch images
-        const similarArtistsRaw = lastFmInfo?.similar?.artist || [];
+        // NORMALIZATION: lastFmInfo.similar.artist could be a single object or array
+        const similarArtistsRaw = normalizeToArray(lastFmInfo?.similar?.artist);
         const similarArtists = await Promise.all(
             similarArtistsRaw.slice(0, 10).map(async (artist: any) => {
-                const similarImage = artist.image?.find(
+                // NORMALIZATION: artist.image could be a single object or array
+                const images = normalizeToArray(artist.image);
+                const similarImage = images.find(
                     (img: any) => img.size === "large"
                 )?.[" #text"];
 
@@ -325,14 +330,19 @@ router.get("/discover/:nameOrMbid", async (req, res) => {
             })
         );
 
+        // NORMALIZATION: lastFmInfo.tags.tag could be a single object or array
+        const tags = normalizeToArray(lastFmInfo?.tags?.tag)
+            .map((t: any) => t?.name)
+            .filter(Boolean);
+
         const response = {
             mbid,
             name: artistName,
             image,
             bio, // Use filtered bio instead of raw Last.fm bio
             summary: bio, // Alias for consistency
-            tags: lastFmInfo?.tags?.tag?.map((t: any) => t.name) || [],
-            genres: lastFmInfo?.tags?.tag?.map((t: any) => t.name) || [], // Alias for consistency
+            tags,
+            genres: tags, // Alias for consistency
             listeners: parseInt(lastFmInfo?.stats?.listeners || "0"),
             playcount: parseInt(lastFmInfo?.stats?.playcount || "0"),
             url: lastFmInfo?.url || null,
@@ -529,6 +539,7 @@ router.get("/album/:mbid", async (req, res) => {
             coverUrl,
             coverArt: coverUrl, // Alias for compatibility
             bio: lastFmInfo?.wiki?.summary || null,
+            // NORMALIZATION: Already applied here correctly
             tags: normalizeToArray(lastFmInfo?.tags?.tag) 
                 .map((t: any) => t?.name) 
                 .filter(Boolean),
