@@ -3,19 +3,24 @@
  *
  * Handles pre-computed mood assignments for fast mood mix generation.
  * Tracks are assigned to mood buckets during audio analysis, enabling
- * instant mood mix generation through simple database lookups.
+ * instant mood mix generation through simple database lookups. 
+ *
+ * 12/28: proposed changes:
+ * When individual mood fields are null, parse the moodTags array instead
  */
 
 import { prisma } from "../utils/db";
 
 // Mood configuration with scoring rules
-// Primary = uses ML mood predictions (enhanced mode)
+// Primary = uses ML mood predictions (enhanced mode) OR moodTags parsing
 // Fallback = uses basic audio features (standard mode)
 export const MOOD_CONFIG = {
     happy: {
         name: "Happy & Upbeat",
         color: "from-yellow-400 to-orange-500",
         icon: "Smile",
+        // MoodTags that match this mood
+        moodTagKeywords: ["happy", "upbeat", "cheerful", "joyful", "positive"],
         // Primary: ML mood prediction
         primary: { moodHappy: { min: 0.5 }, moodSad: { max: 0.4 } },
         // Fallback: basic audio features
@@ -25,6 +30,7 @@ export const MOOD_CONFIG = {
         name: "Melancholic",
         color: "from-blue-600 to-indigo-700",
         icon: "CloudRain",
+        moodTagKeywords: ["sad", "melancholic", "melancholy", "dark", "somber"],
         primary: { moodSad: { min: 0.5 }, moodHappy: { max: 0.4 } },
         fallback: { valence: { max: 0.35 }, keyScale: "minor" },
     },
@@ -32,6 +38,7 @@ export const MOOD_CONFIG = {
         name: "Chill & Relaxed",
         color: "from-teal-400 to-cyan-500",
         icon: "Wind",
+        moodTagKeywords: ["relaxed", "chill", "calm", "mellow"],
         primary: { moodRelaxed: { min: 0.5 }, moodAggressive: { max: 0.3 } },
         fallback: { energy: { max: 0.5 }, arousal: { max: 0.5 } },
     },
@@ -39,6 +46,7 @@ export const MOOD_CONFIG = {
         name: "High Energy",
         color: "from-red-500 to-orange-600",
         icon: "Zap",
+        moodTagKeywords: ["energetic", "powerful", "exciting"],
         primary: { arousal: { min: 0.6 }, energy: { min: 0.7 } },
         fallback: { bpm: { min: 120 }, energy: { min: 0.7 } },
     },
@@ -46,6 +54,7 @@ export const MOOD_CONFIG = {
         name: "Dance Party",
         color: "from-pink-500 to-rose-600",
         icon: "PartyPopper",
+        moodTagKeywords: ["party", "danceable", "groovy"],
         primary: { moodParty: { min: 0.5 }, danceability: { min: 0.6 } },
         fallback: { danceability: { min: 0.7 }, energy: { min: 0.6 } },
     },
@@ -53,6 +62,7 @@ export const MOOD_CONFIG = {
         name: "Focus Mode",
         color: "from-purple-600 to-violet-700",
         icon: "Brain",
+        moodTagKeywords: ["instrumental"],
         primary: { instrumentalness: { min: 0.5 }, moodRelaxed: { min: 0.3 } },
         fallback: {
             instrumentalness: { min: 0.5 },
@@ -63,6 +73,7 @@ export const MOOD_CONFIG = {
         name: "Deep Feels",
         color: "from-gray-700 to-slate-800",
         icon: "Moon",
+        moodTagKeywords: ["sad", "melancholic", "emotional", "dark"],
         primary: { moodSad: { min: 0.4 }, valence: { max: 0.4 } },
         fallback: { valence: { max: 0.35 }, keyScale: "minor" },
     },
@@ -70,6 +81,7 @@ export const MOOD_CONFIG = {
         name: "Intense",
         color: "from-red-700 to-gray-900",
         icon: "Flame",
+        moodTagKeywords: ["aggressive", "angry"],
         primary: { moodAggressive: { min: 0.5 } },
         fallback: { energy: { min: 0.8 }, arousal: { min: 0.7 } },
     },
@@ -77,6 +89,7 @@ export const MOOD_CONFIG = {
         name: "Acoustic Vibes",
         color: "from-amber-500 to-yellow-600",
         icon: "Guitar",
+        moodTagKeywords: ["acoustic"],
         primary: { moodAcoustic: { min: 0.5 }, moodElectronic: { max: 0.4 } },
         fallback: {
             acousticness: { min: 0.6 },
@@ -123,6 +136,7 @@ interface TrackWithAnalysis {
     instrumentalness: number | null;
     bpm: number | null;
     keyScale: string | null;
+    moodTags: string[]; // NEW: moodTags array for parsing
 }
 
 export class MoodBucketService {
@@ -153,6 +167,7 @@ export class MoodBucketService {
                 instrumentalness: true,
                 bpm: true,
                 keyScale: true,
+                moodTags: true, // NEW: Include moodTags
             },
         });
 
@@ -211,9 +226,10 @@ export class MoodBucketService {
     /**
      * Calculate mood scores for a track based on its audio features
      * Returns a score 0-1 for each mood (0 = not matching, 1 = perfect match)
+     * 
+     * NEW: Now supports moodTags parsing when individual mood fields are null
      */
     calculateMoodScores(track: TrackWithAnalysis): Record<MoodType, number> {
-        const isEnhanced = track.analysisMode === "enhanced";
         const scores: Record<MoodType, number> = {
             happy: 0,
             sad: 0,
@@ -226,6 +242,25 @@ export class MoodBucketService {
             acoustic: 0,
         };
 
+        // Check if we have individual mood fields OR moodTags
+        const hasIndividualMoods = track.moodHappy !== null || track.moodSad !== null;
+        const hasMoodTags = track.moodTags && track.moodTags.length > 0;
+
+        if (!hasIndividualMoods && !hasMoodTags) {
+            // No mood data at all, use fallback features only
+            for (const [mood, config] of Object.entries(MOOD_CONFIG)) {
+                scores[mood as MoodType] = this.evaluateMoodRules(track, config.fallback);
+            }
+            return scores;
+        }
+
+        // If we have moodTags but no individual mood fields, parse moodTags
+        if (!hasIndividualMoods && hasMoodTags) {
+            return this.calculateMoodScoresFromTags(track.moodTags);
+        }
+
+        // Otherwise use the original logic with individual mood fields
+        const isEnhanced = track.analysisMode === "enhanced";
         for (const [mood, config] of Object.entries(MOOD_CONFIG)) {
             const rules = isEnhanced ? config.primary : config.fallback;
             const score = this.evaluateMoodRules(track, rules);
@@ -236,124 +271,113 @@ export class MoodBucketService {
     }
 
     /**
-     * Evaluate mood rules against track features
-     * Returns a score 0-1 based on how well the track matches the rules
+     * NEW: Calculate mood scores from moodTags array
+     * This is the fix for your database where moodTags is populated but individual fields are null
+     */
+    private calculateMoodScoresFromTags(moodTags: string[]): Record<MoodType, number> {
+        const scores: Record<MoodType, number> = {
+            happy: 0,
+            sad: 0,
+            chill: 0,
+            energetic: 0,
+            party: 0,
+            focus: 0,
+            melancholy: 0,
+            aggressive: 0,
+            acoustic: 0,
+        };
+
+        // Normalize tags to lowercase for comparison
+        const normalizedTags = moodTags.map(tag => tag.toLowerCase());
+
+        // Score each mood based on keyword matches
+        for (const [mood, config] of Object.entries(MOOD_CONFIG)) {
+            const keywords = config.moodTagKeywords;
+            let matchCount = 0;
+
+            for (const keyword of keywords) {
+                if (normalizedTags.includes(keyword)) {
+                    matchCount++;
+                }
+            }
+
+            // Score is based on proportion of keywords matched
+            // If any keywords match, assign a score (0.3 base + 0.2 per additional match)
+            if (matchCount > 0) {
+                scores[mood as MoodType] = Math.min(1.0, 0.3 + (matchCount - 1) * 0.2);
+            }
+        }
+
+        return scores;
+    }
+
+    /**
+     * Evaluate mood rules (unchanged from original)
      */
     private evaluateMoodRules(
         track: TrackWithAnalysis,
         rules: Record<string, any>
     ): number {
-        let totalScore = 0;
-        let ruleCount = 0;
+        let matchingRules = 0;
+        let totalRules = 0;
 
-        for (const [field, constraints] of Object.entries(rules)) {
+        for (const [field, conditions] of Object.entries(rules)) {
+            totalRules++;
             const value = track[field as keyof TrackWithAnalysis];
 
-            // Skip if value is null
             if (value === null || value === undefined) {
                 continue;
             }
 
-            ruleCount++;
+            let matches = false;
 
-            // Handle string equality (e.g., keyScale: "minor")
-            if (typeof constraints === "string") {
-                totalScore += value === constraints ? 1 : 0;
-                continue;
+            if (typeof conditions === "string") {
+                matches = value === conditions;
+            } else if (typeof conditions === "object") {
+                const min = conditions.min;
+                const max = conditions.max;
+
+                const numValue = Number(value);
+                if (isNaN(numValue)) continue;
+
+                const meetsMin = min === undefined || numValue >= min;
+                const meetsMax = max === undefined || numValue <= max;
+                matches = meetsMin && meetsMax;
             }
 
-            // Handle numeric range constraints
-            const numValue = value as number;
-            const { min, max } = constraints as { min?: number; max?: number };
-
-            // Calculate how well the value matches the constraint
-            let fieldScore = 0;
-
-            if (min !== undefined && max !== undefined) {
-                // Range constraint - value should be between min and max
-                if (numValue >= min && numValue <= max) {
-                    // Perfect match in range
-                    fieldScore = 1;
-                } else if (numValue < min) {
-                    // Below range - linearly decrease score
-                    fieldScore = Math.max(0, 1 - (min - numValue) * 2);
-                } else {
-                    // Above range - linearly decrease score
-                    fieldScore = Math.max(0, 1 - (numValue - max) * 2);
-                }
-            } else if (min !== undefined) {
-                // Minimum constraint - higher is better
-                if (numValue >= min) {
-                    // Score increases with value above threshold
-                    fieldScore = Math.min(1, 0.5 + (numValue - min) * 0.5);
-                } else {
-                    // Below minimum - partial credit
-                    fieldScore = Math.max(0, (numValue / min) * 0.5);
-                }
-            } else if (max !== undefined) {
-                // Maximum constraint - lower is better
-                if (numValue <= max) {
-                    // Score increases as value decreases below threshold
-                    fieldScore = Math.min(1, 0.5 + (max - numValue) * 0.5);
-                } else {
-                    // Above maximum - partial credit
-                    fieldScore = Math.max(
-                        0,
-                        ((1 - numValue) / (1 - max)) * 0.5
-                    );
-                }
+            if (matches) {
+                matchingRules++;
             }
-
-            totalScore += fieldScore;
         }
 
-        // No rules matched (missing data)
-        if (ruleCount === 0) return 0;
-
-        // Average score across all rules, with minimum threshold
-        const avgScore = totalScore / ruleCount;
-
-        // Only assign to mood if score is above 0.5 threshold
-        return avgScore >= 0.5 ? avgScore : 0;
+        if (totalRules === 0) return 0;
+        return matchingRules / totalRules;
     }
 
     /**
-     * Get mood presets with track counts for the UI
+     * Get tracks in a specific mood bucket
      */
-    async getMoodPresets(): Promise<
-        {
-            id: string;
-            name: string;
-            color: string;
-            icon: string;
-            trackCount: number;
-        }[]
-    > {
-        // Count tracks per mood in parallel
-        const countPromises = VALID_MOODS.map(async (mood) => {
-            const count = await prisma.moodBucket.count({
-                where: { mood, score: { gte: 0.5 } },
-            });
-            const config = MOOD_CONFIG[mood];
-            return {
-                id: mood,
-                name: config.name,
-                color: config.color,
-                icon: config.icon,
-                trackCount: count,
-            };
+    async getTracksForMood(
+        mood: MoodType,
+        limit: number = 50
+    ): Promise<string[]> {
+        const moodBuckets = await prisma.moodBucket.findMany({
+            where: { mood },
+            orderBy: { score: "desc" },
+            take: limit,
+            select: { trackId: true },
         });
 
-        return Promise.all(countPromises);
+        return moodBuckets.map((b) => b.trackId);
     }
 
     /**
-     * Get a mood mix for a specific mood
-     * Fast lookup from pre-computed MoodBucket table
+     * Generate a dynamic mood mix
+     * Returns a mix with random selection of top-scoring tracks
      */
     async getMoodMix(
         mood: MoodType,
-        limit: number = 15
+        limit: number = 50
     ): Promise<{
         id: string;
         mood: string;
@@ -365,28 +389,26 @@ export class MoodBucketService {
         color: string;
     } | null> {
         if (!VALID_MOODS.includes(mood)) {
-            throw new Error(`Invalid mood: ${mood}`);
+            console.error(`[MoodBucket] Invalid mood: ${mood}`);
+            return null;
         }
 
         const config = MOOD_CONFIG[mood];
 
-        // Get top tracks for this mood, randomly sampled
-        // First get IDs with high scores, then randomly select
+        // Get top-scoring tracks for this mood (2x limit for better randomization)
         const moodBuckets = await prisma.moodBucket.findMany({
-            where: { mood, score: { gte: 0.5 } },
-            select: { trackId: true, score: true },
+            where: { mood },
             orderBy: { score: "desc" },
-            take: 100, // Pool to sample from
+            take: limit * 2,
+            select: { trackId: true, score: true },
         });
 
-        if (moodBuckets.length < 8) {
-            console.log(
-                `[MoodBucket] Not enough tracks for mood ${mood}: ${moodBuckets.length}`
-            );
+        if (moodBuckets.length === 0) {
+            console.log(`[MoodBucket] No tracks found for mood: ${mood}`);
             return null;
         }
 
-        // Randomly sample from the pool
+        // Randomly select tracks from the top-scoring ones
         const shuffled = [...moodBuckets].sort(() => Math.random() - 0.5);
         const selectedIds = shuffled.slice(0, limit).map((b) => b.trackId);
 
@@ -423,7 +445,6 @@ export class MoodBucketService {
 
     /**
      * Save a mood mix as the user's active mood mix
-     * Returns the saved mix for immediate UI update
      */
     async saveUserMoodMix(
         userId: string,
@@ -440,14 +461,12 @@ export class MoodBucketService {
         color: string;
         generatedAt: string;
     } | null> {
-        // Generate a fresh mix
         const mix = await this.getMoodMix(mood, limit);
         if (!mix) return null;
 
         const config = MOOD_CONFIG[mood];
         const generatedAt = new Date();
 
-        // Upsert the user's mood mix
         await prisma.userMoodMix.upsert({
             where: { userId },
             create: {
@@ -469,7 +488,6 @@ export class MoodBucketService {
             `[MoodBucket] Saved ${mood} mix for user ${userId} (${mix.trackCount} tracks)`
         );
 
-        // Return with user-specific naming
         return {
             id: `your-mood-mix-${generatedAt.getTime()}`,
             mood,
@@ -484,7 +502,7 @@ export class MoodBucketService {
     }
 
     /**
-     * Get user's current saved mood mix for display on home page
+     * Get user's current saved mood mix
      */
     async getUserMoodMix(userId: string): Promise<{
         id: string;
@@ -523,7 +541,7 @@ export class MoodBucketService {
 
     /**
      * Backfill mood buckets for all analyzed tracks
-     * Used for initial population or after schema changes
+     * Updated to handle moodTags
      */
     async backfillAllTracks(
         batchSize: number = 100
@@ -555,6 +573,7 @@ export class MoodBucketService {
                     instrumentalness: true,
                     bpm: true,
                     keyScale: true,
+                    moodTags: true, // NEW: Include moodTags
                 },
                 skip,
                 take: batchSize,
@@ -573,7 +592,6 @@ export class MoodBucketService {
                     }));
 
                 if (moodsToAssign.length > 0) {
-                    // Use upsert for each mood
                     await Promise.all(
                         moodsToAssign.map((data) =>
                             prisma.moodBucket.upsert({
@@ -614,7 +632,6 @@ export class MoodBucketService {
 
     /**
      * Clear all mood bucket data for a track
-     * Used when a track is re-analyzed
      */
     async clearTrackMoods(trackId: string): Promise<void> {
         await prisma.moodBucket.deleteMany({
