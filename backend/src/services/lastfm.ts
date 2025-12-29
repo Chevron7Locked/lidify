@@ -6,6 +6,7 @@ import { getSystemSettings } from "../utils/systemSettings";
 import { fanartService } from "./fanart";
 import { deezerService } from "./deezer";
 import { rateLimiter } from "./rateLimiter";
+import { normalizeToArray } from "../utils/normalize";
 
 interface SimilarArtist {
     name: string;
@@ -202,15 +203,33 @@ class LastFmService {
 
             const album = data.album;
 
-            // Cache for 30 days
-            try {
-                await redisClient.setEx(
-                    cacheKey,
-                    2592000,
-                    JSON.stringify(album)
-                );
-            } catch (err) {
-                console.warn("Redis set error:", err);
+            // Normalize arrays before caching/returning
+            if (album) {
+                const normalized = {
+                    ...album,
+                    image: normalizeToArray(album.image),
+                    tags: album.tags ? {
+                        ...album.tags,
+                        tag: normalizeToArray(album.tags.tag)
+                    } : album.tags,
+                    tracks: album.tracks ? {
+                        ...album.tracks,
+                        track: normalizeToArray(album.tracks.track)
+                    } : album.tracks
+                };
+
+                // Cache for 30 days
+                try {
+                    await redisClient.setEx(
+                        cacheKey,
+                        2592000,
+                        JSON.stringify(normalized)
+                    );
+                } catch (err) {
+                    console.warn("Redis set error:", err);
+                }
+
+                return normalized;
             }
 
             return album;
@@ -428,7 +447,25 @@ class LastFmService {
             }
 
             const data = await this.request(params);
-            return data.artist;
+            const artist = data.artist;
+
+            // Normalize arrays before returning
+            if (artist) {
+                return {
+                    ...artist,
+                    image: normalizeToArray(artist.image),
+                    tags: artist.tags ? {
+                        ...artist.tags,
+                        tag: normalizeToArray(artist.tags.tag)
+                    } : artist.tags,
+                    similar: artist.similar ? {
+                        ...artist.similar,
+                        artist: normalizeToArray(artist.similar.artist)
+                    } : artist.similar
+                };
+            }
+
+            return artist;
         } catch (error) {
             console.error(
                 `Last.fm artist info error for ${artistName}:`,
@@ -538,7 +575,7 @@ class LastFmService {
             name: artist.name,
             listeners: parseInt(artist.listeners || "0", 10),
             url: artist.url,
-            image: this.getBestImage(artist.image),
+            image: this.getBestImage(normalizeToArray(artist.image)),
             mbid: artist.mbid,
             bio: null,
             tags: [] as string[],
@@ -587,7 +624,7 @@ class LastFmService {
             album: track.album || null,
             listeners: parseInt(track.listeners || "0", 10),
             url: track.url,
-            image: this.getBestImage(track.image),
+            image: this.getBestImage(normalizeToArray(track.image)),
             mbid: track.mbid,
         };
 
@@ -829,7 +866,24 @@ class LastFmService {
                 format: "json",
             });
 
-            return data.track;
+            const track = data.track;
+
+            // Normalize arrays before returning
+            if (track) {
+                return {
+                    ...track,
+                    toptags: track.toptags ? {
+                        ...track.toptags,
+                        tag: normalizeToArray(track.toptags.tag)
+                    } : track.toptags,
+                    album: track.album ? {
+                        ...track.album,
+                        image: normalizeToArray(track.album.image)
+                    } : track.album
+                };
+            }
+
+            return track;
         } catch (error) {
             // Don't log errors for track info (many tracks don't have full info)
             return null;
@@ -901,8 +955,7 @@ class LastFmService {
 
                     // Last fallback to Last.fm images (but filter placeholders)
                     if (!image) {
-                        const images = normalizeToArray(artist.image);
-                        const lastFmImage = this.getBestImage(images);
+                        const lastFmImage = this.getBestImage(normalizeToArray(artist.image));
                         if (
                             lastFmImage &&
                             !lastFmImage.includes(
