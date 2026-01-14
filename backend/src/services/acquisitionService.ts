@@ -95,13 +95,31 @@ interface DownloadBehavior {
 
 class AcquisitionService {
     private albumQueue: PQueue;
+    private lastConcurrency: number = 4;
 
     constructor() {
-        // Initialize album queue with concurrency of 2 (configurable)
-        this.albumQueue = new PQueue({ concurrency: 2 });
+        // Initialize album queue with default concurrency (will be updated from settings)
+        this.albumQueue = new PQueue({ concurrency: 4 });
         logger.debug(
-            "[Acquisition] Initialized album queue with concurrency=2"
+            "[Acquisition] Initialized album queue with default concurrency=4"
         );
+    }
+
+    /**
+     * Update album queue concurrency from user settings
+     * Called before processing to ensure settings are respected
+     */
+    private async updateQueueConcurrency(): Promise<void> {
+        const settings = await getSystemSettings();
+        const concurrency = settings?.soulseekConcurrentDownloads || 4;
+
+        if (concurrency !== this.lastConcurrency) {
+            this.albumQueue.concurrency = concurrency;
+            this.lastConcurrency = concurrency;
+            logger.debug(
+                `[Acquisition] Updated album queue concurrency to ${concurrency}`
+            );
+        }
     }
 
     /**
@@ -265,6 +283,9 @@ class AcquisitionService {
         request: AlbumAcquisitionRequest,
         context: AcquisitionContext
     ): Promise<AcquisitionResult> {
+        // Update queue concurrency from user settings
+        await this.updateQueueConcurrency();
+
         return this.albumQueue.add(() =>
             this.acquireAlbumInternal(request, context)
         );
@@ -436,18 +457,21 @@ class AcquisitionService {
             );
 
             // Create individual results for each track
-            const results: AcquisitionResult[] = requests.map((req, index) => {
-                // Check if this track was in the successful list
-                // Note: We don't have per-track success info from batch, so we estimate
-                const success = index < batchResult.successful;
+            // Note: Batch doesn't return per-track success mapping, so we use error messages to determine failures
+            const results: AcquisitionResult[] = requests.map((req) => {
+                // Check if this specific track had an error in the batch result
+                const trackKey = `${req.artistName} - ${req.trackTitle}`;
+                const trackError = batchResult.errors.find((e) =>
+                    e.startsWith(trackKey)
+                );
+                const success = !trackError;
+
                 return {
                     success,
                     source: "soulseek" as const,
                     tracksDownloaded: success ? 1 : 0,
                     tracksTotal: 1,
-                    error: success
-                        ? undefined
-                        : batchResult.errors[index] || "Download failed",
+                    error: trackError || undefined,
                 };
             });
 

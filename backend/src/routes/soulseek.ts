@@ -1,4 +1,5 @@
 import { logger } from "../utils/logger";
+import path from "path";
 
 /**
  * Soulseek routes - Direct connection via slsk-client
@@ -150,13 +151,15 @@ router.post(
             });
 
             // Start async search (don't await - results come in over time)
-            // For general queries, treat whole query as artist for now
+            // Use full 45s timeout for quality results from P2P network
             soulseekService
                 .searchTrack(searchQuery, "")
                 .then((result) => {
                     const session = searchSessions.get(searchId);
                     if (session && result.found && result.allMatches) {
-                        logger.debug(`[Soulseek] Search ${searchId} found ${result.allMatches.length} matches`);
+                        logger.debug(
+                            `[Soulseek] Search ${searchId} found ${result.allMatches.length} matches`
+                        );
                         // Store all matches for polling
                         session.results = result.allMatches.map((match) => ({
                             user: match.username,
@@ -170,7 +173,9 @@ router.post(
                             `[Soulseek] Search ${searchId} session updated with ${session.results.length} results`
                         );
                     } else {
-                        logger.debug(`[Soulseek] Search ${searchId} completed with no matches (found: ${result.found})`);
+                        logger.debug(
+                            `[Soulseek] Search ${searchId} completed with no matches (found: ${result.found})`
+                        );
                     }
                 })
                 .catch((err) => {
@@ -264,14 +269,8 @@ router.post(
     requireSoulseekConfigured,
     async (req, res) => {
         try {
-            const { artist, title, album } = req.body;
-
-            if (!artist || !title) {
-                return res.status(400).json({
-                    error: "Artist and title are required",
-                });
-            }
-
+            const { artist, title, album, username, filepath, filename, size } =
+                req.body;
             const settings = await getSystemSettings();
             const musicPath = settings?.musicPath;
 
@@ -281,7 +280,111 @@ router.post(
                 });
             }
 
-            logger.debug(`[Soulseek] Downloading: "${artist} - ${title}"`);
+            // Case 1: Direct download (we have the file info)
+            if (username && filepath && filename) {
+                logger.debug(
+                    `[Soulseek] Direct download: "${filename}" from ${username}`
+                );
+
+                const sanitize = (name: string) =>
+                    name.replace(/[<>:"/\\|?*]/g, "_").trim();
+
+                const artistName = artist || "Unknown Artist";
+                const albumName = album || "Unknown Album";
+
+                const destPath = path.join(
+                    musicPath,
+                    "Singles",
+                    sanitize(artistName),
+                    sanitize(albumName),
+                    sanitize(filename)
+                );
+
+                const match = {
+                    username,
+                    filename,
+                    fullPath: filepath,
+                    size: size || 0,
+                    quality: "Unknown",
+                    score: 0,
+                };
+
+                // Try primary user first
+                let result = await soulseekService.downloadTrack(
+                    match,
+                    destPath
+                );
+
+                // If primary download fails, try to find alternative users with same file
+                if (!result.success) {
+                    logger.debug(
+                        `[Soulseek] Primary download failed (${result.error}), searching for alternatives...`
+                    );
+
+                    // Quick search for the filename to find other users
+                    const searchQuery = filename
+                        .replace(/\.(mp3|flac|m4a|ogg|wav)$/i, "")
+                        .replace(/[_-]/g, " ");
+                    const searchResult = await soulseekService.searchTrack(
+                        searchQuery,
+                        "",
+                        false,
+                        10000 // 10 second quick search
+                    );
+
+                    if (searchResult.found && searchResult.allMatches.length > 0) {
+                        // Filter to matches from different users with similar filename
+                        const alternatives = searchResult.allMatches.filter(
+                            (m) =>
+                                m.username !== username &&
+                                m.filename.toLowerCase().includes(
+                                    filename.toLowerCase().replace(/\.(mp3|flac|m4a|ogg|wav)$/i, "").substring(0, 20)
+                                )
+                        );
+
+                        logger.debug(
+                            `[Soulseek] Found ${alternatives.length} alternative sources`
+                        );
+
+                        // Try up to 3 alternatives
+                        for (const alt of alternatives.slice(0, 3)) {
+                            logger.debug(
+                                `[Soulseek] Trying alternative: ${alt.username}`
+                            );
+                            result = await soulseekService.downloadTrack(
+                                alt,
+                                destPath
+                            );
+                            if (result.success) {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (result.success) {
+                    return res.json({
+                        success: true,
+                        filePath: destPath,
+                    });
+                } else {
+                    return res.status(500).json({
+                        success: false,
+                        error: result.error || "Download failed",
+                    });
+                }
+            }
+
+            // Case 2: Search and download (we only have metadata)
+            if (!artist || !title) {
+                return res.status(400).json({
+                    error: "Artist and title are required",
+                });
+            }
+
+            logger.debug(
+                `[Soulseek] Search and download: "${artist} - ${title}"`
+            );
 
             const result = await soulseekService.searchAndDownload(
                 artist,

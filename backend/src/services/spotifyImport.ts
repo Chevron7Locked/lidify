@@ -95,6 +95,8 @@ export interface ImportJob {
         artist: string;
         title: string;
         album: string;
+        albumMbid: string | null;
+        artistMbid: string | null;
         preMatchedTrackId: string | null; // Track ID if already matched in preview
     }>;
 }
@@ -859,12 +861,23 @@ class SpotifyImportService {
         const pendingTracks = preview.matchedTracks.map((m) => {
             const spotifyAlbum = m.spotifyTrack.album;
             const spotifyAlbumId = m.spotifyTrack.albumId;
+            const spotifyArtist = m.spotifyTrack.artist;
 
-            const albumToDownload = spotifyAlbumId
+            // Try to find album info - first by spotifyAlbumId, then by artist name match
+            let albumToDownload = spotifyAlbumId
                 ? preview.albumsToDownload.find(
                       (a) => a.spotifyAlbumId === spotifyAlbumId
                   )
                 : undefined;
+
+            // Fallback: If no match by ID (e.g., "Unknown Album" tracks), try matching by artist
+            // This helps when Spotify doesn't return album info but we resolved it via MusicBrainz
+            if (!albumToDownload && spotifyArtist) {
+                const normalizedArtist = spotifyArtist.toLowerCase();
+                albumToDownload = preview.albumsToDownload.find(
+                    (a) => a.artistName.toLowerCase() === normalizedArtist
+                );
+            }
 
             const albumForDisplay =
                 spotifyAlbum && spotifyAlbum !== "Unknown Album"
@@ -872,9 +885,11 @@ class SpotifyImportService {
                     : albumToDownload?.albumName || spotifyAlbum;
 
             return {
-                artist: m.spotifyTrack.artist,
+                artist: spotifyArtist,
                 title: m.spotifyTrack.title,
                 album: albumForDisplay,
+                albumMbid: albumToDownload?.albumMbid || null,
+                artistMbid: albumToDownload?.artistMbid || null,
                 preMatchedTrackId: m.localTrack?.id || null,
             };
         });
@@ -942,9 +957,10 @@ class SpotifyImportService {
                     `Processing ${albumMbidsToDownload.length} albums via AcquisitionService`
                 );
 
-                // Process albums in parallel with concurrency limit
+                // Process albums in parallel with concurrency limit from settings
+                const settings = await getSystemSettings();
                 const albumQueue = new PQueue({
-                    concurrency: 4,
+                    concurrency: settings?.soulseekConcurrentDownloads || 4,
                 });
 
                 const albumPromises = albumMbidsToDownload.map(
@@ -1836,6 +1852,8 @@ class SpotifyImportService {
                     spotifyArtist: track.artist,
                     spotifyTitle: track.title,
                     spotifyAlbum: track.album,
+                    albumMbid: track.albumMbid,
+                    artistMbid: track.artistMbid,
                     deezerPreviewUrl: track.deezerPreviewUrl,
                     sort: track.originalIndex,
                 })),
