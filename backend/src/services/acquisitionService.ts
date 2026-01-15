@@ -451,6 +451,30 @@ class AcquisitionService {
                 };
             });
 
+            if (batchResult.successful > 0) {
+                try {
+                    const { scanQueue } = await import("../workers/queues");
+                    await scanQueue.add(
+                        "scan",
+                        {
+                            userId: context.userId,
+                            source: "soulseek-acquisition-tracks",
+                        },
+                        {
+                            priority: 1,
+                            removeOnComplete: true,
+                        }
+                    );
+                    logger.debug(
+                        "[Acquisition/Soulseek] Queued library scan after track downloads"
+                    );
+                } catch (scanError: any) {
+                    logger.error(
+                        `[Acquisition/Soulseek] Failed to queue scan: ${scanError.message}`
+                    );
+                }
+            }
+
             return results;
         } catch (error: any) {
             logger.error(
@@ -623,9 +647,35 @@ class AcquisitionService {
                         ...job.metadata,
                         tracksDownloaded: batchResult.successful,
                         tracksTotal: tracks.length,
+                        files: batchResult.files,
                     },
                 },
             });
+
+            if (batchResult.successful > 0) {
+                try {
+                    const { scanQueue } = await import("../workers/queues");
+                    await scanQueue.add(
+                        "scan",
+                        {
+                            userId: context.userId,
+                            source: "soulseek-acquisition",
+                            albumMbid: request.mbid || undefined,
+                        },
+                        {
+                            priority: 1,
+                            removeOnComplete: true,
+                        }
+                    );
+                    logger.debug(
+                        "[Acquisition/Soulseek] Queued library scan after download"
+                    );
+                } catch (scanError: any) {
+                    logger.error(
+                        `[Acquisition/Soulseek] Failed to queue scan: ${scanError.message}`
+                    );
+                }
+            }
 
             return {
                 success: isSuccess,
