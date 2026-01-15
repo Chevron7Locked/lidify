@@ -408,13 +408,50 @@ export class AudioStreamingService {
             let end = fileSize - 1;
 
             if (range) {
-                // Parse bytes=START-END or bytes=START-
+                // Support: bytes=START-END, bytes=START-, bytes=-SUFFIX
                 const parts = range.replace(/bytes=/, "").split("-");
-                start = parseInt(parts[0], 10);
-                end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+                const startPart = parts[0];
+                const endPart = parts[1];
+
+                if (startPart === "") {
+                    // Suffix range: last N bytes
+                    const suffixLength = parseInt(endPart || "", 10);
+                    if (Number.isNaN(suffixLength) || suffixLength <= 0) {
+                        res.status(416).set({
+                            "Content-Range": `bytes */${fileSize}`,
+                        });
+                        res.end();
+                        return;
+                    }
+                    start = Math.max(fileSize - suffixLength, 0);
+                    end = fileSize - 1;
+                } else {
+                    const parsedStart = parseInt(startPart, 10);
+                    const parsedEnd = endPart
+                        ? parseInt(endPart, 10)
+                        : fileSize - 1;
+
+                    if (Number.isNaN(parsedStart)) {
+                        res.status(416).set({
+                            "Content-Range": `bytes */${fileSize}`,
+                        });
+                        res.end();
+                        return;
+                    }
+
+                    start = parsedStart;
+                    end = Number.isNaN(parsedEnd)
+                        ? fileSize - 1
+                        : parsedEnd;
+                }
 
                 // Validate range
-                if (start >= fileSize || end >= fileSize || start > end) {
+                if (
+                    start >= fileSize ||
+                    end >= fileSize ||
+                    start > end ||
+                    start < 0
+                ) {
                     res.status(416).set({
                         "Content-Range": `bytes */${fileSize}`,
                     });
