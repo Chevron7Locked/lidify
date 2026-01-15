@@ -314,6 +314,35 @@ function stringSimilarity(a: string, b: string): number {
 }
 
 class SpotifyImportService {
+    private async withTimeout<T>(
+        promise: Promise<T>,
+        timeoutMs: number,
+        label: string
+    ): Promise<T | null> {
+        let timeoutId: NodeJS.Timeout | null = null;
+        try {
+            const timeoutPromise = new Promise<null>((resolve) => {
+                timeoutId = setTimeout(() => resolve(null), timeoutMs);
+            });
+            const result = await Promise.race([promise, timeoutPromise]);
+            if (result === null) {
+                logger?.warn(
+                    `[Spotify Import] ${label} timed out after ${timeoutMs}ms`
+                );
+                return null;
+            }
+            return result as T;
+        } catch (error: any) {
+            logger?.warn(
+                `[Spotify Import] ${label} failed: ${error.message || error}`
+            );
+            return null;
+        } finally {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        }
+    }
     /**
      * Match a Spotify track to the local library
      */
@@ -599,12 +628,13 @@ class SpotifyImportService {
                     );
                 }
 
-                const mbResult = await this.findAlbumMbid(
-                    artistName,
-                    normalizedAlbumName
+                const mbResult = await this.withTimeout(
+                    this.findAlbumMbid(artistName, normalizedAlbumName),
+                    8000,
+                    "MusicBrainz album lookup"
                 );
-                artistMbid = mbResult.artistMbid;
-                albumMbid = mbResult.albumMbid;
+                artistMbid = mbResult?.artistMbid ?? null;
+                albumMbid = mbResult?.albumMbid ?? null;
 
                 if (albumMbid) {
                     logger?.debug(
@@ -617,7 +647,7 @@ class SpotifyImportService {
                 logger?.debug(
                     `${logPrefix} Album not found, trying track-based search...`
                 );
-                for (const track of albumTracks) {
+                for (const track of albumTracks.slice(0, 3)) {
                     // Normalize track title to remove live/remaster suffixes
                     const normalizedTrackTitle = stripTrackSuffix(track.title);
                     const wasNormalized = normalizedTrackTitle !== track.title;
@@ -631,11 +661,14 @@ class SpotifyImportService {
                         );
                     }
 
-                    const recordingInfo =
-                        await musicBrainzService.searchRecording(
+                    const recordingInfo = await this.withTimeout(
+                        musicBrainzService.searchRecording(
                             normalizedTrackTitle,
                             artistName
-                        );
+                        ),
+                        8000,
+                        "MusicBrainz recording lookup"
+                    );
 
                     if (recordingInfo) {
                         resolvedAlbumName = recordingInfo.albumName;
