@@ -894,6 +894,9 @@ class SoulseekService {
                     }
                 );
             } catch (syncError: any) {
+                clearTimeout(timeoutId);  // Clear timeout to prevent double-resolve
+                resolved = true;
+                this.activeDownloads--;
                 sessionLog(
                     "SOULSEEK",
                     `Download synchronous error: ${syncError.message}`,
