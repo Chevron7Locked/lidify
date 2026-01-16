@@ -912,6 +912,35 @@ class SpotifyImportService {
         const logPrefix =
             source === "Spotify" ? "[Spotify Import]" : "[Deezer Import]";
 
+        // PHASE 0: Early MusicBrainz resolution for "Unknown Album" tracks
+        // This MUST happen BEFORE grouping so tracks get grouped by actual albums
+        const unknownCount = tracks.filter(
+            (t) => t.album === "Unknown Album"
+        ).length;
+
+        if (unknownCount > 0) {
+            logger?.info(
+                `${logPrefix} Found ${unknownCount} tracks with Unknown Album, attempting MusicBrainz resolution...`
+            );
+            try {
+                await this.enrichUnknownAlbumsViaMusicBrainz(tracks, logPrefix);
+            } catch (error: unknown) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                logger?.error(`${logPrefix} MusicBrainz enrichment failed: ${errorMsg}`);
+                // Continue with original tracks - graceful degradation
+            }
+
+            // Log remaining unknown after resolution
+            const stillUnknown = tracks.filter(
+                (t) => t.album === "Unknown Album"
+            ).length;
+            if (stillUnknown > 0) {
+                logger?.info(
+                    `${logPrefix} ${stillUnknown} tracks still have Unknown Album after MusicBrainz resolution`
+                );
+            }
+        }
+
         const matchedTracks: MatchedTrack[] = [];
         const unmatchedByAlbum = new Map<string, SpotifyTrack[]>();
 
@@ -936,6 +965,13 @@ class SpotifyImportService {
             let artistMbid: string | null = null;
             let albumMbid: string | null = null;
 
+            // Check if this album was resolved via MusicBrainz (albumId starts with "mbid:")
+            const firstTrack = albumTracks[0];
+            const wasMbResolved = firstTrack.albumId?.startsWith("mbid:");
+            const preResolvedMbid = wasMbResolved
+                ? firstTrack.albumId!.replace("mbid:", "")
+                : null;
+
             logger?.debug(
                 `\n${logPrefix} ========================================`
             );
@@ -943,7 +979,21 @@ class SpotifyImportService {
                 `${logPrefix} Looking up: "${artistName}" - "${albumName}"`
             );
 
-            if (albumName && albumName !== "Unknown Album") {
+            // If we have MBID from early resolution, use it directly
+            if (preResolvedMbid) {
+                albumMbid = preResolvedMbid;
+                logger?.debug(
+                    `${logPrefix} Using pre-resolved MBID: ${albumMbid}`
+                );
+                // Still get artistMbid for completeness
+                const artists = await musicBrainzService.searchArtist(
+                    artistName,
+                    1
+                );
+                if (artists && artists.length > 0) {
+                    artistMbid = artists[0].id;
+                }
+            } else if (albumName && albumName !== "Unknown Album") {
                 // Normalize album name to remove live/remaster suffixes
                 const normalizedAlbumName = stripTrackSuffix(albumName);
                 const wasNormalized = normalizedAlbumName !== albumName;
@@ -1020,7 +1070,8 @@ class SpotifyImportService {
             }
 
             const albumToDownload: AlbumToDownload = {
-                spotifyAlbumId: albumTracks[0].albumId,
+                spotifyAlbumId:
+                    albumTracks[0].albumId?.replace("mbid:", "") || "",
                 albumName: resolvedAlbumName,
                 artistName,
                 artistMbid,
