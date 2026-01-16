@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import type { SoulseekResult } from "../types";
 
 interface UseSoulseekSearchProps {
@@ -31,6 +31,7 @@ export function useSoulseekSearch({
     const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(
         new Set()
     );
+    const { toast } = useToast();
 
     // Check if Soulseek is configured (has credentials)
     // Use the public /soulseek/status endpoint instead of admin-only /system-settings
@@ -182,7 +183,7 @@ export function useSoulseekSearch({
                 return newSet;
             });
         }
-    }, []);
+    }, [toast]);
 
     return {
         soulseekResults,
