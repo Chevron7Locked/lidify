@@ -1602,6 +1602,7 @@ class SpotifyImportService {
         const job = await getImportJob(importJobId);
         if (!job) {
             logger?.debug(`   Job not found`);
+            jobLoggers.delete(importJobId);
             return;
         }
 
@@ -1738,6 +1739,7 @@ class SpotifyImportService {
         const job = await getImportJob(importJobId);
         if (!job) {
             logger?.debug(`   Job not found`);
+            jobLoggers.delete(importJobId);
             return;
         }
 
