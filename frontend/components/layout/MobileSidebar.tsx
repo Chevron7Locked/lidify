@@ -10,7 +10,6 @@ import {
     Compass,
     X,
     Radio,
-    Calendar,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { api } from "@/lib/api";
@@ -77,7 +76,7 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
 
             {/* Sidebar Drawer */}
             <div
-                className="fixed inset-y-0 left-0 w-[280px] bg-[#0a0a0a] z-50 flex flex-col overflow-hidden transform transition-transform border-r border-white/[0.06]"
+                className="fixed inset-y-0 left-0 w-[280px] bg-[#0a0a0a] z-[100] flex flex-col overflow-hidden transform transition-transform border-r border-white/[0.06]"
                 style={{
                     paddingTop: "env(safe-area-inset-top)",
                 }}
@@ -110,7 +109,11 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 </div>
 
                 {/* Menu Content */}
-                <nav className="flex-1 overflow-y-auto py-4" role="navigation" aria-label="Mobile menu">
+                <nav
+                    className="flex-1 overflow-y-auto py-4"
+                    role="navigation"
+                    aria-label="Mobile menu"
+                >
                     {/* Quick Links Section */}
                     <div className="px-3 mb-6">
                         <div className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest px-3 mb-2">
@@ -119,7 +122,9 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
 
                         <Link
                             href="/discover"
-                            aria-current={pathname === "/discover" ? "page" : undefined}
+                            aria-current={
+                                pathname === "/discover" ? "page" : undefined
+                            }
                             aria-label="Discover"
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-lg transition-colors",
@@ -136,7 +141,9 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
 
                         <Link
                             href="/radio"
-                            aria-current={pathname === "/radio" ? "page" : undefined}
+                            aria-current={
+                                pathname === "/radio" ? "page" : undefined
+                            }
                             aria-label="Radio"
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-lg transition-colors",
@@ -151,22 +158,6 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                             </span>
                         </Link>
 
-                        <Link
-                            href="/releases"
-                            aria-current={pathname === "/releases" ? "page" : undefined}
-                            aria-label="Releases"
-                            className={cn(
-                                "flex items-center gap-3 px-3 py-3 rounded-lg transition-colors",
-                                pathname === "/releases"
-                                    ? "bg-white/10 text-white"
-                                    : "text-gray-400 hover:text-white hover:bg-white/5"
-                            )}
-                        >
-                            <Calendar className="w-5 h-5" />
-                            <span className="text-[15px] font-medium">
-                                Releases
-                            </span>
-                        </Link>
                     </div>
 
                     {/* Actions Section */}
@@ -198,7 +189,9 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
 
                         <Link
                             href="/settings"
-                            aria-current={pathname === "/settings" ? "page" : undefined}
+                            aria-current={
+                                pathname === "/settings" ? "page" : undefined
+                            }
                             className={cn(
                                 "flex items-center gap-3 px-3 py-3 rounded-lg transition-colors",
                                 pathname === "/settings"
