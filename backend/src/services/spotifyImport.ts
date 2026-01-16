@@ -1272,18 +1272,28 @@ class SpotifyImportService {
             const spotifyTrackId = m.spotifyTrack.spotifyId;
             const trackTitle = m.spotifyTrack.title;
 
+            // Check if album was resolved via MusicBrainz (albumId has mbid: prefix)
+            const wasMbResolved = spotifyAlbumId?.startsWith("mbid:");
+            const resolvedMbid = wasMbResolved ? spotifyAlbumId.replace("mbid:", "") : null;
+
             // Try to find album info using multiple strategies
             let albumToDownload: AlbumToDownload | undefined;
 
-            // Strategy 1: Match by Spotify album ID (most reliable)
-            if (spotifyAlbumId) {
+            // Strategy 1: Match by resolved MusicBrainz MBID (highest priority for pre-resolved)
+            if (resolvedMbid) {
+                albumToDownload = preview.albumsToDownload.find(
+                    (a) => a.albumMbid === resolvedMbid
+                );
+            }
+
+            // Strategy 2: Match by Spotify album ID (for non-resolved tracks)
+            if (!albumToDownload && spotifyAlbumId && !wasMbResolved) {
                 albumToDownload = preview.albumsToDownload.find(
                     (a) => a.spotifyAlbumId === spotifyAlbumId
                 );
             }
 
-            // Strategy 2: Find album that contains this specific track in tracksNeeded
-            // This is the most accurate fallback for "Unknown Album" tracks
+            // Strategy 3: Find album that contains this specific track in tracksNeeded
             if (!albumToDownload) {
                 albumToDownload = preview.albumsToDownload.find((a) =>
                     a.tracksNeeded.some(
@@ -1295,7 +1305,7 @@ class SpotifyImportService {
                 );
             }
 
-            // Strategy 3: Match by artist + album name similarity (for edge cases)
+            // Strategy 4: Match by artist + album name similarity (for edge cases)
             if (!albumToDownload && spotifyArtist && spotifyAlbum && spotifyAlbum !== "Unknown Album") {
                 const normalizedArtist = spotifyArtist.toLowerCase();
                 const normalizedAlbum = spotifyAlbum.toLowerCase();
@@ -1306,16 +1316,20 @@ class SpotifyImportService {
                 );
             }
 
+            // Use resolved album name for display (from track or from albumToDownload)
             const albumForDisplay =
                 spotifyAlbum && spotifyAlbum !== "Unknown Album"
                     ? spotifyAlbum
                     : albumToDownload?.albumName || spotifyAlbum;
 
+            // Get the actual MBID (either from pre-resolved or from albumToDownload)
+            const actualAlbumMbid = resolvedMbid || albumToDownload?.albumMbid || null;
+
             return {
                 artist: spotifyArtist,
                 title: trackTitle,
                 album: albumForDisplay,
-                albumMbid: albumToDownload?.albumMbid || null,
+                albumMbid: actualAlbumMbid,
                 artistMbid: albumToDownload?.artistMbid || null,
                 preMatchedTrackId: m.localTrack?.id || null,
             };
