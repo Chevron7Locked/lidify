@@ -5,6 +5,7 @@ import { rateLimiter } from "./rateLimiter";
 
 class MusicBrainzService {
     private client: AxiosInstance;
+    private cooldownUntil = 0;
 
     constructor() {
         this.client = axios.create({
@@ -31,8 +32,25 @@ class MusicBrainzService {
             logger.warn("Redis get error:", err);
         }
 
+        if (this.isInCooldown()) {
+            return null;
+        }
+
         // Use global rate limiter instead of local rate limiting
-        const data = await rateLimiter.execute("musicbrainz", requestFn);
+        let data: any;
+        try {
+            data = await rateLimiter.execute("musicbrainz", requestFn, {
+                skipRetry: true,
+            });
+        } catch (error: any) {
+            this.startCooldownFromError(error);
+            logger.warn(
+                `[MusicBrainz] Request failed: ${
+                    error?.response?.status || error?.code || "unknown"
+                } ${error?.message || ""}`
+            );
+            return null;
+        }
 
         try {
             // Use shorter TTL for null results (1 hour) vs successful results (30 days)
@@ -46,10 +64,46 @@ class MusicBrainzService {
         return data;
     }
 
+    private isInCooldown(): boolean {
+        return this.cooldownUntil > Date.now();
+    }
+
+    private startCooldownFromError(error: any): void {
+        const status = error?.response?.status;
+        const code = error?.code;
+        const message = (error?.message || "").toLowerCase();
+
+        const headers = error?.response?.headers || {};
+        const retryAfterHeader = headers["retry-after"];
+        const retryAfterSeconds = retryAfterHeader
+            ? parseInt(retryAfterHeader, 10)
+            : NaN;
+
+        const isRateLimit =
+            status === 429 ||
+            status === 503 ||
+            message.includes("rate limit") ||
+            headers["x-mb-rate-limiter"] ||
+            headers["x-ratelimit-zone"];
+
+        const isNetworkError =
+            code === "ECONNRESET" ||
+            code === "ETIMEDOUT" ||
+            message.includes("socket hang up");
+
+        if (isRateLimit || isNetworkError) {
+            const fallbackCooldownMs = 60000; // 1 minute default
+            const cooldownMs = Number.isFinite(retryAfterSeconds)
+                ? Math.max(0, retryAfterSeconds * 1000)
+                : fallbackCooldownMs;
+            this.cooldownUntil = Date.now() + cooldownMs;
+        }
+    }
+
     async searchArtist(query: string, limit = 10) {
         const cacheKey = `mb:search:artist:${query}:${limit}`;
 
-        return this.cachedRequest(cacheKey, async () => {
+        const result = await this.cachedRequest(cacheKey, async () => {
             const response = await this.client.get("/artist", {
                 params: {
                     query,
@@ -59,6 +113,8 @@ class MusicBrainzService {
             });
             return response.data.artists || [];
         });
+
+        return Array.isArray(result) ? result : [];
     }
 
     async getArtist(mbid: string, includes: string[] = ["url-rels", "tags"]) {
@@ -82,7 +138,7 @@ class MusicBrainzService {
     ) {
         const cacheKey = `mb:rg:${artistMbid}:${types.join(",")}:${limit}`;
 
-        return this.cachedRequest(cacheKey, async () => {
+        const result = await this.cachedRequest(cacheKey, async () => {
             const response = await this.client.get("/release-group", {
                 params: {
                     artist: artistMbid,
@@ -93,12 +149,14 @@ class MusicBrainzService {
             });
             return response.data["release-groups"] || [];
         });
+
+        return Array.isArray(result) ? result : [];
     }
 
     async getReleaseGroup(rgMbid: string) {
         const cacheKey = `mb:rg:${rgMbid}`;
 
-        return this.cachedRequest(cacheKey, async () => {
+        const result = await this.cachedRequest(cacheKey, async () => {
             const response = await this.client.get(`/release-group/${rgMbid}`, {
                 params: {
                     inc: "artist-credits+releases",
@@ -107,12 +165,14 @@ class MusicBrainzService {
             });
             return response.data;
         });
+
+        return result || null;
     }
 
     async getReleaseGroupDetails(rgMbid: string) {
         const cacheKey = `mb:rg:details:${rgMbid}`;
 
-        return this.cachedRequest(cacheKey, async () => {
+        const result = await this.cachedRequest(cacheKey, async () => {
             const response = await this.client.get(`/release-group/${rgMbid}`, {
                 params: {
                     inc: "artist-credits+releases+labels",
@@ -121,12 +181,14 @@ class MusicBrainzService {
             });
             return response.data;
         });
+
+        return result || null;
     }
 
     async getRelease(releaseMbid: string) {
         const cacheKey = `mb:release:${releaseMbid}`;
 
-        return this.cachedRequest(cacheKey, async () => {
+        const result = await this.cachedRequest(cacheKey, async () => {
             const response = await this.client.get(`/release/${releaseMbid}`, {
                 params: {
                     inc: "recordings+artist-credits+labels",
@@ -135,6 +197,8 @@ class MusicBrainzService {
             });
             return response.data;
         });
+
+        return result || null;
     }
 
     extractPrimaryArtist(artistCredits: any[]): string {
@@ -700,7 +764,7 @@ class MusicBrainzService {
     ): Promise<Array<{ title: string; position?: number; duration?: number }>> {
         const cacheKey = `mb:albumtracks:${rgMbid}`;
 
-        return this.cachedRequest(cacheKey, async () => {
+        const result = await this.cachedRequest(cacheKey, async () => {
             try {
                 // Step 1: Get releases from the release group
                 const rgResponse = await this.client.get(
@@ -765,6 +829,8 @@ class MusicBrainzService {
                 return [];
             }
         });
+
+        return Array.isArray(result) ? result : [];
     }
 }
 
