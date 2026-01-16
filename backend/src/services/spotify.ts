@@ -376,6 +376,73 @@ class SpotifyService {
     }
 
     /**
+     * Scrape individual track pages to get album data
+     * This is a last resort fallback - expensive but reliable
+     */
+    private async scrapeTrackPagesForAlbums(
+        tracks: Array<{ spotifyId: string; title: string; artist: string }>
+    ): Promise<Map<string, { album: string; albumId: string }>> {
+        const albumMap = new Map<string, { album: string; albumId: string }>();
+
+        // Limit to first 20 tracks to avoid rate limiting
+        const tracksToScrape = tracks.slice(0, 20);
+
+        logger.debug(`[Spotify Track Scraper] Scraping ${tracksToScrape.length} individual track pages...`);
+
+        for (const track of tracksToScrape) {
+            if (albumMap.has(track.spotifyId)) continue;
+
+            try {
+                const response = await axios.get(
+                    `https://open.spotify.com/track/${track.spotifyId}`,
+                    {
+                        headers: {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                            "Accept": "text/html",
+                        },
+                        timeout: 10000,
+                    }
+                );
+
+                const html = response.data;
+
+                // Try to extract album from __NEXT_DATA__
+                const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([^<]+)<\/script>/);
+                if (nextDataMatch) {
+                    const data = JSON.parse(nextDataMatch[1]);
+
+                    // Try various paths for track data
+                    const trackData = data?.props?.pageProps?.state?.data?.entity
+                        || data?.props?.pageProps?.track
+                        || data?.props?.pageProps?.state?.data?.trackUnion;
+
+                    const albumName = trackData?.album?.name
+                        || trackData?.albumOfTrack?.name
+                        || trackData?.album?.title;
+                    const albumId = trackData?.album?.uri?.split(":")[2]
+                        || trackData?.albumOfTrack?.uri?.split(":")[2]
+                        || trackData?.album?.id;
+
+                    if (albumName && albumName !== "Unknown Album") {
+                        albumMap.set(track.spotifyId, { album: albumName, albumId: albumId || "" });
+                        logger.debug(`[Spotify Track Scraper] Found album for "${track.title}": "${albumName}"`);
+                    }
+                }
+
+                // Rate limit - wait 500ms between requests
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+            } catch (error: unknown) {
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                logger.debug(`[Spotify Track Scraper] Failed for track ${track.spotifyId}: ${errorMsg}`);
+            }
+        }
+
+        logger.debug(`[Spotify Track Scraper] Scraped ${albumMap.size} albums from track pages`);
+        return albumMap;
+    }
+
+    /**
      * Fetch playlist via anonymous token
      */
     private async fetchPlaylistViaAnonymousApi(playlistId: string): Promise<SpotifyPlaylist | null> {
@@ -452,6 +519,29 @@ class SpotifyService {
                         }
                     }
                     logger.debug(`Spotify: Enriched ${enrichedCount}/${unknownAlbumCount} tracks with scraped album data`);
+                }
+            }
+
+            // If we STILL have tracks with Unknown Album, try individual track pages
+            const remainingUnknown = tracks.filter(t => t.album === "Unknown Album");
+            if (remainingUnknown.length > 0 && remainingUnknown.length <= 30) {
+                logger.debug(`Spotify: ${remainingUnknown.length} tracks still unknown, trying track page scraping...`);
+                const trackPageAlbums = await this.scrapeTrackPagesForAlbums(
+                    remainingUnknown.map(t => ({ spotifyId: t.spotifyId, title: t.title, artist: t.artist }))
+                );
+
+                if (trackPageAlbums.size > 0) {
+                    let enrichedCount = 0;
+                    for (const track of tracks) {
+                        if (track.album === "Unknown Album" && trackPageAlbums.has(track.spotifyId)) {
+                            const albumData = trackPageAlbums.get(track.spotifyId)!;
+                            track.album = albumData.album;
+                            track.albumId = albumData.albumId;
+                            enrichedCount++;
+                            logger.debug(`Spotify: Enriched "${track.title}" via track page: "${albumData.album}"`);
+                        }
+                    }
+                    logger.debug(`Spotify: Enriched ${enrichedCount} tracks via individual track page scraping`);
                 }
             }
 
@@ -572,6 +662,29 @@ class SpotifyService {
                         }
                     }
                     logger.debug(`Spotify Embed: Enriched ${enrichedCount}/${unknownAlbumCount} tracks with scraped album data`);
+                }
+            }
+
+            // If we STILL have tracks with Unknown Album, try individual track pages
+            const remainingUnknown = tracks.filter(t => t.album === "Unknown Album");
+            if (remainingUnknown.length > 0 && remainingUnknown.length <= 30) {
+                logger.debug(`Spotify Embed: ${remainingUnknown.length} tracks still unknown, trying track page scraping...`);
+                const trackPageAlbums = await this.scrapeTrackPagesForAlbums(
+                    remainingUnknown.map(t => ({ spotifyId: t.spotifyId, title: t.title, artist: t.artist }))
+                );
+
+                if (trackPageAlbums.size > 0) {
+                    let enrichedCount = 0;
+                    for (const track of tracks) {
+                        if (track.album === "Unknown Album" && trackPageAlbums.has(track.spotifyId)) {
+                            const albumData = trackPageAlbums.get(track.spotifyId)!;
+                            track.album = albumData.album;
+                            track.albumId = albumData.albumId;
+                            enrichedCount++;
+                            logger.debug(`Spotify Embed: Enriched "${track.title}" via track page: "${albumData.album}"`);
+                        }
+                    }
+                    logger.debug(`Spotify Embed: Enriched ${enrichedCount} tracks via individual track page scraping`);
                 }
             }
 
