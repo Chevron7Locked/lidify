@@ -145,7 +145,9 @@ router.post("/", async (req, res) => {
         if (data.lidarrApiKey)
             encryptedData.lidarrApiKey = encrypt(data.lidarrApiKey);
         if (data.lidarrWebhookSecret)
-            encryptedData.lidarrWebhookSecret = encrypt(data.lidarrWebhookSecret);
+            encryptedData.lidarrWebhookSecret = encrypt(
+                data.lidarrWebhookSecret
+            );
         if (data.openaiApiKey)
             encryptedData.openaiApiKey = encrypt(data.openaiApiKey);
         if (data.fanartApiKey)
@@ -159,7 +161,9 @@ router.post("/", async (req, res) => {
         if (data.soulseekPassword)
             encryptedData.soulseekPassword = encrypt(data.soulseekPassword);
         if (data.spotifyClientSecret)
-            encryptedData.spotifyClientSecret = encrypt(data.spotifyClientSecret);
+            encryptedData.spotifyClientSecret = encrypt(
+                data.spotifyClientSecret
+            );
 
         const settings = await prisma.systemSettings.upsert({
             where: { id: "default" },
@@ -178,6 +182,24 @@ router.post("/", async (req, res) => {
             await lastFmService.refreshApiKey();
         } catch (err) {
             logger.warn("Failed to refresh Last.fm API key:", err);
+        }
+
+        // Disconnect Soulseek if credentials changed
+        if (
+            data.soulseekUsername !== undefined ||
+            data.soulseekPassword !== undefined
+        ) {
+            try {
+                const { soulseekService } = await import(
+                    "../services/soulseek"
+                );
+                soulseekService.disconnect();
+                logger.debug(
+                    "[SYSTEM SETTINGS] Disconnected Soulseek service due to credential update"
+                );
+            } catch (err) {
+                logger.warn("Failed to disconnect Soulseek service:", err);
+            }
         }
 
         // If Audiobookshelf was disabled, clear all audiobook-related data
@@ -228,7 +250,8 @@ router.post("/", async (req, res) => {
                 // Determine webhook URL
                 // Use LIDIFY_CALLBACK_URL env var if set, otherwise default to backend:3006
                 // In Docker, services communicate via Docker network names (backend, lidarr, etc.)
-                const callbackHost = process.env.LIDIFY_CALLBACK_URL || "http://backend:3006";
+                const callbackHost =
+                    process.env.LIDIFY_CALLBACK_URL || "http://backend:3006";
                 const webhookUrl = `${callbackHost}/api/webhooks/lidarr`;
 
                 logger.debug(`   Webhook URL: ${webhookUrl}`);
@@ -246,24 +269,31 @@ router.post("/", async (req, res) => {
                 const existingWebhook = notificationsResponse.data.find(
                     (n: any) =>
                         n.implementation === "Webhook" &&
-                        (
-                            // Match by name
-                            n.name === "Lidify" ||
+                        // Match by name
+                        (n.name === "Lidify" ||
                             // Or match by URL pattern (catches old webhooks with different URLs)
                             n.fields?.find(
                                 (f: any) =>
-                                    f.name === "url" && 
-                                    (f.value?.includes("webhooks/lidarr") || f.value?.includes("lidify"))
-                            )
-                        )
+                                    f.name === "url" &&
+                                    (f.value?.includes("webhooks/lidarr") ||
+                                        f.value?.includes("lidify"))
+                            ))
                 );
-                
+
                 if (existingWebhook) {
-                    const currentUrl = existingWebhook.fields?.find((f: any) => f.name === "url")?.value;
-                    logger.debug(`   Found existing webhook: "${existingWebhook.name}" with URL: ${currentUrl}`);
+                    const currentUrl = existingWebhook.fields?.find(
+                        (f: any) => f.name === "url"
+                    )?.value;
+                    logger.debug(
+                        `   Found existing webhook: "${existingWebhook.name}" with URL: ${currentUrl}`
+                    );
                     if (currentUrl !== webhookUrl) {
-                        logger.debug(`   URL needs updating from: ${currentUrl}`);
-                        logger.debug(`   URL will be updated to: ${webhookUrl}`);
+                        logger.debug(
+                            `   URL needs updating from: ${currentUrl}`
+                        );
+                        logger.debug(
+                            `   URL will be updated to: ${webhookUrl}`
+                        );
                     }
                 }
 
@@ -516,18 +546,15 @@ router.post("/test-lastfm", async (req, res) => {
         // Test with a known artist (The Beatles)
         const testArtist = "The Beatles";
 
-        const response = await axios.get(
-            "http://ws.audioscrobbler.com/2.0/",
-            {
-                params: {
-                    method: "artist.getinfo",
-                    artist: testArtist,
-                    api_key: lastfmApiKey,
-                    format: "json",
-                },
-                timeout: 5000,
-            }
-        );
+        const response = await axios.get("http://ws.audioscrobbler.com/2.0/", {
+            params: {
+                method: "artist.getinfo",
+                artist: testArtist,
+                api_key: lastfmApiKey,
+                format: "json",
+            },
+            timeout: 5000,
+        });
 
         // If we get here and have artist data, the API key is valid
         if (response.data.artist) {
@@ -542,7 +569,10 @@ router.post("/test-lastfm", async (req, res) => {
         }
     } catch (error: any) {
         logger.error("Last.fm test error:", error.message);
-        if (error.response?.status === 403 || error.response?.data?.error === 10) {
+        if (
+            error.response?.status === 403 ||
+            error.response?.data?.error === 10
+        ) {
             res.status(401).json({
                 error: "Invalid Last.fm API key",
             });
@@ -622,7 +652,9 @@ router.post("/test-soulseek", async (req, res) => {
                     { user: username, pass: password },
                     (err: Error | null, client: any) => {
                         if (err) {
-                            logger.debug(`[SOULSEEK-TEST] Connection failed: ${err.message}`);
+                            logger.debug(
+                                `[SOULSEEK-TEST] Connection failed: ${err.message}`
+                            );
                             return reject(err);
                         }
                         logger.debug(`[SOULSEEK-TEST] Connected successfully`);
@@ -660,8 +692,8 @@ router.post("/test-spotify", async (req, res) => {
         const { clientId, clientSecret } = req.body;
 
         if (!clientId || !clientSecret) {
-            return res.status(400).json({ 
-                error: "Client ID and Client Secret are required" 
+            return res.status(400).json({
+                error: "Client ID and Client Secret are required",
             });
         }
 
@@ -674,7 +706,9 @@ router.post("/test-spotify", async (req, res) => {
                 {
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded",
-                        Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+                        Authorization: `Basic ${Buffer.from(
+                            `${clientId}:${clientSecret}`
+                        ).toString("base64")}`,
                     },
                     timeout: 10000,
                 }
@@ -693,7 +727,9 @@ router.post("/test-spotify", async (req, res) => {
         } catch (tokenError: any) {
             res.status(401).json({
                 error: "Invalid Spotify credentials",
-                details: tokenError.response?.data?.error_description || tokenError.message,
+                details:
+                    tokenError.response?.data?.error_description ||
+                    tokenError.message,
             });
         }
     } catch (error: any) {
@@ -741,7 +777,9 @@ router.post("/queue-cleaner/stop", (req, res) => {
 router.post("/clear-caches", async (req, res) => {
     try {
         const { redisClient } = require("../utils/redis");
-        const { notificationService } = await import("../services/notificationService");
+        const { notificationService } = await import(
+            "../services/notificationService"
+        );
 
         // Get all keys but exclude session keys
         const allKeys = await redisClient.keys("*");

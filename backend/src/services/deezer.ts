@@ -188,6 +188,68 @@ class DeezerService {
         }
     }
 
+    /**
+     * Get album info for a track by searching Deezer
+     * Used as fallback when Spotify doesn't provide album data
+     */
+    async getTrackAlbum(artistName: string, trackName: string): Promise<{ albumName: string; albumId: string } | null> {
+        const cacheKey = `track-album:${artistName.toLowerCase()}:${trackName.toLowerCase()}`;
+        const cached = await this.getCached(cacheKey);
+        if (cached) {
+            if (cached === "null") return null;
+            try {
+                return JSON.parse(cached);
+            } catch {
+                return null;
+            }
+        }
+
+        try {
+            // Clean track name - remove featuring/with suffixes for better matching
+            const cleanTrackName = trackName
+                .replace(/\s*[\(\[](?:feat\.?|ft\.?|with|featuring)[^\)\]]*[\)\]]/gi, "")
+                .replace(/\s*(?:feat\.?|ft\.?|featuring)\s+.*/gi, "")
+                .trim();
+
+            // Use simple space-separated search - more reliable than structured queries
+            const query = `${artistName} ${cleanTrackName}`;
+
+            const response = await axios.get(`${DEEZER_API}/search/track`, {
+                params: { q: query, limit: 5 },
+                timeout: 5000,
+            });
+
+            // Find best match - prefer exact artist match
+            const tracks = response.data?.data || [];
+            const artistLower = artistName.toLowerCase();
+
+            // First try exact artist match
+            let match = tracks.find((t: any) =>
+                t.artist?.name?.toLowerCase() === artistLower
+            );
+
+            // Fall back to first result if no exact match
+            if (!match && tracks.length > 0) {
+                match = tracks[0];
+            }
+
+            if (match?.album?.title) {
+                const result = {
+                    albumName: match.album.title,
+                    albumId: String(match.album.id || ""),
+                };
+                await this.setCache(cacheKey, JSON.stringify(result));
+                return result;
+            }
+
+            await this.setCache(cacheKey, "null");
+            return null;
+        } catch (error: any) {
+            logger.debug(`Deezer track album lookup error for ${artistName} - ${trackName}:`, error.message);
+            return null;
+        }
+    }
+
     // ============================================
     // Playlist Methods (new functionality)
     // ============================================

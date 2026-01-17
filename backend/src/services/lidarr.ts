@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from "axios";
 import { logger } from "../utils/logger";
 import { config } from "../config";
 import { getSystemSettings } from "../utils/systemSettings";
+import { stripAlbumEdition } from "../utils/artistNormalization";
 
 // ============================================
 // STRUCTURED ERROR TYPES
@@ -696,7 +697,33 @@ class LidarrService {
                 },
             });
 
-            logger.debug(`   Found ${response.data.length} album result(s)`);
+            // If results found, return them
+            if (response.data.length > 0) {
+                logger.debug(`   Found ${response.data.length} album result(s)`);
+                return response.data;
+            }
+
+            // If no results and not using MBID, try with stripped album title
+            if (!rgMbid) {
+                const strippedTitle = stripAlbumEdition(albumTitle);
+                if (strippedTitle !== albumTitle && strippedTitle.length > 2) {
+                    const fallbackTerm = `${artistName} ${strippedTitle}`;
+                    logger.debug(`   No results, trying stripped title: ${fallbackTerm}`);
+
+                    const fallbackResponse = await this.client.get("/api/v1/album/lookup", {
+                        params: {
+                            term: fallbackTerm,
+                        },
+                    });
+
+                    if (fallbackResponse.data.length > 0) {
+                        logger.debug(`   Found ${fallbackResponse.data.length} result(s) with stripped title`);
+                        return fallbackResponse.data;
+                    }
+                }
+            }
+
+            logger.debug(`   Found 0 album result(s)`);
             return response.data;
         } catch (error: any) {
             logger.error(`Lidarr album search error: ${error.message}`);
@@ -710,27 +737,10 @@ class LidarrService {
     /**
      * Extract base album title by removing edition markers
      * E.g., "Abbey Road (Remastered)" → "Abbey Road"
+     * Uses the shared stripAlbumEdition utility for consistency
      */
     private extractBaseTitle(title: string): string {
-        return (
-            title
-                // Remove parenthetical edition markers
-                .replace(
-                    /\s*\([^)]*(?:remaster|deluxe|expanded|anniversary|bonus|special|limited|collector|platinum|japan|uk|us|import|super deluxe)[^)]*\)\s*/gi,
-                    ""
-                )
-                // Remove bracketed edition markers
-                .replace(
-                    /\s*\[[^\]]*(?:remaster|deluxe|expanded|anniversary|bonus|special|limited|collector|platinum|japan|uk|us|import|super deluxe)[^\]]*\]\s*/gi,
-                    ""
-                )
-                // Remove trailing edition markers with dash
-                .replace(
-                    /\s*[-–—]\s*(remaster|deluxe|expanded|anniversary|bonus|special|limited|collector|platinum|japan|uk|us|import|super deluxe).*$/gi,
-                    ""
-                )
-                .trim()
-        );
+        return stripAlbumEdition(title);
     }
 
     /**

@@ -1288,9 +1288,12 @@ class ApiClient {
 
     // Soulseek - P2P Music Search & Download
     async getSlskdStatus() {
-        return this.request<{ connected: boolean; username?: string }>(
-            "/soulseek/status"
-        );
+        return this.request<{
+            enabled: boolean;
+            connected: boolean;
+            username?: string;
+            message?: string;
+        }>("/soulseek/status");
     }
 
     async searchSoulseek(query: string) {

@@ -13,11 +13,13 @@ import { useToast } from "@/lib/toast-context";
 import Image from "next/image";
 import { MobileSidebar } from "./MobileSidebar";
 
+// Delay before resetting sync button state (ms)
+const SYNC_BUTTON_RESET_DELAY = 2000;
+
 const navigation = [
     { name: "Library", href: "/library" },
     { name: "Radio", href: "/radio" },
     { name: "Discovery", href: "/discover" },
-    { name: "Releases", href: "/releases" },
     { name: "Audiobooks", href: "/audiobooks" },
     { name: "Podcasts", href: "/podcasts" },
     { name: "Browse", href: "/browse/playlists", badge: "Beta" },
@@ -61,7 +63,7 @@ export function Sidebar() {
             toast.error("Failed to start scan. Please try again.");
         } finally {
             // Keep syncing for a bit to show the animation
-            setTimeout(() => setIsSyncing(false), 2000);
+            setTimeout(() => setIsSyncing(false), SYNC_BUTTON_RESET_DELAY);
         }
     };
 

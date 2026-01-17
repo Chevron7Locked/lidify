@@ -57,44 +57,6 @@ services:
         networks:
             - lidify_network
 
-    # Slskd - Soulseek client
-    slskd:
-        image: slskd/slskd:latest
-        container_name: lidify_slskd
-        environment:
-            - TZ=${TZ:-UTC}
-            - SLSKD_REMOTE_CONFIGURATION=true
-            - SLSKD_SOULSEEK_USERNAME=${SLSKD_USERNAME:-}
-            - SLSKD_SOULSEEK_PASSWORD=${SLSKD_PASSWORD:-}
-        ports:
-            - "5030:5030" # Web UI
-            - "5031:5031" # File server
-        volumes:
-            - slskd_config:/app
-            - ${MUSIC_PATH:-./music}:/music
-            - ${MUSIC_PATH:-./music}/Soulseek:/downloads
-        restart: unless-stopped
-        networks:
-            - lidify_network
-
-    # Soularr - Lidarr + Soulseek integration
-    soularr:
-        image: mrusse08/soularr:latest
-        container_name: lidify_soularr
-        user: "${PUID:-1000}:${PGID:-1000}"
-        environment:
-            - TZ=${TZ:-UTC}
-            - SCRIPT_INTERVAL=300
-        volumes:
-            - ${MUSIC_PATH:-./music}/Soulseek:/downloads
-            - ./soularr:/data
-        restart: unless-stopped
-        depends_on:
-            - slskd
-            - lidarr
-        networks:
-            - lidify_network
-
     # qBittorrent - Torrent client
     qbittorrent:
         image: lscr.io/linuxserver/qbittorrent:latest
@@ -137,7 +99,6 @@ services:
 volumes:
     lidarr_config:
     prowlarr_config:
-    slskd_config:
     qbittorrent_config:
     nzbget_config:
 

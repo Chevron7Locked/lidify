@@ -1182,6 +1182,17 @@ router.get("/:podcastId/episodes/:episodeId/stream", async (req, res) => {
                     });
                 }
 
+                // Handle stream errors to prevent process crash
+                response.data.on("error", (err: Error) => {
+                    // Client disconnect errors are expected during seeking
+                    if ((err as any).code !== "ERR_STREAM_PREMATURE_CLOSE") {
+                        logger.debug(`    RSS stream error: ${err.message}`);
+                    }
+                    if (!res.writableEnded) {
+                        res.end();
+                    }
+                });
+
                 // Clean up axios stream when client disconnects
                 res.on("close", () => {
                     if (response.data && !response.data.destroyed) {
@@ -1221,6 +1232,19 @@ router.get("/:podcastId/episodes/:episodeId/stream", async (req, res) => {
                     "Access-Control-Allow-Credentials": "true",
                 });
 
+                // Handle stream errors to prevent process crash
+                response.data.on("error", (err: Error) => {
+                    // Client disconnect errors are expected during seeking
+                    if ((err as any).code !== "ERR_STREAM_PREMATURE_CLOSE") {
+                        logger.debug(
+                            `    RSS fallback stream error: ${err.message}`
+                        );
+                    }
+                    if (!res.writableEnded) {
+                        res.end();
+                    }
+                });
+
                 // Clean up axios stream when client disconnects
                 res.on("close", () => {
                     if (response.data && !response.data.destroyed) {
@@ -1254,6 +1278,19 @@ router.get("/:podcastId/episodes/:episodeId/stream", async (req, res) => {
                     "Cache-Control": "public, max-age=3600",
                     "Access-Control-Allow-Origin": req.headers.origin || "*",
                     "Access-Control-Allow-Credentials": "true",
+                });
+
+                // Handle stream errors to prevent process crash
+                response.data.on("error", (err: Error) => {
+                    // Client disconnect errors are expected during seeking
+                    if ((err as any).code !== "ERR_STREAM_PREMATURE_CLOSE") {
+                        logger.debug(
+                            `    RSS full stream error: ${err.message}`
+                        );
+                    }
+                    if (!res.writableEnded) {
+                        res.end();
+                    }
                 });
 
                 // Clean up axios stream when client disconnects

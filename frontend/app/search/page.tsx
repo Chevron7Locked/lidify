@@ -173,9 +173,6 @@ export default function SearchPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Left Column: Top Result */}
                         <div>
-                            <h2 className="text-2xl font-bold text-white mb-6">
-                                Top Result
-                            </h2>
                             <TopResult
                                 libraryArtist={libraryResults?.artists?.[0]}
                                 discoveryArtist={topArtist}
@@ -184,9 +181,19 @@ export default function SearchPage() {
 
                         {/* Right Column: Songs */}
                         <div>
-                            <h2 className="text-2xl font-bold text-white mb-6">
+                            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                                 {showSoulseek && soulseekResults.length > 0
                                     ? "Songs"
+                                    : showSoulseek && (isSoulseekSearching || isSoulseekPolling)
+                                    ? <>
+                                        <span>Songs</span>
+                                        <span className="inline-flex items-center gap-2 text-sm font-normal text-gray-400">
+                                            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24">
+                                                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="40 20" />
+                                            </svg>
+                                            Searching...
+                                        </span>
+                                      </>
                                     : "Songs in Your Library"}
                             </h2>
                             {showSoulseek && soulseekResults.length > 0 ? (
@@ -195,6 +202,18 @@ export default function SearchPage() {
                                     downloadingFiles={downloadingFiles}
                                     onDownload={handleDownload}
                                 />
+                            ) : showSoulseek && (isSoulseekSearching || isSoulseekPolling) ? (
+                                <div className="space-y-2">
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className="flex items-center gap-4 p-3 rounded-lg bg-white/5 animate-pulse">
+                                            <div className="w-10 h-10 rounded bg-white/10" />
+                                            <div className="flex-1 space-y-2">
+                                                <div className="h-4 bg-white/10 rounded w-3/4" />
+                                                <div className="h-3 bg-white/10 rounded w-1/2" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             ) : showLibrary &&
                               libraryResults?.tracks?.length > 0 ? (
                                 <LibraryTracksList
@@ -224,14 +243,40 @@ export default function SearchPage() {
                             showSoulseek &&
                             soulseekResults.length > 0 && (
                                 <section>
-                                    <h2 className="text-2xl font-bold text-white mb-6">
-                                        Songs
-                                    </h2>
                                     <SoulseekSongsList
                                         soulseekResults={soulseekResults}
                                         downloadingFiles={downloadingFiles}
                                         onDownload={handleDownload}
                                     />
+                                </section>
+                            )}
+
+                        {/* Soulseek Loading State */}
+                        {hasSearched &&
+                            showSoulseek &&
+                            soulseekResults.length === 0 &&
+                            (isSoulseekSearching || isSoulseekPolling) && (
+                                <section>
+                                    <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                                        <span>Soulseek</span>
+                                        <span className="inline-flex items-center gap-2 text-sm font-normal text-gray-400">
+                                            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24">
+                                                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="40 20" />
+                                            </svg>
+                                            Searching P2P network... (~45s)
+                                        </span>
+                                    </h2>
+                                    <div className="space-y-2">
+                                        {[1, 2, 3].map((i) => (
+                                            <div key={i} className="flex items-center gap-4 p-3 rounded-lg bg-white/5 animate-pulse">
+                                                <div className="w-10 h-10 rounded bg-white/10" />
+                                                <div className="flex-1 space-y-2">
+                                                    <div className="h-4 bg-white/10 rounded w-3/4" />
+                                                    <div className="h-3 bg-white/10 rounded w-1/2" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </section>
                             )}
 

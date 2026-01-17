@@ -17,6 +17,9 @@ import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import Image from "next/image";
 
+// Delay before resetting sync button state (ms)
+const SYNC_BUTTON_RESET_DELAY = 2000;
+
 interface MobileSidebarProps {
     isOpen: boolean;
     onClose: () => void;
@@ -47,7 +50,7 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
             console.error("Failed to sync library:", error);
             toast.error("Failed to start scan. Please try again.");
         } finally {
-            setTimeout(() => setIsSyncing(false), 2000);
+            setTimeout(() => setIsSyncing(false), SYNC_BUTTON_RESET_DELAY);
         }
     };
 
