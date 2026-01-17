@@ -174,6 +174,47 @@ WORKDIR /app
 # Copy healthcheck script
 COPY healthcheck-prod.js /app/healthcheck.js
 
+# Backend watchdog - restarts backend if health endpoint stops responding
+RUN cat > /app/backend-watchdog.js << 'EOF'
+const http = require("http");
+const { exec } = require("child_process");
+
+const HEALTH_URL = "http://127.0.0.1:3006/health";
+const INTERVAL_MS = parseInt(process.env.BACKEND_WATCHDOG_INTERVAL || "30000", 10);
+const TIMEOUT_MS = parseInt(process.env.BACKEND_WATCHDOG_TIMEOUT || "5000", 10);
+const MAX_FAILURES = parseInt(process.env.BACKEND_WATCHDOG_MAX_FAILURES || "3", 10);
+
+let failures = 0;
+
+function checkHealth() {
+    const req = http.get(HEALTH_URL, (res) => {
+        res.resume();
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 400) {
+            failures = 0;
+        } else {
+            failures += 1;
+        }
+    });
+
+    req.setTimeout(TIMEOUT_MS, () => {
+        failures += 1;
+        req.destroy();
+    });
+
+    req.on("error", () => {
+        failures += 1;
+    });
+
+    if (failures >= MAX_FAILURES) {
+        failures = 0;
+        exec("supervisorctl restart backend", () => {});
+    }
+}
+
+setInterval(checkHealth, INTERVAL_MS);
+checkHealth();
+EOF
+
 # Create supervisord config - logs to stdout/stderr for Docker visibility
 RUN cat > /etc/supervisor/conf.d/lidify.conf << 'EOF'
 [supervisord]
@@ -217,6 +258,16 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 directory=/app/backend
 priority=30
+
+[program:backend-watchdog]
+command=/bin/bash -c "node /app/backend-watchdog.js"
+autostart=true
+autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+priority=35
 
 [program:frontend]
 command=/bin/bash -c "sleep 10 && cd /app/frontend && npm start"
