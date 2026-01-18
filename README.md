@@ -336,6 +336,7 @@ The unified Lidify container handles most configuration automatically. Here are 
 | `AUDIO_ANALYSIS_THREADS_PER_WORKER` | `1`                                | Threads per worker for TensorFlow/FFT operations (1-4)                      |
 | `LOG_LEVEL`                         | `warn` (prod) / `debug` (dev)      | Logging verbosity: debug, info, warn, error, silent                         |
 | `DOCS_PUBLIC`                       | `false`                            | Set to `true` to allow public access to API docs in production              |
+| `TRUST_PROXY`                       | `false`                            | Set to `1` if you are behind reverse proxy              |
 
 The music library path is configured via Docker volume mount (`-v /path/to/music:/music`).
 
