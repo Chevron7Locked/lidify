@@ -424,6 +424,55 @@ export function useLibraryAlbumsInfiniteQuery(
 }
 
 /**
+ * Hook to fetch library artists with infinite pagination and filtering
+ *
+ * Cache time: 2 minutes (may change as user adds music)
+ */
+export function useLibraryArtistsInfiniteQuery(
+    {
+        filter = "owned",
+        sortBy = "name",
+        limit = 40,
+        enabled = true,
+    }: Omit<LibraryArtistsParams, 'page'> & { enabled?: boolean } = {},
+    options: Omit<UseInfiniteQueryOptions, 'queryKey' | 'queryFn'> = {}
+) {
+    return useInfiniteQuery({
+        queryKey: queryKeys.libraryArtists({ filter, sortBy, limit }),
+        queryFn: async ({ pageParam = 1 }) => {
+            const offset = (pageParam - 1) * limit;
+            const response = await api.getArtists({ limit, offset, filter });
+            const sortedArtists = [...response.artists].sort((a, b) => {
+                switch (sortBy) {
+                    case "name":
+                        return a.name.localeCompare(b.name);
+                    case "name-desc":
+                        return b.name.localeCompare(a.name);
+                    case "tracks":
+                        return (b.trackCount || 0) - (a.trackCount || 0);
+                    default:
+                        return 0;
+                }
+            });
+            return {
+                artists: sortedArtists,
+                total: response.total,
+                offset: response.offset,
+                limit: response.limit,
+            };
+        },
+        getNextPageParam: (lastPage, allPages) => {
+            const totalItems = lastPage.total;
+            const fetchedItems = allPages.flatMap(page => page.artists).length;
+            return fetchedItems < totalItems ? allPages.length + 1 : undefined;
+        },
+        initialPageParam: 1,
+        enabled,
+        ...options,
+    });
+}
+
+/**
  * Hook to fetch library albums with pagination and filtering
  *
  * Cache time: 2 minutes (may change as user adds music)
