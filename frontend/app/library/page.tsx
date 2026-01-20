@@ -61,28 +61,24 @@ export default function LibraryPage() {
             enabled: activeTab === "artists",
         });
 
-    const albumsQuery = useLibraryAlbumsQuery(
-        {
-            filter,
-            sortBy,
-            limit: itemsPerPage,
-            page: currentPage,
-        },
-        {
+    const albumsQuery = useLibraryAlbumsQuery({
+        filter,
+        sortBy,
+        limit: itemsPerPage,
+        page: currentPage,
+        options: {
             enabled: activeTab === "albums",
-        }
-    );
-
-    const tracksQuery = useLibraryTracksQuery(
-        {
-            sortBy,
-            limit: itemsPerPage,
-            page: currentPage,
         },
-        {
+    });
+
+    const tracksQuery = useLibraryTracksQuery({
+        sortBy,
+        limit: itemsPerPage,
+        page: currentPage,
+        options: {
             enabled: activeTab === "tracks",
-        }
-    );
+        },
+    });
 
     // Get data based on active tab
     const artists = useMemo(
