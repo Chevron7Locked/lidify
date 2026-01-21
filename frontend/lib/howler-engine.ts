@@ -52,7 +52,7 @@ class HowlerEngine {
     private readonly popFadeMs: number = 10; // ms - micro-fade to reduce click/pop on track changes
     private shouldRetryLoads: boolean = false; // Only retry transient load errors where it helps (Android WebView)
     private cleanupTimeoutId: NodeJS.Timeout | null = null; // Track cleanup timeout to prevent race conditions
-    private pendingCleanupHowls: Howl[] = []; // Track Howls being cleaned up
+    private pendingCleanupHowls: Set<Howl> = new Set(); // Track Howls being cleaned up
 
     // Seek state management - prevents stale timeupdate events during seeks
     private isSeeking: boolean = false;
@@ -712,7 +712,7 @@ class HowlerEngine {
             this.howl = null;
 
             // Track this howl for cleanup
-            this.pendingCleanupHowls.push(oldHowl);
+            this.pendingCleanupHowls.add(oldHowl);
 
             const finalizeCleanup = (howl: Howl) => {
                 try {
@@ -721,11 +721,8 @@ class HowlerEngine {
                 } catch {
                     // Intentionally ignored: Howl instance is being destroyed
                 }
-                // Remove from pending list
-                const idx = this.pendingCleanupHowls.indexOf(howl);
-                if (idx > -1) {
-                    this.pendingCleanupHowls.splice(idx, 1);
-                }
+                // Remove from pending set
+                this.pendingCleanupHowls.delete(howl);
             };
 
             try {
@@ -770,7 +767,7 @@ class HowlerEngine {
                 // Ignore cleanup errors
             }
         }
-        this.pendingCleanupHowls = [];
+        this.pendingCleanupHowls.clear();
 
         // Ensure cleanup timeout is cleared
         if (this.cleanupTimeoutId) {
