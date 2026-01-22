@@ -40,7 +40,7 @@ export function AudiobookCard({
             <div className="cursor-pointer group relative h-full flex flex-col">
                 {/* Book Cover Container - Fixed Aspect Ratio */}
                 <div className="relative flex-shrink-0">
-                    <div className="aspect-[2/3] rounded-sm overflow-hidden bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a] shadow-2xl relative transform transition-all group-hover:-translate-y-2 group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.8)]">
+                    <div className="aspect-[2/3] rounded-sm overflow-hidden bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a] shadow-2xl relative">
                         {resolvedCoverUrl ? (
                             <CachedImage
                                 src={resolvedCoverUrl}

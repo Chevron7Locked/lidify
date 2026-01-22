@@ -42,7 +42,9 @@ RUN mkdir -p /app/backend /app/frontend /app/audio-analyzer /app/models \
 WORKDIR /app/audio-analyzer
 
 # Install Python dependencies for audio analysis
+# Note: TensorFlow must be installed explicitly for Python 3.11+ compatibility
 RUN pip3 install --no-cache-dir --break-system-packages \
+    'tensorflow>=2.13.0,<2.16.0' \
     essentia-tensorflow \
     redis \
     psycopg2-binary

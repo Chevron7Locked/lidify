@@ -9,7 +9,7 @@ interface LibraryAudiobooksGridProps {
 export function LibraryAudiobooksGrid({
     audiobooks,
 }: LibraryAudiobooksGridProps) {
-    const getCoverUrl = (coverUrl: string | null, size = 300) => {
+    const getCoverUrl = (coverUrl: string | null, size = 200) => {
         if (!coverUrl) return null;
         return api.getCoverArtUrl(coverUrl, size);
     };

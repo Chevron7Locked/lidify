@@ -24,10 +24,11 @@ export function LibraryAlbumsGrid({ albums }: LibraryAlbumsGridProps) {
                                 <img
                                     src={api.getCoverArtUrl(
                                         album.coverUrl || album.albumId,
-                                        300
+                                        200
                                     )}
                                     alt={album.title}
-                                    className="w-full h-full object-cover group-hover:scale-110 transition-all"
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
                                 />
                             ) : (
                                 <Disc3 className="w-12 h-12 text-gray-600" />

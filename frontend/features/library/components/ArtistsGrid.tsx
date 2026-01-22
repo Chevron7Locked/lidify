@@ -63,7 +63,7 @@ const ArtistCardItem = memo(
                 />
                 <button
                     onClick={handleDelete}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 hidden md:flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-all z-10"
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 hidden md:flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-opacity z-10"
                     title="Delete artist"
                 >
                     <Trash2 className="w-3.5 h-3.5 text-white" />

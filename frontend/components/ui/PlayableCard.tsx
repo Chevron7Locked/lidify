@@ -72,7 +72,7 @@ const PlayableCard = memo(function PlayableCard({
                             src={coverArt}
                             alt={title}
                             fill
-                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                            className="object-cover group-hover:scale-105 transition-transform"
                             loading="lazy"
                             sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
                         />
@@ -80,7 +80,7 @@ const PlayableCard = memo(function PlayableCard({
                             <div className="w-12 h-12 bg-[#3e3e3e] rounded-full" />
                         )
                     }
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/0 to-black/30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/0 to-black/30 opacity-0 group-hover:opacity-100 pointer-events-none" />
                 </div>
 
                 {/* Play Button */}
@@ -94,11 +94,10 @@ const PlayableCard = memo(function PlayableCard({
                         style={{ backgroundColor: LIDIFY_YELLOW }}
                         className={cn(
                             "absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center",
-                            "shadow-xl shadow-black/50 transition-all duration-200",
-                            "hover:scale-105 hover:brightness-110",
+                            "shadow-xl shadow-black/50",
                             isPlaying
-                                ? "opacity-100 translate-y-0"
-                                : "opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0",
+                                ? "opacity-100"
+                                : "opacity-0 group-hover:opacity-100",
                         )}
                     >
                         {isPlaying ?
@@ -133,7 +132,7 @@ const PlayableCard = memo(function PlayableCard({
                             }}
                             disabled={isDownloading}
                             className={cn(
-                                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-all",
+                                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors",
                                 isDownloading ?
                                     "bg-gray-500/20 border border-gray-500/30 text-gray-500 cursor-not-allowed"
                                 :   "bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/30 hover:border-yellow-500/50 text-yellow-400 hover:text-yellow-300",

@@ -123,7 +123,7 @@ const TrackRow = memo(
                             e.stopPropagation();
                             onAddToQueue(track);
                         }}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Add to Queue"
                     >
                         <ListPlus className="w-4 h-4" />
@@ -133,7 +133,7 @@ const TrackRow = memo(
                             e.stopPropagation();
                             onShowAddToPlaylist(track.id);
                         }}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Add to Playlist"
                     >
                         <Plus className="w-4 h-4" />
@@ -143,7 +143,7 @@ const TrackRow = memo(
                             e.stopPropagation();
                             onDelete(track.id, track.title);
                         }}
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Delete Track"
                     >
                         <Trash2 className="w-4 h-4" />

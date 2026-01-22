@@ -44,11 +44,12 @@ export function TopResult({ libraryArtist, discoveryArtist }: TopResultProps) {
                 <div className="relative w-24 h-24 bg-[#181818] rounded-full flex items-center justify-center overflow-hidden shrink-0">
                     {imageUrl ? (
                         <Image
-                            src={api.getCoverArtUrl(imageUrl, 300)}
+                            src={api.getCoverArtUrl(imageUrl, 200)}
                             alt={name}
                             fill
                             sizes="96px"
                             className="object-cover"
+                            loading="lazy"
                             unoptimized
                         />
                     ) : (

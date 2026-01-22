@@ -11,7 +11,7 @@ const Card = memo(forwardRef<HTMLDivElement, CardProps>(
         { className, variant = "default", hover = true, children, ...props },
         ref
     ) => {
-        const baseStyles = "rounded-md p-3 transition-all duration-200";
+        const baseStyles = "rounded-md p-3 transition-colors duration-200";
 
         const variantStyles = {
             default: cn(

@@ -13,7 +13,7 @@ interface SimilarArtistsGridProps {
 // Always proxy images through the backend for caching and mobile compatibility
 const getProxiedImageUrl = (imageUrl: string | undefined): string | null => {
     if (!imageUrl) return null;
-    return api.getCoverArtUrl(imageUrl, 300);
+    return api.getCoverArtUrl(imageUrl, 200);
 };
 
 export function SimilarArtistsGrid({
@@ -55,7 +55,8 @@ export function SimilarArtistsGrid({
                                             alt={result.name}
                                             fill
                                             sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
-                                            className="object-cover group-hover:scale-110 transition-all"
+                                            className="object-cover"
+                                            loading="lazy"
                                             unoptimized
                                         />
                                     ) : (
