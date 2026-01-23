@@ -19,6 +19,9 @@ import {
     Loader2,
     RotateCcw,
     RotateCw,
+    AlertTriangle,
+    RefreshCw,
+    X,
 } from "lucide-react";
 import { formatTime, clampTime, formatTimeRemaining } from "@/utils/formatTime";
 import { cn } from "@/utils/cn";
@@ -35,6 +38,7 @@ export function OverlayPlayer() {
         currentPodcast,
         playbackType,
         isPlaying,
+        isBuffering,
         currentTime,
         canSeek,
         downloadProgress,
@@ -43,6 +47,8 @@ export function OverlayPlayer() {
         vibeMode,
         queue,
         currentIndex,
+        audioError,
+        clearAudioError,
         pause,
         resume,
         next,
@@ -374,6 +380,25 @@ export function OverlayPlayer() {
                                 {subtitle}
                             </p>
                         )}
+
+                        {/* Error Banner */}
+                        {audioError && (
+                            <div className="mt-3 bg-red-500/20 border border-red-500/30 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                                    <span className="text-red-200 text-sm truncate">
+                                        {audioError}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={clearAudioError}
+                                    className="p-1 text-red-300 hover:text-white transition rounded flex-shrink-0"
+                                    aria-label="Dismiss error"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Progress Bar */}
@@ -430,11 +455,42 @@ export function OverlayPlayer() {
                         </button>
 
                         <button
-                            onClick={isPlaying ? pause : resume}
-                            className="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-all shadow-xl"
-                            title={isPlaying ? "Pause" : "Play"}
+                            onClick={
+                                audioError
+                                    ? () => {
+                                        clearAudioError();
+                                        resume();
+                                    }
+                                    : isBuffering
+                                    ? undefined
+                                    : isPlaying
+                                    ? pause
+                                    : resume
+                            }
+                            className={cn(
+                                "w-16 h-16 rounded-full flex items-center justify-center hover:scale-105 transition-all shadow-xl",
+                                audioError
+                                    ? "bg-red-500 text-white hover:bg-red-400"
+                                    : isBuffering
+                                    ? "bg-white/80 text-black"
+                                    : "bg-white text-black"
+                            )}
+                            disabled={isBuffering}
+                            title={
+                                audioError
+                                    ? "Retry playback"
+                                    : isBuffering
+                                    ? "Buffering..."
+                                    : isPlaying
+                                    ? "Pause"
+                                    : "Play"
+                            }
                         >
-                            {isPlaying ? (
+                            {audioError ? (
+                                <RefreshCw className="w-7 h-7" />
+                            ) : isBuffering ? (
+                                <Loader2 className="w-7 h-7 animate-spin" />
+                            ) : isPlaying ? (
                                 <Pause className="w-7 h-7" />
                             ) : (
                                 <Play className="w-7 h-7 ml-1" />
