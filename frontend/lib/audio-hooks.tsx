@@ -46,6 +46,9 @@ export function useAudio() {
         targetSeekPosition: playback.targetSeekPosition,
         canSeek: playback.canSeek,
         downloadProgress: playback.downloadProgress,
+        audioError: playback.audioError,
+        playbackState: playback.playbackState,
+        clearAudioError: playback.clearAudioError,
 
         // Controls
         playTrack: controls.playTrack,

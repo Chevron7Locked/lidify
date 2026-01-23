@@ -23,6 +23,9 @@ import {
     ChevronLeft,
     ChevronUp,
     ChevronDown,
+    AlertTriangle,
+    X,
+    RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/utils/cn";
@@ -51,6 +54,8 @@ export function MiniPlayer() {
         vibeMode,
         queue,
         currentIndex,
+        audioError,
+        clearAudioError,
         pause,
         resume,
         next,
@@ -409,12 +414,28 @@ export function MiniPlayer() {
 
                                 {/* Track Info */}
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-white text-sm font-medium truncate leading-tight">
-                                        {title}
-                                    </p>
-                                    <p className="text-gray-300/70 text-xs truncate leading-tight mt-0.5">
-                                        {subtitle}
-                                    </p>
+                                    {audioError ? (
+                                        <>
+                                            <div className="flex items-center gap-1">
+                                                <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+                                                <p className="text-red-300 text-sm font-medium truncate leading-tight">
+                                                    Playback Error
+                                                </p>
+                                            </div>
+                                            <p className="text-red-200/70 text-xs truncate leading-tight mt-0.5">
+                                                Tap retry to reconnect
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-white text-sm font-medium truncate leading-tight">
+                                                {title}
+                                            </p>
+                                            <p className="text-gray-300/70 text-xs truncate leading-tight mt-0.5">
+                                                {subtitle}
+                                            </p>
+                                        </>
+                                    )}
                                 </div>
 
                                 {/* Controls - Vibe button (for music only) & Play/Pause */}
@@ -455,10 +476,13 @@ export function MiniPlayer() {
                                         </button>
                                     )}
 
-                                    {/* Play/Pause */}
+                                    {/* Play/Pause or Retry */}
                                     <button
                                         onClick={() => {
-                                            if (!isBuffering) {
+                                            if (audioError) {
+                                                clearAudioError();
+                                                resume();
+                                            } else if (!isBuffering) {
                                                 if (isPlaying) {
                                                     pause();
                                                 } else {
@@ -468,26 +492,34 @@ export function MiniPlayer() {
                                         }}
                                         className={cn(
                                             "w-10 h-10 rounded-full flex items-center justify-center transition shadow-md",
-                                            isBuffering
+                                            audioError
+                                                ? "bg-red-500 text-white hover:bg-red-400"
+                                                : isBuffering
                                                 ? "bg-white/80 text-black"
                                                 : "bg-white text-black hover:scale-105"
                                         )}
                                         aria-label={
-                                            isBuffering
+                                            audioError
+                                                ? "Retry playback"
+                                                : isBuffering
                                                 ? "Buffering..."
                                                 : isPlaying
                                                 ? "Pause"
                                                 : "Play"
                                         }
                                         title={
-                                            isBuffering
+                                            audioError
+                                                ? "Retry playback"
+                                                : isBuffering
                                                 ? "Buffering..."
                                                 : isPlaying
                                                 ? "Pause"
                                                 : "Play"
                                         }
                                     >
-                                        {isBuffering ? (
+                                        {audioError ? (
+                                            <RefreshCw className="w-5 h-5" />
+                                        ) : isBuffering ? (
                                             <Loader2 className="w-5 h-5 animate-spin" />
                                         ) : isPlaying ? (
                                             <Pause className="w-5 h-5" />
@@ -571,6 +603,39 @@ export function MiniPlayer() {
                     variant="minimal"
                     className="absolute top-0 left-0 right-0"
                 />
+
+                {/* Error Banner */}
+                {audioError && (
+                    <div className="bg-red-500/20 border-b border-red-500/30 px-3 py-1.5 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                            <span className="text-red-200 text-xs truncate">
+                                {audioError}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                                onClick={() => {
+                                    clearAudioError();
+                                    resume();
+                                }}
+                                className="p-1 text-red-300 hover:text-white transition rounded"
+                                aria-label="Retry playback"
+                                title="Retry"
+                            >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                                onClick={clearAudioError}
+                                className="p-1 text-red-300 hover:text-white transition rounded"
+                                aria-label="Dismiss error"
+                                title="Dismiss"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Player Content */}
                 <div className="px-3 py-2.5 pt-3">
