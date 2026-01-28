@@ -76,8 +76,9 @@ router.post("/start", requireAuth, requireAdmin, async (req, res) => {
             select: {
                 id: true,
                 filePath: true,
+                duration: true,
             },
-            orderBy: priority === "recent" 
+            orderBy: priority === "recent"
                 ? { fileModified: "desc" }
                 : { title: "asc" },
             take: Math.min(limit, 1000),
@@ -96,6 +97,7 @@ router.post("/start", requireAuth, requireAdmin, async (req, res) => {
             pipeline.rPush(ANALYSIS_QUEUE, JSON.stringify({
                 trackId: track.id,
                 filePath: track.filePath,
+                duration: track.duration,
             }));
         }
         await pipeline.exec();
@@ -152,6 +154,7 @@ router.post("/analyze/:trackId", requireAuth, async (req, res) => {
             select: {
                 id: true,
                 filePath: true,
+                duration: true,
                 analysisStatus: true,
             },
         });
@@ -164,6 +167,7 @@ router.post("/analyze/:trackId", requireAuth, async (req, res) => {
         await redisClient.rPush(ANALYSIS_QUEUE, JSON.stringify({
             trackId: track.id,
             filePath: track.filePath,
+            duration: track.duration,
         }));
 
         // Mark as pending if not already

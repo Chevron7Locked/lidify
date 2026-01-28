@@ -111,7 +111,7 @@ class CLAPAnalyzer:
             traceback.print_exc()
             raise
 
-    def _load_audio_chunk(self, audio_path: str) -> Tuple[Optional[np.ndarray], int]:
+    def _load_audio_chunk(self, audio_path: str, duration_hint: Optional[float] = None) -> Tuple[Optional[np.ndarray], int]:
         """
         Load audio from the middle of a file for efficient embedding.
 
@@ -120,12 +120,14 @@ class CLAPAnalyzer:
 
         Args:
             audio_path: Path to the audio file
+            duration_hint: Pre-computed duration in seconds (avoids file read)
 
         Returns:
             Tuple of (audio_array, sample_rate) or (None, 0) on error
         """
         try:
-            duration = librosa.get_duration(path=audio_path)
+            # Use provided duration or fall back to computing it
+            duration = duration_hint if duration_hint else librosa.get_duration(path=audio_path)
 
             if duration > MAX_AUDIO_DURATION:
                 # Extract middle segment
@@ -148,7 +150,7 @@ class CLAPAnalyzer:
             traceback.print_exc()
             return None, 0
 
-    def get_audio_embedding(self, audio_path: str) -> Optional[np.ndarray]:
+    def get_audio_embedding(self, audio_path: str, duration: Optional[float] = None) -> Optional[np.ndarray]:
         """
         Generate a 1024-dimensional embedding from an audio file.
 
@@ -157,6 +159,7 @@ class CLAPAnalyzer:
 
         Args:
             audio_path: Path to the audio file
+            duration: Pre-computed duration in seconds (avoids file read)
 
         Returns:
             numpy array of shape (1024,) or None on error
@@ -169,8 +172,8 @@ class CLAPAnalyzer:
             return None
 
         try:
-            # Load audio (with chunking for large files)
-            audio, sr = self._load_audio_chunk(audio_path)
+            # Load audio (with chunking), use provided duration to skip file probe
+            audio, sr = self._load_audio_chunk(audio_path, duration)
 
             if audio is None:
                 return None
@@ -367,6 +370,7 @@ class Worker:
 
         track_id = job.get('trackId')
         file_path = job.get('filePath', '')
+        duration = job.get('duration')  # Pre-computed duration in seconds
 
         if not track_id:
             logger.warning(f"Invalid job (no trackId): {job}")
@@ -381,8 +385,8 @@ class Worker:
         normalized_path = file_path.replace('\\', '/')
         full_path = os.path.join(MUSIC_PATH, normalized_path)
 
-        # Generate embedding
-        embedding = self.analyzer.get_audio_embedding(full_path)
+        # Generate embedding (pass duration to avoid file probe)
+        embedding = self.analyzer.get_audio_embedding(full_path, duration)
 
         if embedding is None:
             self._mark_failed(track_id, "Failed to generate embedding")

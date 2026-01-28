@@ -942,6 +942,7 @@ async function queueAudioAnalysis(): Promise<number> {
             id: true,
             filePath: true,
             title: true,
+            duration: true,
         },
         take: 50, // Queue more at once since Essentia processes async
         orderBy: { fileModified: "desc" },
@@ -964,6 +965,7 @@ async function queueAudioAnalysis(): Promise<number> {
                 JSON.stringify({
                     trackId: track.id,
                     filePath: track.filePath,
+                    duration: track.duration, // Avoids file read in analyzer
                 }),
             );
 
