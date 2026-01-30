@@ -763,6 +763,13 @@ class ApiClient {
         });
     }
 
+    // System Features
+    async getFeatures(): Promise<{ musicCNN: boolean; vibeEmbeddings: boolean }> {
+        return this.request<{ musicCNN: boolean; vibeEmbeddings: boolean }>(
+            "/system/features"
+        );
+    }
+
     // System Settings
     async getSystemSettings() {
         return this.request<any>("/system-settings");
@@ -1528,6 +1535,7 @@ class ApiClient {
                 total: number;
                 completed: number;
                 pending: number;
+                failed: number;
                 progress: number;
                 isBackground: boolean;
             };
@@ -1798,6 +1806,34 @@ class ApiClient {
             progress: number;
             isComplete: boolean;
         }>("/vibe/status");
+    }
+
+    async getTrackAnalysis(trackId: string) {
+        return this.request<{
+            id: string;
+            title: string;
+            analysisStatus: string;
+            analysisError: string | null;
+            analyzedAt: string | null;
+            analysisVersion: string | null;
+            bpm: number | null;
+            beatsCount: number | null;
+            key: string | null;
+            keyScale: string | null;
+            keyStrength: number | null;
+            energy: number | null;
+            loudness: number | null;
+            dynamicRange: number | null;
+            danceability: number | null;
+            valence: number | null;
+            arousal: number | null;
+            instrumentalness: number | null;
+            acousticness: number | null;
+            speechiness: number | null;
+            moodTags: string[] | null;
+            essentiaGenres: string[] | null;
+            lastfmTags: string[] | null;
+        }>(`/analysis/track/${trackId}`);
     }
 
     async retryFailedDownload(
