@@ -70,16 +70,18 @@ const PopularArtistCard = memo(function PopularArtistCard({
     );
 });
 
-export function PopularArtistsGrid({ artists }: PopularArtistsGridProps) {
+export const PopularArtistsGrid = memo(function PopularArtistsGrid({
+    artists
+}: PopularArtistsGridProps) {
     return (
         <HorizontalCarousel>
             {artists.map((artist, index) => (
-                <PopularArtistCard 
-                    key={artist.id || artist.name} 
-                    artist={artist} 
-                    index={index} 
+                <PopularArtistCard
+                    key={artist.id || artist.name}
+                    artist={artist}
+                    index={index}
                 />
             ))}
         </HorizontalCarousel>
     );
-}
+});
