@@ -63,7 +63,7 @@ NUM_WORKERS = int(os.getenv('NUM_WORKERS', '2'))
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://backend:3006')
 
 # Queue and channel names
-ANALYSIS_QUEUE = 'audio:analysis:queue'
+ANALYSIS_QUEUE = 'audio:clap:queue'
 TEXT_EMBED_CHANNEL = 'audio:text:embed'
 TEXT_EMBED_RESPONSE_PREFIX = 'audio:text:embed:response:'
 CONTROL_CHANNEL = 'audio:clap:control'
