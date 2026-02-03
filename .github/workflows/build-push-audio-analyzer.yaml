@@ -4,7 +4,7 @@
 # and publishes to both GitHub Container Registry and Docker Hub
 # =============================================================
 
-name: Build Frontend Image and Push
+name: Build Audio-Analyzer Image and Push
 on:
   workflow_dispatch:
   push:
@@ -21,7 +21,7 @@ permissions:
 # JOBS - Main workflow components
 # =============================================================
 jobs:
-  build-push-frontend:
+  build-push-audio-analyzer:
     runs-on: 
       - lidify
 
@@ -79,7 +79,7 @@ jobs:
             latest=true
           # Push to both GitHub Container Registry and Docker Hub
           images: |
-            ${{ env.GHCR_REPO }}-frontend
+            ${{ env.GHCR_REPO }}-audio-analyzer
           # Define tagging strategy - PR, branch, date, SHA, and semver
           tags: |
             type=ref,event=pr
@@ -97,20 +97,20 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend    # Build context is the frontend directory
-          push: true             # Push the built image to registries
+          context: ./services/audio-analyzer        # Build context is the audio-analyzer directory
+          push: true                                # Push the built image to registries
           tags: ${{ steps.metadata.outputs.tags }}  # Use tags from metadata step
-          platforms: linux/amd64 # Build for amd64 architecture
-          cache-from: type=gha   # Use GitHub Actions cache for faster builds
-          cache-to: type=gha,mode=max  # Store cache for future builds
+          platforms: linux/amd64                    # Build for amd64 architecture
+          cache-from: type=gha                      # Use GitHub Actions cache for faster builds
+          cache-to: type=gha,mode=max               # Store cache for future builds
 
       # Make sure the image is available locally for scanning
       - name: Pull image for scanning
         run: |
-          docker pull ${{ env.GHCR_REPO }}-frontend:${{ env.IMAGE_SHA_TAG }}
+          docker pull ${{ env.GHCR_REPO }}-audio-analyzer:${{ env.IMAGE_SHA_TAG }}
           # Verify the image was pulled successfully
           docker image ls
-          echo "Image to be scanned: ${{ env.GHCR_REPO }}-frontend:${{ env.IMAGE_SHA_TAG }}"
+          echo "Image to be scanned: ${{ env.GHCR_REPO }}-audio-analyzer:${{ env.IMAGE_SHA_TAG }}"
 
       # =============================================================
       # SECURITY SCANNING - Scan image for vulnerabilities
@@ -120,7 +120,7 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.GHCR_REPO }}-frontend:${{ env.IMAGE_SHA_TAG }}
+          image-ref: ${{ env.GHCR_REPO }}-audio-analyzer:${{ env.IMAGE_SHA_TAG }}
           format: 'sarif'        # Output format for GitHub Security
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'  # Only scan for high and critical vulnerabilities
@@ -137,7 +137,7 @@ jobs:
         if: always()  # Always run this step, even if previous steps fail
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.GHCR_REPO }}-frontend:${{ env.IMAGE_SHA_TAG }}
+          image-ref: ${{ env.GHCR_REPO }}-audio-analyzer:${{ env.IMAGE_SHA_TAG }}
           format: 'table'  # Human-readable table format
           output: 'trivy-results.txt'
           severity: 'CRITICAL,HIGH,MEDIUM'  # Include medium severity issues in report
