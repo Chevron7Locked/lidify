@@ -32,10 +32,17 @@ let vocabulary: Vocabulary | null = null;
  * Load vocabulary from JSON file. Call at startup.
  */
 export function loadVocabulary(): Vocabulary | null {
-    const vocabPath = join(__dirname, "../data/vibe-vocabulary.json");
+    // Try multiple paths: dist/data (compiled), src/data (dev/source), relative to __dirname
+    const possiblePaths = [
+        join(__dirname, "../data/vibe-vocabulary.json"),        // Works in dev (tsx)
+        join(__dirname, "../../src/data/vibe-vocabulary.json"), // Works in prod (dist -> src)
+    ];
 
-    if (!existsSync(vocabPath)) {
+    const vocabPath = possiblePaths.find(p => existsSync(p));
+
+    if (!vocabPath) {
         logger.warn("[VIBE-VOCAB] Vocabulary file not found. Run generateVibeVocabulary script.");
+        logger.warn("[VIBE-VOCAB] Searched paths:", possiblePaths);
         return null;
     }
 

@@ -605,7 +605,7 @@ function VibePageContent() {
     const [sourceTrack, setSourceTrack] = useState<TrackData | null>(null);
     const [similarTracks, setSimilarTracks] = useState<TrackData[]>([]);
     const [selectedMatch, setSelectedMatch] = useState<TrackData | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [vibeStatus, setVibeStatus] = useState<{ totalTracks: number; embeddedTracks: number } | null>(null);
@@ -613,10 +613,7 @@ function VibePageContent() {
     const [searchQuery, setSearchQuery] = useState<string | null>(null);
     const [inputValue, setInputValue] = useState("");
     const [recentSearches, setRecentSearches] = useState<string[]>([]);
-
-    // Capture the track that was playing when page loaded (don't react to changes)
-    const initialTrackRef = useRef(currentTrack);
-    const hasLoadedRef = useRef(false);
+    const [hasInitialized, setHasInitialized] = useState(false);
 
     useEffect(() => {
         const saved = localStorage.getItem("vibe-recent-searches");
@@ -834,79 +831,26 @@ function VibePageContent() {
         loadSimilarTracks(libraryTracks[randomIndex]);
     }, [libraryTracks, loadSimilarTracks]);
 
-    const loadInitialData = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const status = await api.getVibeStatus();
-            setVibeStatus(status);
-
-            if (status.embeddedTracks === 0) {
-                setError("No tracks analyzed yet. Run vibe analysis first.");
-                setIsLoading(false);
-                return;
-            }
-
-            const { tracks } = await api.getTracks({ limit: 200 });
-            setLibraryTracks(tracks);
-
-            // Priority 1: Use the track that was playing when page loaded
-            const playingTrack = initialTrackRef.current;
-            if (playingTrack?.id) {
-                const currentAsLibraryTrack: LibraryTrack = {
-                    id: playingTrack.id,
-                    title: playingTrack.title,
-                    duration: playingTrack.duration,
-                    album: {
-                        id: playingTrack.album.id || "",
-                        title: playingTrack.album.title,
-                        coverUrl: playingTrack.album.coverArt || null,
-                        artist: {
-                            id: playingTrack.artist.id || "",
-                            name: playingTrack.artist.name,
-                        },
-                    },
-                };
-
-                try {
-                    const result = await api.getVibeSimilarTracks(playingTrack.id, 20);
-                    if (result.tracks.length > 0) {
-                        await loadSimilarTracks(currentAsLibraryTrack);
-                        return;
-                    }
-                } catch {
-                    // Current track doesn't have embeddings, fall through to find another
-                }
-            }
-
-            // Priority 2: Find first track with embeddings
-            for (const track of tracks) {
-                try {
-                    const result = await api.getVibeSimilarTracks(track.id, 20);
-                    if (result.tracks.length > 0) {
-                        await loadSimilarTracks(track);
-                        return;
-                    }
-                } catch {
-                    continue;
-                }
-            }
-
-            setError("No tracks with embeddings found.");
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to load");
-        } finally {
-            setIsLoading(false);
-        }
-    }, [loadSimilarTracks]);
-
-    // Load initial data only once on mount
+    // Load vibe status and library tracks (for random button) on mount
     useEffect(() => {
-        if (hasLoadedRef.current) return;
-        hasLoadedRef.current = true;
-        loadInitialData();
-    }, [loadInitialData]);
+        if (hasInitialized) return;
+        setHasInitialized(true);
+
+        const init = async () => {
+            try {
+                const [status, { tracks }] = await Promise.all([
+                    api.getVibeStatus(),
+                    api.getTracks({ limit: 200 }),
+                ]);
+                setVibeStatus(status);
+                setLibraryTracks(tracks);
+            } catch (err) {
+                console.error("Failed to load vibe status:", err);
+            }
+        };
+
+        init();
+    }, [hasInitialized]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -936,6 +880,39 @@ function VibePageContent() {
 
         await loadSimilarTracks(currentAsLibraryTrack);
     }, [currentTrack, loadSimilarTracks]);
+
+    // Refresh current data - reload similar tracks if source exists, otherwise reload status
+    const handleRefresh = useCallback(async () => {
+        if (sourceTrack) {
+            // Convert TrackData back to LibraryTrack format for loadSimilarTracks
+            const asLibraryTrack: LibraryTrack = {
+                id: sourceTrack.id,
+                title: sourceTrack.title,
+                duration: sourceTrack.duration,
+                album: {
+                    id: sourceTrack.albumId,
+                    title: sourceTrack.album,
+                    coverUrl: sourceTrack.coverUrl || undefined,
+                    artist: {
+                        id: sourceTrack.artistId,
+                        name: sourceTrack.artist,
+                    },
+                },
+            };
+            await loadSimilarTracks(asLibraryTrack);
+        } else {
+            try {
+                const [status, { tracks }] = await Promise.all([
+                    api.getVibeStatus(),
+                    api.getTracks({ limit: 200 }),
+                ]);
+                setVibeStatus(status);
+                setLibraryTracks(tracks);
+            } catch (err) {
+                console.error("Failed to refresh:", err);
+            }
+        }
+    }, [sourceTrack, loadSimilarTracks]);
 
     return (
         <div className="min-h-screen relative">
@@ -989,7 +966,7 @@ function VibePageContent() {
                                 <span className="hidden sm:inline">Random</span>
                             </button>
                             <button
-                                onClick={loadInitialData}
+                                onClick={handleRefresh}
                                 disabled={isLoading}
                                 className="p-1.5 text-[#737373] hover:text-white hover:bg-white/5 rounded-md transition-colors disabled:opacity-50"
                             >
@@ -1072,7 +1049,7 @@ function VibePageContent() {
                                     &ldquo;{searchQuery}&rdquo;
                                 </h2>
                                 <p className="text-sm text-[#525252]">
-                                    {similarTracks.length} tracks found - click to play
+                                    {similarTracks.length} tracks found - double-click to explore similar
                                 </p>
                             </div>
                             <button
@@ -1090,6 +1067,7 @@ function VibePageContent() {
                                     track={track}
                                     index={i}
                                     onClick={() => playTrack(track)}
+                                    onDoubleClick={() => handleSelectSearchResult(track)}
                                     onPlay={() => playTrack(track)}
                                 />
                             ))}
@@ -1172,14 +1150,77 @@ function VibePageContent() {
                     </div>
                 )}
 
-                {/* Empty state */}
-                {!isLoading && !isSearching && !error && !sourceTrack && similarTracks.length === 0 && (
-                    <div className="text-center py-24">
-                        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-[#eab308]/10 to-[#a855f7]/10 flex items-center justify-center">
-                            <Disc3 className="w-10 h-10 text-[#333]" />
+                {/* Empty state - prompt user to start */}
+                {!isLoading && !isSearching && !error && !sourceTrack && similarTracks.length === 0 && viewMode === "comparison" && (
+                    <div className="max-w-md mx-auto text-center py-16">
+                        <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-[#eab308]/10 to-[#a855f7]/10 flex items-center justify-center">
+                            <AudioWaveform className="w-12 h-12 text-[#525252]" />
                         </div>
-                        <p className="text-[#525252]">No vibe data available</p>
-                        <p className="text-sm text-[#333] mt-1">Run CLAP analysis to start exploring</p>
+                        <h2 className="text-xl font-medium text-white mb-2">Explore by Vibe</h2>
+                        <p className="text-[#737373] mb-8">
+                            Find tracks that sound similar to each other based on their audio characteristics.
+                        </p>
+
+                        <div className="space-y-3">
+                            {/* Use current track if playing */}
+                            {currentTrack && (
+                                <button
+                                    onClick={handleUseCurrentTrack}
+                                    className="w-full flex items-center gap-4 px-4 py-3 bg-[#0f0f0f] border border-[#1c1c1c] hover:border-[#333] rounded-lg transition-all text-left group"
+                                >
+                                    <div className="w-12 h-12 rounded bg-[#1a1a1a] flex items-center justify-center flex-shrink-0">
+                                        <AudioWaveform className="w-5 h-5 text-[#eab308]" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium text-white truncate">
+                                            Find tracks like &ldquo;{currentTrack.title}&rdquo;
+                                        </p>
+                                        <p className="text-xs text-[#525252]">Use the currently playing track</p>
+                                    </div>
+                                </button>
+                            )}
+
+                            {/* Random track */}
+                            <button
+                                onClick={handleRandomTrack}
+                                disabled={libraryTracks.length === 0}
+                                className="w-full flex items-center gap-4 px-4 py-3 bg-[#0f0f0f] border border-[#1c1c1c] hover:border-[#333] rounded-lg transition-all text-left group disabled:opacity-50"
+                            >
+                                <div className="w-12 h-12 rounded bg-[#1a1a1a] flex items-center justify-center flex-shrink-0">
+                                    <Shuffle className="w-5 h-5 text-[#a855f7]" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-white">Surprise me</p>
+                                    <p className="text-xs text-[#525252]">Pick a random track from your library</p>
+                                </div>
+                            </button>
+
+                            {/* Divider */}
+                            <div className="flex items-center gap-3 py-2">
+                                <div className="flex-1 h-px bg-[#1c1c1c]" />
+                                <span className="text-xs text-[#525252]">or search above</span>
+                                <div className="flex-1 h-px bg-[#1c1c1c]" />
+                            </div>
+
+                            {/* Preset chips */}
+                            <div className="flex flex-wrap justify-center gap-2">
+                                {VIBE_PRESETS.slice(0, 4).map((preset) => (
+                                    <button
+                                        key={preset.id}
+                                        onClick={() => handleVibeSearch(preset.query)}
+                                        className="px-3 py-1.5 text-xs text-[#737373] bg-[#0f0f0f] border border-[#1c1c1c] hover:border-[#333] hover:text-white rounded-full transition-all"
+                                    >
+                                        {preset.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {vibeStatus && vibeStatus.embeddedTracks === 0 && (
+                            <p className="text-xs text-[#ef4444] mt-6">
+                                No tracks analyzed yet. Run the CLAP analyzer to enable vibe search.
+                            </p>
+                        )}
                     </div>
                 )}
             </div>
