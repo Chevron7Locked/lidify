@@ -16,6 +16,8 @@ permissions:
   contents: read     # Required to checkout repository
   security-events: write  # Required for vulnerability scanning results
 
+env:
+  NEXT_PUBLIC_API_URL: https://listen-api.wells.gg
 
 # =============================================================
 # JOBS - Main workflow components
@@ -98,6 +100,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./frontend    # Build context is the frontend directory
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
           push: true             # Push the built image to registries
           tags: ${{ steps.metadata.outputs.tags }}  # Use tags from metadata step
           platforms: linux/amd64 # Build for amd64 architecture
