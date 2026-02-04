@@ -1,19 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import Image from "next/image";
 import { GradientSpinner } from "@/components/ui/GradientSpinner";
 import { useFeatures } from "@/lib/features-context";
+import { useAuth } from "@/lib/auth-context";
 
 export default function OnboardingPage() {
     const router = useRouter();
+    const { user, isLoading: authLoading } = useAuth();
     const { musicCNN, vibeEmbeddings, loading: featuresLoading } = useFeatures();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [error, setError] = useState("");
+    const hasCheckedSession = useRef(false);
     const showPasswordMismatch = error === "Passwords don't match";
     const showPasswordTooShort =
         error === "Password must be at least 6 characters";
@@ -23,23 +26,21 @@ export default function OnboardingPage() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
 
-    // Check if user is already logged in and skip to step 2
+    // Use auth context state instead of duplicate API call
     useEffect(() => {
-        const checkExistingSession = async () => {
-            try {
-                const user = await api.getCurrentUser();
-                if (user && !user.onboardingComplete) {
-                    // User exists but hasn't completed onboarding - skip to step 2
-                    setStep(2);
-                }
-            } catch (error) {
-                // Not logged in, stay on step 1
-            } finally {
-                setInitialLoading(false);
-            }
-        };
-        checkExistingSession();
-    }, []);
+        // Wait for auth context to finish loading
+        if (authLoading) return;
+
+        // Only check once to prevent re-renders
+        if (hasCheckedSession.current) return;
+        hasCheckedSession.current = true;
+
+        // If user exists and hasn't completed onboarding, skip to step 2
+        if (user && !user.onboardingComplete) {
+            setStep(2);
+        }
+        setInitialLoading(false);
+    }, [authLoading, user]);
 
     // Step 2: Integrations
     const [lidarr, setLidarr] = useState({

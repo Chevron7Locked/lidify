@@ -416,6 +416,7 @@ systems/
 
 # =============================================================================
 # Development/Debug Test Files (keep locally, don't push to GitHub)
+AGENTS.md
 # =============================================================================
 frontend/test-*.tsx
 frontend/features/library/components/LazyArtistCard.tsx

@@ -3,6 +3,7 @@ import { logger } from "../utils/logger";
 import { requireAuthOrToken } from "../middleware/auth";
 import { prisma } from "../utils/db";
 import { config } from "../config";
+import { getSystemSettings } from "../utils/systemSettings";
 import { lidarrService } from "../services/lidarr";
 import { musicBrainzService } from "../services/musicbrainz";
 import { lastFmService } from "../services/lastfm";
@@ -125,8 +126,12 @@ router.post("/", async (req, res) => {
         }
 
         // Determine root folder path based on download type
+        const settings = await getSystemSettings();
+        const baseMusicPath = settings?.musicPath || config.music.musicPath;
         const rootFolderPath =
-            downloadType === "discovery" ? "/music/discovery" : "/music";
+            downloadType === "discovery"
+                ? `${baseMusicPath}/discovery`
+                : baseMusicPath;
 
         if (type === "artist") {
             // For artist downloads, fetch albums and create individual jobs

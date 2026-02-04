@@ -599,3 +599,31 @@ router.post("/vibe/retry", requireAuth, requireAdmin, async (req, res) => {
 });
 
 export default router;
+
+/**
+ * POST /api/analysis/vibe/success
+ * Resolve failure records when a vibe embedding succeeds (called by CLAP analyzer)
+ */
+router.post("/vibe/success", async (req, res) => {
+    // Internal endpoint - verify shared secret from CLAP analyzer
+    const internalSecret = req.headers["x-internal-secret"];
+    if (internalSecret !== process.env.INTERNAL_API_SECRET) {
+        return res.status(403).json({ error: "Forbidden" });
+    }
+
+    try {
+        const { trackId } = req.body;
+
+        if (!trackId) {
+            return res.status(400).json({ error: "trackId is required" });
+        }
+
+        // Resolve any stale failure records for this track
+        await enrichmentFailureService.resolveByEntity("vibe", trackId);
+
+        res.json({ message: "Stale failures resolved" });
+    } catch (error: any) {
+        logger.error("Resolve vibe failure error:", error);
+        res.status(500).json({ error: "Failed to resolve failures" });
+    }
+});

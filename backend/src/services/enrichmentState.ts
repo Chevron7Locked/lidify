@@ -24,6 +24,8 @@ export interface EnrichmentState {
     currentPhase: EnrichmentPhase;
     lastActivity: string;
     completionNotificationSent?: boolean; // Prevent repeated completion notifications
+    coreCacheCleared?: boolean; // Prevent repeated cache clearing on core complete
+    fullCacheCleared?: boolean; // Prevent repeated cache clearing on full complete
     stoppingInfo?: {
         phase: string;
         currentItem: string;
@@ -81,6 +83,8 @@ class EnrichmentStateService {
             currentPhase: "artists",
             lastActivity: new Date().toISOString(),
             completionNotificationSent: false, // Reset notification flag on new enrichment
+            coreCacheCleared: false, // Reset cache flag on new enrichment
+            fullCacheCleared: false, // Reset cache flag on new enrichment
             artists: { total: 0, completed: 0, failed: 0 },
             tracks: { total: 0, completed: 0, failed: 0 },
             audio: { total: 0, completed: 0, failed: 0, processing: 0 },

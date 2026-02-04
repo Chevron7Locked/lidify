@@ -710,9 +710,11 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     }, [isPlaying]);
 
     // Handle play/pause changes from UI
+    // Note: We intentionally don't guard against isLoadingRef here.
+    // Howler.js queues play() calls made before loading completes, which ensures
+    // the play command is issued from closer to the user gesture context.
+    // This fixes the "double-click to play" issue caused by browser autoplay policies.
     useEffect(() => {
-        if (isLoadingRef.current) return;
-
         isUserInitiatedRef.current = true;
 
         if (isPlaying) {

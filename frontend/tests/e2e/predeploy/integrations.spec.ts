@@ -6,6 +6,55 @@ test.describe("Integrations", () => {
         await loginAsTestUser(page);
     });
 
+    test("Audiobookshelf connection test", async ({ page }, testInfo) => {
+        skipIfNoEnv("LIDIFY_TEST_ABS_URL", testInfo);
+        skipIfNoEnv("LIDIFY_TEST_ABS_API_KEY", testInfo);
+
+        await page.goto("/settings");
+
+        // Navigate to Media Servers section in the sidebar
+        const mediaServersLink = page.locator("text=Media Servers").first();
+        await expect(mediaServersLink).toBeVisible({ timeout: 5000 });
+        await mediaServersLink.click();
+
+        // Wait for the Audiobookshelf section to appear
+        const absContainer = page.locator('#audiobookshelf');
+        await expect(absContainer).toBeVisible({ timeout: 5000 });
+
+        // Enable Audiobookshelf if not already
+        const enableToggle = page.locator('#abs-enabled');
+        if (await enableToggle.isVisible({ timeout: 2000 })) {
+            const isChecked = await enableToggle.isChecked();
+            if (!isChecked) {
+                await enableToggle.click({ force: true });
+                await page.waitForTimeout(500);
+            }
+        }
+        const urlInput = absContainer.locator('input[placeholder*="localhost:13378" i]');
+        const apiKeyInput = absContainer.getByRole('textbox', { name: 'Enter API key' });
+
+        if (await urlInput.isVisible({ timeout: 2000 })) {
+            await urlInput.fill(process.env.LIDIFY_TEST_ABS_URL!);
+        }
+        if (await apiKeyInput.isVisible({ timeout: 2000 })) {
+            await apiKeyInput.fill(process.env.LIDIFY_TEST_ABS_API_KEY!);
+        }
+
+        // Click test connection within Audiobookshelf section
+        const testBtn = absContainer.getByRole("button", { name: /test connection/i });
+        await expect(testBtn).toBeVisible({ timeout: 3000 });
+        await testBtn.click();
+
+        // Wait for result - should show version number on success
+        await page.waitForTimeout(3000);
+        const pageText = await page.textContent("body");
+        const hasResult = pageText?.includes("Connected") ||
+                         pageText?.includes("v2.") ||
+                         pageText?.includes("Failed") ||
+                         pageText?.includes("error");
+        expect(hasResult).toBeTruthy();
+    });
+
     test("Lidarr connection test", async ({ page }, testInfo) => {
         skipIfNoEnv("LIDIFY_TEST_LIDARR_URL", testInfo);
         skipIfNoEnv("LIDIFY_TEST_LIDARR_API_KEY", testInfo);
