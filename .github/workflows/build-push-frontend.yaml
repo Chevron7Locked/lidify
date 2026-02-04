@@ -16,9 +16,6 @@ permissions:
   contents: read     # Required to checkout repository
   security-events: write  # Required for vulnerability scanning results
 
-env:
-  NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-
 # =============================================================
 # JOBS - Main workflow components
 # =============================================================
@@ -99,14 +96,12 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend    # Build context is the frontend directory
-          build-args: |
-            NEXT_PUBLIC_API_URL=${{ env.NEXT_PUBLIC_API_URL }}
-          push: true             # Push the built image to registries
+          context: ./frontend                       # Build context is the frontend directory
+          push: true                                # Push the built image to registries
           tags: ${{ steps.metadata.outputs.tags }}  # Use tags from metadata step
-          platforms: linux/amd64 # Build for amd64 architecture
-          cache-from: type=gha   # Use GitHub Actions cache for faster builds
-          cache-to: type=gha,mode=max  # Store cache for future builds
+          platforms: linux/amd64                    # Build for amd64 architecture
+          cache-from: type=gha                      # Use GitHub Actions cache for faster builds
+          cache-to: type=gha,mode=max               # Store cache for future builds
 
       # Make sure the image is available locally for scanning
       - name: Pull image for scanning
