@@ -1,24 +1,24 @@
+import type { NextRequest } from "next/server";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const getBackendUrl = (): string => {
-    const env = (globalThis as { process?: { env?: Record<string, string> } })
-        .process?.env;
     const base =
-        env?.BACKEND_URL ||
-        env?.NEXT_PUBLIC_API_URL ||
+        process.env.BACKEND_URL ||
+        process.env.NEXT_PUBLIC_API_URL ||
         "http://127.0.0.1:3006";
     return base.replace(/\/$/, "");
 };
 
-const buildTargetUrl = (request: Request, path: string): string => {
+const buildTargetUrl = (request: NextRequest, path: string): string => {
     const base = getBackendUrl();
     const url = new URL(`${base}/api/${path}`);
-    url.search = new URL(request.url).search;
+    url.search = request.nextUrl.search;
     return url.toString();
 };
 
-const buildProxyHeaders = (request: Request): Headers => {
+const buildProxyHeaders = (request: NextRequest): Headers => {
     const headers = new Headers(request.headers);
     headers.delete("host");
 
@@ -26,10 +26,7 @@ const buildProxyHeaders = (request: Request): Headers => {
     if (host) {
         headers.set("x-forwarded-host", host);
     }
-    headers.set(
-        "x-forwarded-proto",
-        new URL(request.url).protocol.replace(":", "")
-    );
+    headers.set("x-forwarded-proto", request.nextUrl.protocol.replace(":", ""));
 
     const forwardedFor = request.headers.get("x-forwarded-for");
     const realIp = request.headers.get("x-real-ip");
@@ -41,7 +38,7 @@ const buildProxyHeaders = (request: Request): Headers => {
 };
 
 const proxy = async (
-    request: Request,
+    request: NextRequest,
     path: string
 ): Promise<Response> => {
     const targetUrl = buildTargetUrl(request, path);
@@ -67,24 +64,24 @@ const proxy = async (
     });
 };
 
-type RouteParams = { params: { path?: string[] } };
+type RouteParams = { params: { path: string[] } };
 
-export async function GET(request: Request, { params }: RouteParams) {
-    return proxy(request, params.path?.join("/") ?? "");
+export async function GET(request: NextRequest, { params }: RouteParams) {
+    return proxy(request, params.path.join("/"));
 }
 
-export async function POST(request: Request, { params }: RouteParams) {
-    return proxy(request, params.path?.join("/") ?? "");
+export async function POST(request: NextRequest, { params }: RouteParams) {
+    return proxy(request, params.path.join("/"));
 }
 
-export async function PUT(request: Request, { params }: RouteParams) {
-    return proxy(request, params.path?.join("/") ?? "");
+export async function PUT(request: NextRequest, { params }: RouteParams) {
+    return proxy(request, params.path.join("/"));
 }
 
-export async function PATCH(request: Request, { params }: RouteParams) {
-    return proxy(request, params.path?.join("/") ?? "");
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+    return proxy(request, params.path.join("/"));
 }
 
-export async function DELETE(request: Request, { params }: RouteParams) {
-    return proxy(request, params.path?.join("/") ?? "");
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+    return proxy(request, params.path.join("/"));
 }
