@@ -23,6 +23,11 @@ import { startOfWeek, subWeeks } from "date-fns";
 import { getSystemSettings } from "../utils/systemSettings";
 import { discoveryLogger } from "./discoveryLogger";
 import { acquisitionService } from "./acquisitionService";
+import {
+    discoveryBatchLogger,
+    discoveryAlbumLifecycle,
+    discoverySeeding,
+} from "./discovery";
 import { shuffleArray } from "../utils/shuffle";
 import { updateArtistCounts } from "./artistCountsService";
 import { config as appConfig } from "../config";
@@ -76,194 +81,6 @@ function getTierFromSimilarity(
 
 export class DiscoverWeeklyService {
     /**
-     * Process liked albums before generating new playlist
-     * - Moves LIKED albums to LIBRARY
-     * - Deletes non-liked (ACTIVE) albums
-     * - Cleans up Lidarr
-     */
-    private async processLikedAlbumsBeforeGeneration(
-        userId: string,
-        settings: any
-    ): Promise<void> {
-        logger.debug(`\n Processing previous discovery albums...`);
-
-        // Find all active discovery albums for this user
-        const discoveryAlbums = await prisma.discoveryAlbum.findMany({
-            where: {
-                userId,
-                status: { in: ["ACTIVE", "LIKED"] },
-            },
-        });
-
-        if (discoveryAlbums.length === 0) {
-            logger.debug(`   No previous discovery albums to process`);
-            return;
-        }
-
-        const likedAlbums = discoveryAlbums.filter((a) => a.status === "LIKED");
-        const activeAlbums = discoveryAlbums.filter(
-            (a) => a.status === "ACTIVE"
-        );
-
-        logger.debug(`   Found ${likedAlbums.length} liked albums to keep`);
-        logger.debug(
-            `   Found ${activeAlbums.length} non-liked albums to remove`
-        );
-
-        // Process liked albums - move to library
-        for (const album of likedAlbums) {
-            try {
-                // Find the album in database
-                const dbAlbum = await prisma.album.findFirst({
-                    where: { rgMbid: album.rgMbid },
-                    include: { artist: true },
-                });
-
-                if (dbAlbum) {
-                    // Update album location to LIBRARY
-                    await prisma.album.update({
-                        where: { id: dbAlbum.id },
-                        data: { location: "LIBRARY" },
-                    });
-
-                    // Create OwnedAlbum record
-                    await prisma.ownedAlbum.upsert({
-                        where: {
-                            artistId_rgMbid: {
-                                artistId: dbAlbum.artistId,
-                                rgMbid: dbAlbum.rgMbid,
-                            },
-                        },
-                        create: {
-                            artistId: dbAlbum.artistId,
-                            rgMbid: dbAlbum.rgMbid,
-                            source: "discover_liked",
-                        },
-                        update: {},
-                    });
-
-                    // Update artist counts (album moved from DISCOVER to LIBRARY)
-                    await updateArtistCounts(dbAlbum.artistId);
-
-                    logger.debug(
-                        `    Moved to library: ${album.artistName} - ${album.albumTitle}`
-                    );
-                }
-
-                // Mark as MOVED
-                await prisma.discoveryAlbum.update({
-                    where: { id: album.id },
-                    data: { status: "MOVED" },
-                });
-            } catch (error: any) {
-                logger.error(
-                    `   ✗ Failed to move ${album.albumTitle}: ${error.message}`
-                );
-            }
-        }
-
-        // Process active albums - delete them
-        for (const album of activeAlbums) {
-            try {
-                // Delete from Lidarr if enabled
-                if (
-                    settings.lidarrEnabled &&
-                    settings.lidarrUrl &&
-                    settings.lidarrApiKey &&
-                    album.lidarrAlbumId
-                ) {
-                    try {
-                        await axios.delete(
-                            `${settings.lidarrUrl}/api/v1/album/${album.lidarrAlbumId}`,
-                            {
-                                params: { deleteFiles: true },
-                                headers: { "X-Api-Key": settings.lidarrApiKey },
-                                timeout: 10000,
-                            }
-                        );
-                    } catch (lidarrError: any) {
-                        if (lidarrError.response?.status !== 404) {
-                            logger.debug(
-                                ` Lidarr delete failed: ${lidarrError.message}`
-                            );
-                        }
-                    }
-                }
-
-                // Delete from database
-                const dbAlbum = await prisma.album.findFirst({
-                    where: { rgMbid: album.rgMbid },
-                });
-
-                if (dbAlbum) {
-                    await prisma.track.deleteMany({
-                        where: { albumId: dbAlbum.id },
-                    });
-                    await prisma.album.delete({ where: { id: dbAlbum.id } });
-                }
-
-                // Delete discovery track records
-                await prisma.discoveryTrack.deleteMany({
-                    where: { discoveryAlbumId: album.id },
-                });
-
-                // Mark as DELETED
-                await prisma.discoveryAlbum.update({
-                    where: { id: album.id },
-                    data: { status: "DELETED" },
-                });
-
-                logger.debug(
-                    `    Deleted: ${album.artistName} - ${album.albumTitle}`
-                );
-            } catch (error: any) {
-                logger.error(
-                    `   ✗ Failed to delete ${album.albumTitle}: ${error.message}`
-                );
-            }
-        }
-
-        // Clean up unavailable albums from previous week
-        await prisma.unavailableAlbum.deleteMany({ where: { userId } });
-
-        logger.debug(`   Previous discovery cleanup complete`);
-    }
-
-    /**
-     * Add a log entry to batch logs
-     */
-    private async addBatchLog(
-        batchId: string,
-        level: "info" | "warn" | "error",
-        message: string
-    ): Promise<void> {
-        try {
-            const batch = await prisma.discoveryBatch.findUnique({
-                where: { id: batchId },
-                select: { logs: true },
-            });
-
-            const logs = (batch?.logs as unknown as BatchLogEntry[]) || [];
-            logs.push({
-                timestamp: new Date().toISOString(),
-                level,
-                message,
-            });
-
-            // Keep only last 100 log entries
-            const trimmedLogs = logs.slice(-100);
-
-            await prisma.discoveryBatch.update({
-                where: { id: batchId },
-                data: { logs: trimmedLogs as any },
-            });
-        } catch (error) {
-            // Don't fail if logging fails
-            logger.error("Failed to add batch log:", error);
-        }
-    }
-
-    /**
      * Main entry: Generate Discovery Weekly
      */
     async generatePlaylist(userId: string, jobId?: number) {
@@ -299,13 +116,13 @@ export class DiscoverWeeklyService {
 
             // CRITICAL: Process previous week's liked albums before generating new ones
             discoveryLogger.section("PROCESSING PREVIOUS WEEK");
-            await this.processLikedAlbumsBeforeGeneration(userId, settings);
+            await discoveryAlbumLifecycle.processBeforeGeneration(userId, settings);
 
             const targetCount = config.playlistSize;
 
             // Step 1: Get seed artists
             discoveryLogger.section("STEP 1: SEED ARTISTS");
-            const seeds = await this.getSeedArtists(userId);
+            const seeds = await discoverySeeding.getSeedArtists(userId);
             if (seeds.length === 0) {
                 discoveryLogger.error(
                     "No seed artists found - need listening history"
@@ -375,9 +192,8 @@ export class DiscoverWeeklyService {
                 discoveryLogger.warn(
                     "Consider expanding seed artists or playing more music"
                 );
-                await this.addBatchLog(
+                await discoveryBatchLogger.warn(
                     "threshold-check",
-                    "warn",
                     `Low recommendations: ${recommended.length}/${minRecommendations} minimum (target: ${targetCount} unique albums)`
                 );
             }
@@ -540,9 +356,8 @@ export class DiscoverWeeklyService {
                         },
                     });
     
-                    await this.addBatchLog(
+                    await discoveryBatchLogger.error(
                         batch.id,
-                        "error",
                         `Failed to acquire ${metadata.albumTitle}: ${result.error}`
                     );
                 }
@@ -588,9 +403,8 @@ export class DiscoverWeeklyService {
                 "Batch ID": batch.id,
             });
 
-            await this.addBatchLog(
+            await discoveryBatchLogger.info(
                 batch.id,
-                "info",
                 `${downloadsStarted} downloads started, waiting for webhooks`
             );
 
@@ -909,7 +723,7 @@ export class DiscoverWeeklyService {
 
         if (completed === 0) {
             logger.debug(`   All downloads failed`);
-            await this.addBatchLog(batchId, "error", "All downloads failed");
+            await discoveryBatchLogger.error(batchId, "All downloads failed");
 
             // Cleanup failed artists from Lidarr
             await this.cleanupFailedArtists(batchId);
@@ -920,9 +734,8 @@ export class DiscoverWeeklyService {
         logger.debug(
             `   ${completed} albums ready for playlist. Triggering scan...`
         );
-        await this.addBatchLog(
+        await discoveryBatchLogger.info(
             batchId,
-            "info",
             `${completed} completed, ${failed} failed. All successful downloads will be in playlist.`
         );
 
@@ -962,9 +775,8 @@ export class DiscoverWeeklyService {
         });
 
         logger.debug(`   Found ${completedJobs.length} completed downloads`);
-        await this.addBatchLog(
+        await discoveryBatchLogger.info(
             batchId,
-            "info",
             `Building playlist from ${completedJobs.length} completed downloads`
         );
 
@@ -1119,9 +931,8 @@ export class DiscoverWeeklyService {
                     completedAt: new Date(),
                 },
             });
-            await this.addBatchLog(
+            await discoveryBatchLogger.error(
                 batchId,
-                "error",
                 "No tracks found after scan"
             );
             return;
@@ -1174,7 +985,7 @@ export class DiscoverWeeklyService {
 
         // Step 2: ALWAYS add library anchor tracks (20%)
         // Get seed artists for this user
-        const seeds = await this.getSeedArtists(batch.userId);
+        const seeds = await discoverySeeding.getSeedArtists(batch.userId);
         const seedArtistNames = seeds.slice(0, 10).map((s) => s.name);
         const seedArtistMbids = seeds
             .slice(0, 10)
@@ -1324,9 +1135,8 @@ export class DiscoverWeeklyService {
         // Shuffle the final selection to mix anchors with discovery
         selected = shuffleArray(selected);
 
-        await this.addBatchLog(
+        await discoveryBatchLogger.info(
             batchId,
-            "info",
             `Playlist built: ${discoverySelected.length} discovery + ${libraryAnchors.length} anchors = ${selected.length} total`
         );
 
@@ -1334,18 +1144,16 @@ export class DiscoverWeeklyService {
         const target = batch.targetSongCount; // For logging purposes only
         if (selected.length === 0) {
             logger.debug(`   FAILED: No tracks available for playlist`);
-            await this.addBatchLog(
+            await discoveryBatchLogger.error(
                 batchId,
-                "error",
                 `No tracks available for playlist`
             );
         } else if (selected.length < target) {
             logger.debug(
                 `   NOTE: Got ${selected.length} tracks (target was ${target}, including ALL successful downloads)`
             );
-            await this.addBatchLog(
+            await discoveryBatchLogger.info(
                 batchId,
-                "info",
                 `Got ${selected.length} tracks (target was ${target})`
             );
         } else {
@@ -1528,9 +1336,8 @@ export class DiscoverWeeklyService {
         } catch (txError: any) {
             logger.error(`   ERROR: Transaction failed:`, txError.message);
             logger.error(`   Stack:`, txError.stack);
-            await this.addBatchLog(
+            await discoveryBatchLogger.error(
                 batchId,
-                "error",
                 `Transaction failed: ${txError.message}`
             );
         }
@@ -1539,18 +1346,16 @@ export class DiscoverWeeklyService {
             logger.debug(
                 `   Playlist complete: ${result.trackCount} tracks from ${result.albumCount} albums`
             );
-            await this.addBatchLog(
+            await discoveryBatchLogger.info(
                 batchId,
-                "info",
                 `Playlist complete: ${result.trackCount} tracks from ${result.albumCount} albums`
             );
         } else {
             logger.error(
                 `   ERROR: Transaction returned null - no records created`
             );
-            await this.addBatchLog(
+            await discoveryBatchLogger.error(
                 batchId,
-                "error",
                 "Transaction failed - no records created"
             );
         }
@@ -2001,9 +1806,8 @@ export class DiscoverWeeklyService {
         }
 
         logger.debug(`   Cleanup complete: ${removed} removed, ${kept} kept`);
-        await this.addBatchLog(
+        await discoveryBatchLogger.info(
             batchId,
-            "info",
             `Lidarr cleanup: ${removed} failed artists removed`
         );
     }
@@ -2110,61 +1914,6 @@ export class DiscoverWeeklyService {
         logger.debug(
             `   Extra album cleanup: ${albumsRemoved} removed, ${errors} errors`
         );
-    }
-
-    /**
-     * Get seed artists from listening history
-     */
-    private async getSeedArtists(userId: string): Promise<SeedArtist[]> {
-        const fourWeeksAgo = subWeeks(new Date(), 4);
-
-        const recentPlays = await prisma.play.groupBy({
-            by: ["trackId"],
-            where: {
-                userId,
-                playedAt: { gte: fourWeeksAgo },
-                source: { in: ["LIBRARY", "DISCOVERY_KEPT"] },
-            },
-            _count: { id: true },
-            orderBy: { _count: { id: "desc" } },
-            take: 50,
-        });
-
-        if (recentPlays.length < 5) {
-            // Fallback to library - get artists with most albums
-            const albums = await prisma.album.groupBy({
-                by: ["artistId"],
-                where: { location: "LIBRARY" },
-                _count: { id: true },
-                orderBy: { _count: { id: "desc" } },
-                take: 10,
-            });
-
-            const artists = await prisma.artist.findMany({
-                where: { id: { in: albums.map((a) => a.artistId) } },
-            });
-
-            return artists.map((a) => ({ name: a.name, mbid: a.mbid }));
-        }
-
-        const tracks = await prisma.track.findMany({
-            where: {
-                id: { in: recentPlays.map((p) => p.trackId) },
-                // Only include tracks from LIBRARY albums, not DISCOVER
-                album: { location: "LIBRARY" },
-            },
-            include: { album: { include: { artist: true } } },
-        });
-
-        const artistMap = new Map<string, any>();
-        for (const track of tracks) {
-            if (!artistMap.has(track.album.artistId)) {
-                artistMap.set(track.album.artistId, track.album.artist);
-            }
-        }
-
-        const artists = Array.from(artistMap.values()).slice(0, 10);
-        return artists.map((a: any) => ({ name: a.name, mbid: a.mbid }));
     }
 
     /**
@@ -2284,47 +2033,6 @@ export class DiscoverWeeklyService {
     }
 
     /**
-     * Check if an album is already owned
-     */
-    private async isAlbumOwned(
-        albumMbid: string,
-        userId: string
-    ): Promise<boolean> {
-        // Check OwnedAlbum table
-        const ownedAlbum = await prisma.ownedAlbum.findFirst({
-            where: { rgMbid: albumMbid },
-        });
-        if (ownedAlbum) return true;
-
-        // Check Album table
-        const existingAlbum = await prisma.album.findFirst({
-            where: { rgMbid: albumMbid },
-        });
-        if (existingAlbum) return true;
-
-        // Check previous discovery
-        const previousDiscovery = await prisma.discoveryAlbum.findFirst({
-            where: { rgMbid: albumMbid, userId },
-        });
-        if (previousDiscovery) return true;
-
-        // Check pending downloads
-        const pendingDownload = await prisma.downloadJob.findFirst({
-            where: {
-                targetMbid: albumMbid,
-                status: { in: ["pending", "processing"] },
-            },
-        });
-        if (pendingDownload) return true;
-
-        // Check Lidarr
-        const inLidarr = await lidarrService.isAlbumAvailable(albumMbid);
-        if (inLidarr) return true;
-
-        return false;
-    }
-
-    /**
      * Check if album was recommended recently (6 months)
      */
     private async isAlbumExcluded(
@@ -2387,7 +2095,7 @@ export class DiscoverWeeklyService {
         logger.debug(
             `[Discovery]   Tier 2: Searching ALL seeds for albums from NEW artists (diversity enforced)`
         );
-        const seeds = await this.getSeedArtists(batch.userId);
+        const seeds = await discoverySeeding.getSeedArtists(batch.userId);
 
         // Search ALL seeds (not just 5) to maximize chances of finding new artists
         for (const seed of seeds) {
@@ -2446,7 +2154,7 @@ export class DiscoverWeeklyService {
 
                             // Check if owned
                             try {
-                                const owned = await this.isAlbumOwned(
+                                const owned = await discoverySeeding.isAlbumOwned(
                                     mbAlbum.id,
                                     batch.userId
                                 );
@@ -2832,7 +2540,7 @@ export class DiscoverWeeklyService {
 
                 // Skip if owned by MBID
                 try {
-                    const owned = await this.isAlbumOwned(mbAlbum.id, userId);
+                    const owned = await discoverySeeding.isAlbumOwned(mbAlbum.id, userId);
                     if (owned) {
                         skippedOwned++;
                         continue;
@@ -3053,7 +2761,7 @@ export class DiscoverWeeklyService {
                     if (!mbAlbum || seenAlbums.has(mbAlbum.id)) continue;
 
                     // Check if owned by MBID
-                    const owned = await this.isAlbumOwned(mbAlbum.id, userId);
+                    const owned = await discoverySeeding.isAlbumOwned(mbAlbum.id, userId);
                     if (owned) continue;
 
                     // Check if owned by name (catches MBID mismatches)

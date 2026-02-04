@@ -116,8 +116,10 @@ app.use(
         proxy: true, // Trust the reverse proxy
         cookie: {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
+            // Self-hosted app: default to HTTP-friendly settings for local network use
+            // Set SECURE_COOKIES=true if running behind HTTPS reverse proxy
+            secure: process.env.SECURE_COOKIES === "true",
+            sameSite: "lax",
             maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
         },
     })

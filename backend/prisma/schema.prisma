@@ -223,6 +223,14 @@ model Track {
   displayTrackNo     Int?
   hasUserOverrides   Boolean                  @default(false)
   analysisStartedAt  DateTime?
+  
+// Vibe analysis status tracking
+   vibeAnalysisStatus        String?      // Analysis status: pending, processing, completed, failed
+   vibeAnalysisStartedAt     DateTime?
+   vibeAnalysisError         String?
+   vibeAnalysisRetryCount    Int          @default(0)
+   vibeAnalysisStatusUpdatedAt DateTime?    // When the status was last updated
+  
   cachedBy           CachedTrack[]
   likedBy            LikedTrack[]
   moodBuckets        MoodBucket[]

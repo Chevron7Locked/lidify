@@ -373,6 +373,33 @@ class EnrichmentFailureService {
 
         return { cleaned: toResolve.length, checked: failures.length };
     }
+
+     /**
+      * Resolve failure records for an entity (track/artist) that succeeded.
+      * Used when a track's vibe embedding succeeds after previous failures.
+      */
+     async resolveByEntity(entityType: "vibe" | "audio", entityId: string): Promise<boolean> {
+         const result = await prisma.enrichmentFailure.updateMany({
+             where: {
+                 entityType,
+                 entityId,
+                 resolved: false,
+             },
+             data: {
+                 resolved: true,
+                 resolvedAt: new Date(),
+             },
+         });
+
+         if (result.count > 0) {
+             logger.debug(
+                 `[Enrichment Failures] Resolved ${result.count} failures for ${entityType}:${entityId}`
+             );
+         }
+
+         return result.count > 0;
+     }
+
 }
 
 // Singleton instance
