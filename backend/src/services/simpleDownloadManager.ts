@@ -16,6 +16,7 @@ import { getSystemSettings } from "../utils/systemSettings";
 import { notificationService } from "./notificationService";
 import { notificationPolicyService } from "./notificationPolicyService";
 import { sessionLog } from "../utils/playlistLogger";
+import { config } from "../config";
 import axios from "axios";
 import * as crypto from "crypto";
 
@@ -118,6 +119,10 @@ class SimpleDownloadManager {
         const correlationId = generateCorrelationId();
 
         try {
+            // Get music path from settings with fallback to config
+            const settings = await getSystemSettings();
+            const musicPath = settings?.musicPath || config.music.musicPath;
+
             // Fetch artist MBID from MusicBrainz using the album MBID
             let artistMbid: string | undefined;
             try {
@@ -146,7 +151,7 @@ class SimpleDownloadManager {
                 albumMbid,
                 artistName,
                 albumTitle,
-                "/music",
+                musicPath,
                 artistMbid,
                 isDiscovery
             );
@@ -1082,6 +1087,10 @@ class SimpleDownloadManager {
             // Use Lidarr's foreignAlbumId (MBID) for the new job
             const albumMbid = nextAlbum.foreignAlbumId;
 
+            // Get music path from settings with fallback to config
+            const settings = await getSystemSettings();
+            const defaultMusicPath = settings?.musicPath || config.music.musicPath;
+
             // Create new job for the next album
             const newJob = await prisma.downloadJob.create({
                 data: {
@@ -1101,7 +1110,7 @@ class SimpleDownloadManager {
                         sameArtistFallback: true,
                         originalJobId: job.id,
                         downloadType: metadata.downloadType || "library",
-                        rootFolderPath: metadata.rootFolderPath || "/music",
+                        rootFolderPath: metadata.rootFolderPath || defaultMusicPath,
                     },
                 },
             });

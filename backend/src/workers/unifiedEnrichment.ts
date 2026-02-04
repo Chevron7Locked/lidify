@@ -21,6 +21,7 @@ import { enrichmentStateService } from "../services/enrichmentState";
 import { enrichmentFailureService } from "../services/enrichmentFailureService";
 import { audioAnalysisCleanupService } from "../services/audioAnalysisCleanup";
 import { rateLimiter } from "../services/rateLimiter";
+import { vibeAnalysisCleanupService } from "../services/vibeAnalysisCleanup";
 import { getSystemSettings } from "../utils/systemSettings";
 import { featureDetection } from "../services/featureDetection";
 import pLimit from "p-limit";
@@ -536,13 +537,20 @@ async function runEnrichmentCycle(fullMode: boolean): Promise<{
         // Phase 4: Vibe embeddings (if CLAP available)
         let vibeQueued = 0;
         const features = await featureDetection.getFeatures();
-        if (features.vibeEmbeddings) {
-            await enrichmentStateService.updateState({
-                currentPhase: "vibe",
-            });
+if (features.vibeEmbeddings) {
+             await enrichmentStateService.updateState({
+                 currentPhase: "vibe",
+             });
 
-            logger.debug("[ENRICHMENT] Phase 4: Queueing vibe embeddings");
-            vibeQueued = await queueVibeEmbeddings();
+logger.debug("[ENRICHMENT] Phase 4: Cleaning up stale vibe processing");
+              const { reset } = await vibeAnalysisCleanupService.cleanupStaleProcessing();
+
+              if (reset > 0) {
+                  logger.debug(`[ENRICHMENT] Cleaned up ${reset} stale vibe processing entries`);
+              }
+
+             logger.debug("[ENRICHMENT] Phase 4: Queueing vibe embeddings");
+             vibeQueued = await queueVibeEmbeddings();
             if (vibeQueued > 0) {
                 logger.debug(
                     `[ENRICHMENT] Queued ${vibeQueued} tracks for vibe embedding`
@@ -652,11 +660,60 @@ async function runEnrichmentCycle(fullMode: boolean): Promise<{
 
         // If everything is complete, mark as idle and send notification (only once)
         const progress = await getEnrichmentProgress();
+
+        // Clear mixes cache when core enrichment completes (artist images now available)
+        if (progress.coreComplete) {
+            const state = await enrichmentStateService.getState();
+            if (!state?.coreCacheCleared) {
+                try {
+                    const redisInstance = getRedis();
+                    const mixKeys = await redisInstance.keys("mixes:*");
+                    if (mixKeys.length > 0) {
+                        await redisInstance.del(...mixKeys);
+                        logger.info(
+                            `[Enrichment] Cleared ${mixKeys.length} mix cache entries after core enrichment complete`,
+                        );
+                    }
+                    await enrichmentStateService.updateState({
+                        coreCacheCleared: true,
+                    });
+                } catch (error) {
+                    logger.error(
+                        "[Enrichment] Failed to clear mix cache on core complete:",
+                        error,
+                    );
+                }
+            }
+        }
+
         if (progress.isFullyComplete) {
             await enrichmentStateService.updateState({
                 status: "idle",
                 currentPhase: null,
             });
+
+            // Clear mixes cache again when fully complete (audio analysis done)
+            const stateBeforeNotify = await enrichmentStateService.getState();
+            if (!stateBeforeNotify?.fullCacheCleared) {
+                try {
+                    const redisInstance = getRedis();
+                    const mixKeys = await redisInstance.keys("mixes:*");
+                    if (mixKeys.length > 0) {
+                        await redisInstance.del(...mixKeys);
+                        logger.info(
+                            `[Enrichment] Cleared ${mixKeys.length} mix cache entries after full enrichment complete`,
+                        );
+                    }
+                    await enrichmentStateService.updateState({
+                        fullCacheCleared: true,
+                    });
+                } catch (error) {
+                    logger.error(
+                        "[Enrichment] Failed to clear mix cache on full complete:",
+                        error,
+                    );
+                }
+            }
 
             // Send completion notification only if not already sent
             const state = await enrichmentStateService.getState();
@@ -1042,32 +1099,52 @@ async function queueAudioAnalysis(): Promise<number> {
  * Only runs if CLAP analyzer is available
  */
 async function queueVibeEmbeddings(): Promise<number> {
-    const tracks = await prisma.$queryRaw<{ id: string; filePath: string }[]>`
-        SELECT t.id, t."filePath"
-        FROM "Track" t
-        LEFT JOIN track_embeddings te ON t.id = te.track_id
-        WHERE te.track_id IS NULL
-          AND t."filePath" IS NOT NULL
-        LIMIT 1000
-    `;
+     const tracks = await prisma.$queryRaw<{ id: string; filePath: string; vibeAnalysisStatus: string | null }[]>`
+         SELECT t.id, t."filePath", t."vibeAnalysisStatus"
+         FROM "Track" t
+         LEFT JOIN track_embeddings te ON t.id = te.track_id
+         WHERE te.track_id IS NULL
+           AND t."filePath" IS NOT NULL
+           AND (t."vibeAnalysisStatus" IS NULL OR t."vibeAnalysisStatus" = 'pending')
+         LIMIT 1000
+     `;
 
     if (tracks.length === 0) {
         return 0;
     }
 
-    const redis = getRedis();
+const redis = getRedis();
+     let queued = 0;
 
-    for (const track of tracks) {
-        await redis.rpush(
-            "audio:clap:queue",
-            JSON.stringify({
-                trackId: track.id,
-                filePath: track.filePath,
-            })
-        );
-    }
+     for (const track of tracks) {
+         try {
+             if (track.vibeAnalysisStatus === 'processing') {
+                 continue;
+             }
+             
+             await prisma.track.update({
+                 where: { id: track.id },
+                 data: {
+                     vibeAnalysisStatus: 'processing',
+                     vibeAnalysisStartedAt: new Date(),
+                 },
+             });
+             
+             await redis.rpush(
+                 "audio:clap:queue",
+                 JSON.stringify({
+                     trackId: track.id,
+                     filePath: track.filePath,
+                 })
+             );
+             
+             queued++;
+         } catch (error) {
+             logger.error(`   Failed to queue vibe embedding for ${track.id}:`, error);
+         }
+     }
 
-    return tracks.length;
+     return queued;
 }
 
 /**

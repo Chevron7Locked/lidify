@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { GalaxyBackground } from "@/components/ui/GalaxyBackground";
@@ -35,6 +36,7 @@ function LoginErrorHandler({
 
 export default function LoginPage() {
     const { login } = useAuth();
+    const router = useRouter();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [twoFactorToken, setTwoFactorToken] = useState("");
@@ -42,8 +44,29 @@ export default function LoginPage() {
     const [useRecoveryCode, setUseRecoveryCode] = useState(false);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
     const [artists, setArtists] = useState<Artist[]>([]);
     const [currentArtistIndex, setCurrentArtistIndex] = useState(0);
+
+    // Defense in depth: Check if onboarding is needed
+    // If no users exist, redirect to onboarding instead of showing login
+    useEffect(() => {
+        const checkOnboarding = async () => {
+            try {
+                const status = await api.get<{ hasAccount: boolean }>(
+                    "/onboarding/status"
+                );
+                if (!status.hasAccount) {
+                    router.replace("/onboarding");
+                    return;
+                }
+            } catch {
+                // If check fails, show login form (fail open)
+            }
+            setIsCheckingOnboarding(false);
+        };
+        checkOnboarding();
+    }, [router]);
 
     // Fetch featured artists for background rotation
     useEffect(() => {
@@ -127,6 +150,15 @@ export default function LoginPage() {
     };
 
     const currentArtist = artists[currentArtistIndex];
+
+    // Show loading while checking if onboarding is needed
+    if (isCheckingOnboarding) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-black">
+                <Loader2 className="w-8 h-8 animate-spin text-white/60" />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen w-full relative overflow-hidden">
