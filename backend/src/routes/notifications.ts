@@ -132,10 +132,6 @@ router.post(
     }
 );
 
-// ============================================
-// Download History Endpoints
-// ============================================
-
 /**
  * GET /notifications/downloads/history
  * Get completed/failed downloads that haven't been cleared

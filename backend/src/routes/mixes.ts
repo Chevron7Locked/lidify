@@ -440,10 +440,6 @@ router.post("/mood/save-preferences", async (req, res) => {
     }
 });
 
-// ============================================
-// NEW SIMPLIFIED MOOD BUCKET ENDPOINTS
-// ============================================
-
 /**
  * @openapi
  * /mixes/mood/buckets/presets:

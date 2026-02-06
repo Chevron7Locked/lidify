@@ -21,10 +21,6 @@ import {
     AudioWaveform,
 } from "lucide-react";
 
-// ============================================
-// TYPES
-// ============================================
-
 interface TrackFeatures {
     energy: number;
     valence: number;
@@ -132,9 +128,6 @@ function distanceToSimilarity(distance: number): number {
     return Math.max(0, 1 - distance / 2);
 }
 
-// ============================================
-// COVER IMAGE
-// ============================================
 function CoverImage({
     coverUrl,
     title,
@@ -182,9 +175,6 @@ function CoverImage({
     );
 }
 
-// ============================================
-// SIMILARITY BADGE - the signature element
-// ============================================
 function SimilarityBadge({ similarity, size = "md" }: { similarity: number; size?: "sm" | "md" | "lg" }) {
     const percent = Math.round(similarity * 100);
     const sizeClasses = {
@@ -227,9 +217,6 @@ function SimilarityBadge({ similarity, size = "md" }: { similarity: number; size
     );
 }
 
-// ============================================
-// FEATURE COMPARISON - side by side bars
-// ============================================
 function FeatureComparison({
     source,
     match,
@@ -278,9 +265,6 @@ function FeatureComparison({
     );
 }
 
-// ============================================
-// MOOD GRID - compact mood comparison
-// ============================================
 function MoodGrid({ source, match }: { source: TrackData; match: TrackData }) {
     const validMoods = MOOD_CONFIG.filter(({ key }) => {
         const sVal = source.features[key as keyof TrackFeatures];
@@ -319,9 +303,6 @@ function MoodGrid({ source, match }: { source: TrackData; match: TrackData }) {
     );
 }
 
-// ============================================
-// TAG PILLS - shared tags highlighted
-// ============================================
 function TagPills({ source, match }: { source: TrackData; match: TrackData }) {
     const sourceTags = source.lastfmTags || [];
     const matchTags = match.lastfmTags || [];
@@ -360,9 +341,6 @@ function TagPills({ source, match }: { source: TrackData; match: TrackData }) {
     );
 }
 
-// ============================================
-// COMPARISON PANEL - the detailed view
-// ============================================
 function ComparisonPanel({
     source,
     match,
@@ -478,9 +456,6 @@ function ComparisonPanel({
     );
 }
 
-// ============================================
-// TRACK ROW
-// ============================================
 function TrackRow({
     track,
     index,
@@ -567,9 +542,6 @@ function TrackRow({
     );
 }
 
-// ============================================
-// MAIN PAGE
-// ============================================
 export default function VibePage() {
     const { vibeEmbeddings, loading: featuresLoading } = useFeatures();
 

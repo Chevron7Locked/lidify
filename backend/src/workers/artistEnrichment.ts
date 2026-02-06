@@ -373,7 +373,6 @@ export async function enrichSimilarArtist(artist: Artist): Promise<void> {
             );
         }
 
-        // ========== ALBUM COVER ENRICHMENT ==========
         // Fetch covers for all albums belonging to this artist that don't have covers yet
         await enrichAlbumCovers(artist.id, localHeroUrl);
 

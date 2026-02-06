@@ -938,12 +938,6 @@ export class DiscoverWeeklyService {
             return;
         }
 
-        // ==============================================
-        // PLAYLIST COMPOSITION: ALL Discovery + ~20% Anchors
-        // ONE TRACK PER ALBUM - Each album contributes only 1 track
-        // Include ALL successfully downloaded albums!
-        // ==============================================
-
         // Group tracks by album ID and pick ONE random track per album
         const tracksByAlbum = new Map<string, typeof allTracks>();
         for (const track of allTracks) {
@@ -2298,9 +2292,6 @@ export class DiscoverWeeklyService {
             `   Total similar artists from all seeds: ${allSimilarArtists.length}`
         );
 
-        // ============================================
-        // PASS 1: NEW ARTISTS ONLY (true discovery)
-        // ============================================
         logger.debug(`\n   === PASS 1: NEW Artists Only ===`);
 
         for (const sim of allSimilarArtists) {
@@ -2356,9 +2347,6 @@ export class DiscoverWeeklyService {
             `   Pass 1 complete: ${recommendations.length}/${targetCount} from NEW artists`
         );
 
-        // ============================================
-        // PASS 2: EXISTING ARTISTS (fallback if needed)
-        // ============================================
         if (
             recommendations.length < targetCount &&
             existingArtistsForFallback.length > 0
@@ -2608,11 +2596,6 @@ export class DiscoverWeeklyService {
             skippedDuplicate,
         };
     }
-
-    // ============================================
-    // MULTI-STRATEGY DISCOVERY ENGINE
-    // Rotates weekly to keep recommendations fresh
-    // ============================================
 
     /**
      * Get user's top genres from listening history

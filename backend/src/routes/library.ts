@@ -942,9 +942,8 @@ router.get("/artists/:id", async (req, res) => {
             return res.status(404).json({ error: "Artist not found" });
         }
 
-        // ========== DISCOGRAPHY HANDLING ==========
-        // For enriched artists with ownedAlbums, skip expensive MusicBrainz calls
-        // Only fetch from MusicBrainz if the artist hasn't been enriched yet
+        // For enriched artists with ownedAlbums, skip expensive MusicBrainz calls.
+        // Only fetch from MusicBrainz if the artist hasn't been enriched yet.
         let albumsWithOwnership = [];
         const ownedRgMbids = new Set(artist.ownedAlbums.map((o) => o.rgMbid));
         const isEnriched =
@@ -994,8 +993,7 @@ router.get("/artists/:id", async (req, res) => {
             }
         }
 
-        // ========== ALWAYS include albums from database (actual owned files) ==========
-        // These are albums with actual tracks on disk - they MUST show as owned
+        // Albums from database have actual tracks on disk - they MUST show as owned
         const dbAlbums = artist.albums.map((album) => ({
             ...album,
             owned: true, // If it's in the database with tracks, user owns it!
@@ -1007,7 +1005,6 @@ router.get("/artists/:id", async (req, res) => {
             `[Artist] Found ${dbAlbums.length} albums from database (actual owned files)`
         );
 
-        // ========== Supplement with MusicBrainz discography for "available to download" ==========
         // Always fetch discography if we have a valid MBID - users need to see what's available
         const hasDbAlbums = dbAlbums.length > 0;
         const shouldFetchDiscography =
@@ -1286,15 +1283,12 @@ router.get("/artists/:id", async (req, res) => {
             }));
         }
 
-        // ========== HERO IMAGE FETCHING ==========
-        // Use DataCacheService: DB -> Redis -> API -> save to both
         const heroUrl = await dataCacheService.getArtistImage(
             artist.id,
             artist.name,
             effectiveMbid
         );
 
-        // ========== SIMILAR ARTISTS (from enriched JSON or Last.fm API) ==========
         let similarArtists: any[] = [];
         const similarCacheKey = `similar-artists:${artist.id}`;
 

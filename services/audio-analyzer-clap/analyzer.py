@@ -43,6 +43,14 @@ os.environ['NUMEXPR_MAX_THREADS'] = str(THREADS_PER_WORKER)
 import torch
 torch.set_num_threads(THREADS_PER_WORKER)
 
+# Device detection - use GPU if available
+if torch.cuda.is_available():
+    DEVICE = torch.device('cuda')
+    GPU_NAME = torch.cuda.get_device_name(0)
+else:
+    DEVICE = torch.device('cpu')
+    GPU_NAME = None
+
 import redis
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -104,10 +112,13 @@ class CLAPAnalyzer:
             )
             self.model.load_ckpt('/app/models/music_audioset_epoch_15_esc_90.14.pt')
 
-            # Move to CPU explicitly (we don't use GPU in this service)
-            self.model = self.model.eval()
+            # Move to detected device (GPU if available, else CPU)
+            self.model = self.model.to(DEVICE).eval()
 
-            logger.info("CLAP model loaded successfully")
+            if GPU_NAME:
+                logger.info(f"CLAP model loaded successfully on GPU: {GPU_NAME}")
+            else:
+                logger.info("CLAP model loaded successfully on CPU")
         except Exception as e:
             logger.error(f"Failed to load CLAP model: {e}")
             traceback.print_exc()

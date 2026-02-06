@@ -1,6 +1,11 @@
+import { existsSync } from "fs";
 import { redisClient } from "../utils/redis";
 import { prisma } from "../utils/db";
 import { logger } from "../utils/logger";
+
+// Analyzer script paths in the Docker image
+const ESSENTIA_ANALYZER_PATH = "/app/audio-analyzer/analyzer.py";
+const CLAP_ANALYZER_PATH = "/app/audio-analyzer-clap/analyzer.py";
 
 export interface AvailableFeatures {
     musicCNN: boolean;
@@ -37,6 +42,11 @@ class FeatureDetectionService {
 
     private async checkMusicCNN(): Promise<boolean> {
         try {
+            // Analyzer script bundled in image = feature is available
+            if (existsSync(ESSENTIA_ANALYZER_PATH)) {
+                return true;
+            }
+
             const heartbeat = await redisClient.get("audio:worker:heartbeat");
             if (heartbeat) {
                 const timestamp = parseInt(heartbeat, 10);
@@ -58,6 +68,11 @@ class FeatureDetectionService {
 
     private async checkCLAP(): Promise<boolean> {
         try {
+            // Analyzer script bundled in image = feature is available
+            if (existsSync(CLAP_ANALYZER_PATH)) {
+                return true;
+            }
+
             const heartbeat = await redisClient.get("clap:worker:heartbeat");
             if (heartbeat) {
                 const timestamp = parseInt(heartbeat, 10);

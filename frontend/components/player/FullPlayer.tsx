@@ -22,9 +22,7 @@ import {
     RotateCw,
     Loader2,
     AudioWaveform,
-    AlertTriangle,
     RefreshCw,
-    X,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -251,38 +249,7 @@ export function FullPlayer() {
 
     return (
         <div className="relative flex-shrink-0">
-            {/* Error Banner */}
-            {audioError && (
-                <div className="bg-red-500/20 border-t border-red-500/30 px-4 py-1.5 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                        <span className="text-red-200 text-sm truncate">
-                            {audioError}
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                        <button
-                            onClick={() => {
-                                clearAudioError();
-                                resume();
-                            }}
-                            className="px-2 py-1 text-xs text-red-200 hover:text-white hover:bg-red-500/30 transition rounded"
-                            aria-label="Retry playback"
-                        >
-                            Retry
-                        </button>
-                        <button
-                            onClick={clearAudioError}
-                            className="p-1 text-red-300 hover:text-white transition rounded"
-                            aria-label="Dismiss error"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            <div className={cn("bg-black border-t border-white/[0.08]", audioError ? "h-20" : "h-24")}>
+            <div className="bg-black border-t border-white/[0.08] h-24">
                 {/* Subtle top glow */}
                 <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                 <div className="flex items-center h-full px-6 gap-6">

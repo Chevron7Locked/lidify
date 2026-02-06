@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Audio analyzer service - Essentia-based analysis with TensorFlow ML models"""
 
-# ============================================================================
-# CRITICAL: TensorFlow threading MUST be configured before any imports
-# Environment variables are read by TensorFlow C++ runtime before initialization
-# ============================================================================
+# CRITICAL: TensorFlow threading MUST be configured before any imports.
+# Environment variables are read by TensorFlow C++ runtime before initialization.
 import os
 import sys
 
@@ -111,19 +109,31 @@ except ImportError as e:
 
 # TensorFlow models via Essentia
 TF_MODELS_AVAILABLE = False
+TF_GPU_AVAILABLE = False
+TF_GPU_NAME = None
 TensorflowPredictMusiCNN = None
 try:
     import tensorflow as tf
-    # Limit TensorFlow memory usage (CPU & GPU)
-    try:
-        gpus = tf.config.experimental.list_physical_devices('GPU')
+
+    # Detect and configure GPU
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        TF_GPU_AVAILABLE = True
+        TF_GPU_NAME = gpus[0].name
+        # Enable memory growth to prevent TF from allocating all GPU memory
         for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-    except Exception:
-        pass
+            try:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            except RuntimeError:
+                pass
+        logger.info(f"TensorFlow GPU detected: {TF_GPU_NAME}")
+    else:
+        logger.info("TensorFlow running on CPU")
+
     from essentia.standard import TensorflowPredictMusiCNN
     TF_MODELS_AVAILABLE = True
-    logger.info("TensorflowPredictMusiCNN available - Enhanced mode enabled")
+    device_str = f"GPU: {TF_GPU_NAME}" if TF_GPU_AVAILABLE else "CPU"
+    logger.info(f"TensorflowPredictMusiCNN available - Enhanced mode enabled ({device_str})")
 except ImportError as e:
     logger.warning(f"TensorflowPredictMusiCNN not available: {e}")
     logger.info("Falling back to Standard mode")

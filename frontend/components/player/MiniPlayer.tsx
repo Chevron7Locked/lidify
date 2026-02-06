@@ -24,7 +24,6 @@ import {
     ChevronUp,
     ChevronDown,
     AlertTriangle,
-    X,
     RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -208,9 +207,6 @@ export function MiniPlayer() {
 
     const seekEnabled = hasMedia && canSeek;
 
-    // ============================================
-    // MOBILE/TABLET: Spotify-style compact player
-    // ============================================
     if (isMobileOrTablet) {
         // Don't render if no media
         if (!hasMedia) return null;
@@ -502,9 +498,6 @@ export function MiniPlayer() {
         );
     }
 
-    // ============================================
-    // DESKTOP: Full-featured mini player
-    // ============================================
     return (
         <div className="relative">
             {/* Collapsible Vibe Panel - slides up from player */}
@@ -570,38 +563,6 @@ export function MiniPlayer() {
                     className="absolute top-0 left-0 right-0"
                 />
 
-                {/* Error Banner */}
-                {audioError && (
-                    <div className="bg-red-500/20 border-b border-red-500/30 px-3 py-1.5 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                            <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                            <span className="text-red-200 text-xs truncate">
-                                {audioError}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                            <button
-                                onClick={() => {
-                                    clearAudioError();
-                                    resume();
-                                }}
-                                className="p-1 text-red-300 hover:text-white transition rounded"
-                                aria-label="Retry playback"
-                                title="Retry"
-                            >
-                                <RefreshCw className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                                onClick={clearAudioError}
-                                className="p-1 text-red-300 hover:text-white transition rounded"
-                                aria-label="Dismiss error"
-                                title="Dismiss"
-                            >
-                                <X className="w-3.5 h-3.5" />
-                            </button>
-                        </div>
-                    </div>
-                )}
 
                 {/* Player Content */}
                 <div className="px-3 py-2.5 pt-3">

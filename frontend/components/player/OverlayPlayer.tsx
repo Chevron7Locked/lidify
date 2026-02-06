@@ -19,9 +19,7 @@ import {
     Loader2,
     RotateCcw,
     RotateCw,
-    AlertTriangle,
     RefreshCw,
-    X,
 } from "lucide-react";
 import { formatTime, clampTime, formatTimeRemaining } from "@/utils/formatTime";
 import { cn } from "@/utils/cn";
@@ -340,24 +338,6 @@ export function OverlayPlayer() {
                             </p>
                         )}
 
-                        {/* Error Banner */}
-                        {audioError && (
-                            <div className="mt-3 bg-red-500/20 border border-red-500/30 rounded-lg px-3 py-2 flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                                    <span className="text-red-200 text-sm truncate">
-                                        {audioError}
-                                    </span>
-                                </div>
-                                <button
-                                    onClick={clearAudioError}
-                                    className="p-1 text-red-300 hover:text-white transition rounded flex-shrink-0"
-                                    aria-label="Dismiss error"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )}
                     </div>
 
                     {/* Progress Bar */}

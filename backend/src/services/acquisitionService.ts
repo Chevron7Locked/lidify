@@ -21,10 +21,6 @@ import { lastFmService } from "./lastfm";
 import { AcquisitionError, AcquisitionErrorType } from "./lidarr";
 import PQueue from "p-queue";
 
-// ============================================
-// TYPE DEFINITIONS
-// ============================================
-
 /**
  * Context for tracking acquisition origin
  * Used to link download jobs to their source (Discovery batch or Spotify import)
@@ -88,10 +84,6 @@ interface DownloadBehavior {
     hasFallbackSource: boolean;
     fallbackSource: "soulseek" | "lidarr" | null;
 }
-
-// ============================================
-// ACQUISITION SERVICE
-// ============================================
 
 class AcquisitionService {
     private albumQueue: PQueue;

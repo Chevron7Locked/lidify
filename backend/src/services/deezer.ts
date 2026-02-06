@@ -11,10 +11,6 @@ import { redisClient } from "../utils/redis";
 
 const DEEZER_API = "https://api.deezer.com";
 
-// ============================================
-// Playlist Types
-// ============================================
-
 export interface DeezerTrack {
     deezerId: string;
     title: string;
@@ -68,10 +64,6 @@ export interface DeezerGenreWithRadios {
     radios: DeezerRadioStation[];
 }
 
-// ============================================
-// Service Class
-// ============================================
-
 class DeezerService {
     private readonly cachePrefix = "deezer:";
     private readonly cacheTTL = 86400; // 24 hours
@@ -97,10 +89,6 @@ class DeezerService {
             // Ignore cache errors
         }
     }
-
-    // ============================================
-    // Image & Preview Methods (existing functionality)
-    // ============================================
 
     /**
      * Search for an artist and get their image URL
@@ -249,10 +237,6 @@ class DeezerService {
             return null;
         }
     }
-
-    // ============================================
-    // Playlist Methods (new functionality)
-    // ============================================
 
     /**
      * Parse a Deezer URL and extract the type and ID
@@ -476,10 +460,6 @@ class DeezerService {
     async getGenrePlaylists(genreName: string, limit: number = 20): Promise<DeezerPlaylistPreview[]> {
         return this.searchPlaylists(genreName, limit);
     }
-
-    // ============================================
-    // Radio Methods
-    // ============================================
 
     /**
      * Get all radio stations (mood/theme based mixes)

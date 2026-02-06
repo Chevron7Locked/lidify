@@ -118,18 +118,14 @@ export class AudiobookCacheService {
      * Sync a single audiobook
      */
     private async syncAudiobook(book: any): Promise<void> {
-        // Extract metadata from Audiobookshelf API response structure
-        // The API returns: { id, media: { metadata: { title, author, ... } } }
         const metadata = book.media?.metadata || book;
         const title = metadata.title || book.title;
 
-        // Skip if no title (invalid audiobook data)
         if (!title) {
             logger.warn(`  Skipping audiobook ${book.id} - missing title`);
             return;
         }
 
-        // Extract additional fields from API response
         const author = metadata.authorName || metadata.author || null;
         const narrator = metadata.narratorName || metadata.narrator || null;
         const description = metadata.description || null;
@@ -148,22 +144,16 @@ export class AudiobookCacheService {
         const size = book.size ? BigInt(book.size) : null;
         const libraryId = book.libraryId || null;
 
-        // Get cover path - Audiobookshelf uses media.coverPath
         const coverPath = book.media?.coverPath || null;
-
-        // Build full cover URL for download (needs to be absolute URL with base)
         const coverUrl = coverPath ? `items/${book.id}/cover` : null;
 
-        // Series info - Audiobookshelf returns seriesName as a string like "Series Name #2"
-        // We need to parse this to extract the series name and sequence number
+        // Parse series name and sequence from seriesName string (e.g. "Series Name #2")
         let series: string | null = null;
         let seriesSequence: string | null = null;
 
         if (metadata.seriesName && typeof metadata.seriesName === "string") {
             const seriesStr = metadata.seriesName.trim();
 
-            // Try to extract sequence from patterns like:
-            // "Series Name #1", "Series Name #2", "Series Name Book 1", "Series Name, Book 1"
             const sequencePatterns = [
                 /^(.+?)\s*#(\d+(?:\.\d+)?)\s*$/, // "Series Name #1" or "Series Name #1.5"
                 /^(.+?)\s*,?\s*Book\s*(\d+(?:\.\d+)?)\s*$/i, // "Series Name Book 1" or "Series Name, Book 1"
@@ -189,7 +179,6 @@ export class AudiobookCacheService {
             }
         }
 
-        // Fallback: check metadata.series array/object format
         if (!series) {
             if (Array.isArray(metadata.series) && metadata.series.length > 0) {
                 series = metadata.series[0]?.name || null;
@@ -204,7 +193,6 @@ export class AudiobookCacheService {
             }
         }
 
-        // Log series info for debugging (only for first few books)
         if (series) {
             logger.debug(
                 `    [Series] "${title}" -> "${series}" #${
@@ -213,10 +201,8 @@ export class AudiobookCacheService {
             );
         }
 
-        // Download cover image if available - need to construct full URL
         let localCoverPath: string | null = null;
         if (coverUrl) {
-            // Get the Audiobookshelf base URL from the service
             const fullCoverUrl = await this.getFullCoverUrl(coverUrl);
             if (fullCoverUrl) {
                 localCoverPath = await this.downloadCover(

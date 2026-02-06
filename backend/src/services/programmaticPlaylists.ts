@@ -1513,9 +1513,7 @@ export class ProgrammaticPlaylistService {
         };
     }
 
-    // ============================================================
     // AUDIO ANALYSIS-BASED MIXES (Using Essentia features)
-    // ============================================================
 
     /**
      * Generate "High Energy" mix using audio analysis
@@ -2200,9 +2198,7 @@ export class ProgrammaticPlaylistService {
         };
     }
 
-    // ============================================================
     // LAST.FM TAG-BASED MIXES
-    // ============================================================
 
     /**
      * Generate mix based on Last.fm mood tags
@@ -2361,9 +2357,7 @@ export class ProgrammaticPlaylistService {
         };
     }
 
-    // ============================================================
     // DAY-OF-WEEK MIXES
-    // ============================================================
 
     /**
      * Generate day-specific mix based on the current day
@@ -2531,10 +2525,7 @@ export class ProgrammaticPlaylistService {
         };
     }
 
-    // ============================================================
     // CURATED VIBE MIXES (Daily, 10 tracks)
-    // These are "mood" mixes based on audio analysis and vibes
-    // ============================================================
 
     /**
      * "Sad Girl Sundays" - Melancholic introspection
@@ -3253,9 +3244,7 @@ export class ProgrammaticPlaylistService {
         };
     }
 
-    // ============================================================
     // WEEKLY CURATED MIXES (20 tracks)
-    // ============================================================
 
     /**
      * "Deep Cuts" - Hidden gems from your library
@@ -3574,9 +3563,7 @@ export class ProgrammaticPlaylistService {
         };
     }
 
-    // ============================================================
-    // MOOD ON DEMAND - Generate a mix based on specific criteria
-    // ============================================================
+    // MOOD ON DEMAND
 
     /**
      * Generate a custom mood mix based on audio feature parameters

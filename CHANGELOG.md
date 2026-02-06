@@ -5,6 +5,39 @@ All notable changes to Lidify will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-02-05
+
+### Performance
+
+- **Sequential audio/vibe enrichment:** Vibe phase skips when audio analysis is still running, preventing concurrent CPU-intensive Python analyzers from competing for resources
+- **Faster enrichment cycles:** Reduced cycle interval from 30s to 5s; the rate limiter already handles API throttling, making the extra delay redundant
+- **GPU auto-detection (CLAP):** PyTorch-based CLAP vibe embeddings auto-detect and use GPU when available, falling back to CPU
+- **GPU auto-detection (Essentia):** TensorFlow-based audio analysis detects GPU with memory growth enabled, with device logging on startup
+
+### Changed
+
+- **Enrichment orchestration simplified:** Replaced 4 phase functions with duplicated stop/pause handling with a generic `runPhase()` executor and `shouldHaltCycle()` helper
+
+### Fixed
+
+- **Docker frontend routing:** Fixed `NEXT_PUBLIC_BACKEND_URL` build-time env var in Dockerfile so the frontend correctly proxies API requests to the backend
+- **Next.js rewrite proxy:** Updated rewrite config to use `NEXT_PUBLIC_BACKEND_URL` for consistent build-time/runtime behavior
+- **False lite mode on startup:** Feature detection now checks for analyzer scripts on disk, preventing false "lite mode" display before analyzers send their first heartbeat
+- **Removed playback error banner:** Removed the red error bar from all player components (FullPlayer, MiniPlayer, OverlayPlayer) that displayed raw Howler.js error codes
+- **Enrichment failure notifications:** Replaced aggressive per-cycle error banner with a single notification through the notification system when enrichment completes with failures
+
+## [1.3.9] - 2026-02-04
+
+### Fixed
+
+- **Audio analysis cleanup:** Fixed race condition in audio analysis cleanup that could reset tracks still being processed
+
+## [1.3.8] - 2026-02-03
+
+### Fixed
+
+- **Enrichment:** CLAP queue and failure cleanup fixes for enrichment debug mode
+
 ## [1.3.7] - 2026-02-01
 
 ### Added
@@ -68,6 +101,34 @@ Automatic detection of available analyzers with graceful degradation.
 
 - **Docker Profiles:** Replaced Docker profiles with override file approach for better compatibility
 - **Mood Columns:** Marked as legacy in schema - may be derived from CLAP embeddings in future
+
+## [1.3.5] - 2026-01-22
+
+### Fixed
+
+- **Audio preload:** Emit preload 'load' event asynchronously to prevent race condition during gapless playback
+
+## [1.3.4] - 2026-01-22
+
+### Added
+
+- **Gapless playback:** Preload infrastructure and next-track preloading for seamless transitions
+- **Infinite scroll:** Library artists, albums, and tracks now use infinite query pagination
+- **CachedImage:** Migrated to Next.js Image component with proper type support
+
+### Fixed
+
+- **CSS hover performance:** Fixed hover state performance issues
+- **Audio analyzer:** Fixed Enhanced mode detection
+- **Onboarding:** Accessibility improvements
+- **Audio format detection:** Simplified to prevent wrong decoder attempts
+- **Audio cleanup:** Improved Howl instance cleanup to prevent memory leaks
+- **Audio cleanup tracking:** Use Set for pending cleanup tracking
+- **Redis connections:** Disconnect enrichmentStateService connections on shutdown
+
+### Changed
+
+- **Library page:** Optimized data fetching with tab-based queries and memoized delete handlers
 
 ## [1.3.3] - 2026-01-18
 

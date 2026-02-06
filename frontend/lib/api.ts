@@ -1702,10 +1702,6 @@ class ApiClient {
         return this.delete(`/api-keys/${id}`);
     }
 
-    // ============================================
-    // Notifications & Activity Panel
-    // ============================================
-
     async getNotifications(): Promise<
         Array<{
             id: string;

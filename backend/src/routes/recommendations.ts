@@ -115,9 +115,8 @@ router.get("/for-you", async (req, res) => {
             albumCounts.map((ac) => [ac.artistId, ac._count.rgMbid])
         );
 
-        // ========== CACHE-ONLY IMAGE LOOKUP FOR RECOMMENDATIONS ==========
-        // Only use cached data (DB heroUrl or Redis cache) - no API calls during page loads
-        // Background enrichment worker will populate cache over time
+        // Only use cached data (DB heroUrl or Redis cache) - no API calls during page loads.
+        // Background enrichment worker will populate cache over time.
         const { redisClient } = await import("../utils/redis");
 
         // Get all cached images in a single Redis call for efficiency

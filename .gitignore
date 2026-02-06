@@ -1,404 +1,135 @@
-# =============================================================================
-# LIDIFY MONOREPO - .gitignore
-# =============================================================================
-
-# =============================================================================
-# Environment Variables & Secrets
-# =============================================================================
+# Environment & Secrets
 .env
 .env.*
 !.env.example
 *.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
 .roomodes
 
-# =============================================================================
 # Dependencies
-# =============================================================================
-# Node modules in all subdirectories
 **/node_modules/
-node_modules/
-jspm_packages/
-
-# Python virtual environments (for soularr, scripts)
 **/__pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
 venv/
-env/
-ENV/
 .venv/
 **/.venv/
 
-# =============================================================================
-# Build 
-# =============================================================================
-# Frontend (Next.js)
+# Build Outputs
 frontend/.next/
 frontend/out/
-frontend/build/
-frontend/dist/
-
-# Backend (Node.js/TypeScript)
 backend/dist/
-backend/build/
-backend/out/
-
-# Mobile Application
-mobile-application/build/
-mobile-application/dist/
-mobile-application/.expo/
-mobile-application/.expo-shared/
-
-# Soularr
-soularr/dist/
-soularr/build/
-
-# General build outputs
 **/dist/
 **/build/
 **/out/
 .next
-.nuxt
 
-# =============================================================================
 # Logs
-# =============================================================================
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
 pnpm-debug.log*
+backend/logs/
+frontend/logs/
 
-# =============================================================================
 # Testing & Coverage
-# =============================================================================
 coverage/
 *.lcov
 .nyc_output
-*.tsbuildinfo
-.cache/
+**/playwright-report/
+**/test-results/
 
-# =============================================================================
-# Cache Directories
-# =============================================================================
+# Temporary & Backup Files
+*.tmp
+*.temp
+*.bak
+*.old
+
+# Cache
 .cache
-.parcel-cache
 .eslintcache
 .stylelintcache
-.npm
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
-.pnp.*
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
+.rpt2_cache_*/
+.ruff_cache/
 
-# =============================================================================
-# Docker & Containers
-# =============================================================================
-# Don't ignore docker-compose.yml itself, but ignore local overrides
+# Docker
 docker-compose.override.yml
 docker-compose.local.yml
-
-# Docker volumes (if any are stored locally)
 **/volumes/
 **/data/
 
-# =============================================================================
 # IDEs & Editors
-# =============================================================================
-# VSCode
 .vscode/
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-*.code-workspace
-.vscode-test
-
-# Claude Code
-.claude/
-.claude/*
-!.claude/commands/
-
-# JetBrains IDEs (WebStorm, IntelliJ, etc.)
 .idea/
 *.iml
-*.iws
-*.ipr
-
-# Sublime Text
 *.sublime-workspace
 *.sublime-project
-
-# Vim
 *.swp
 *.swo
 *~
-
-# Emacs
-*~
 \#*\#
 .\#*
+*.code-workspace
 
-# macOS
+# OS Files
 .DS_Store
-.AppleDouble
-.LSOverride
-._*
-
-# Windows
 Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
 Desktop.ini
-$RECYCLE.BIN/
 
-# =============================================================================
-# Runtime & Process Files
-# =============================================================================
-pids
+# Runtime & Process
+pids/
 *.pid
 *.seed
 *.pid.lock
 
-# =============================================================================
-# Database Files (SQLite for local development)
-# =============================================================================
+# Database
 *.sqlite
 *.sqlite3
 *.db
 *.db-shm
 *.db-wal
-
-# Prisma
 **/prisma/dev.db
 **/prisma/dev.db-journal
 
-# =============================================================================
-# Media & Large Files
-# =============================================================================
-# Don't commit large music files (if any test files are added)
-*.mp3
-*.flac
-*.wav
-*.m4a
-*.ogg
-*.opus
+# TypeScript
+*.tsbuildinfo
 
-# =============================================================================
-# Secrets & Key Material
-# =============================================================================
-keystore.b64
-keystore.jks
-*.keystore
-*.jks
-
-# =============================================================================
-# Runtime caches (backend)
-# =============================================================================
-backend/cache/
-backend/logs/
-backend/mullvad/
-
-# =============================================================================
-# Test artifacts
-# =============================================================================
-**/playwright-report/
-**/test-results/
-
-# Don't commit large images (unless they're assets)
-# *.jpg
-# *.jpeg
-# *.png
-# *.gif
-
-# =============================================================================
-# Temporary Files
-# =============================================================================
-*.tmp
-*.temp
-*.swp
-*.swo
-*.bak
-*.old
-
-# =============================================================================
-# Package Manager Files
-# =============================================================================
-# Yarn
+# Package Manager
 .yarn/cache
 .yarn/unplugged
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
-yarn-error.log
-
-# NPM
-npm-debug.log*
-
-# PNPM
 pnpm-lock.yaml
-.pnpm-debug.log*
 
-# =============================================================================
-# Mobile Specific (React Native / Expo)
-# =============================================================================
-mobile-application/.expo/
-mobile-application/.expo-shared/
-mobile-application/android/app/build/
-mobile-application/ios/Pods/
-mobile-application/ios/build/
-mobile-application/*.jks
-mobile-application/*.keystore
-mobile-application/*.p8
-mobile-application/*.p12
-mobile-application/*.mobileprovision
+# Secrets & Keys
+*.keystore
+*.jks
+keystore.b64
+**/key.txt
+*.conf
+lidify.keystore
 
-# Legacy native leftovers (web app is PWA-first)
-frontend/android/
-
-# =============================================================================
-# Postman (Keep collections, ignore environments with secrets)
-# =============================================================================
-postman/*environment*.json
-postman/*.local.json
-
-
-
-# BUT allow README.md files (case-insensitive)
-!README.md
-!readme.md
-!Readme.md
-
-# =============================================================================
-# TypeScript
-# =============================================================================
-*.tsbuildinfo
-tsconfig.tsbuildinfo
-
-# =============================================================================
-# Miscellaneous
-# =============================================================================
-.lock-wscript
-lib-cov
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-.grunt
-bower_components
-.serverless/
-.fusebox/
-.dynamodb/
-.tern-port
-.docusaurus
-**/.vitepress/dist
-**/.vitepress/cache
-.vuepress/dist
-.temp
-*.tgz
-.node_repl_history
-
-# =============================================================================
-# Project Specific
-# =============================================================================
-# Development scripts (keep locally, don't commit)
-reset-and-setup.sh
-organize-singles.sh
-
-# AI Context Management (keep locally, don't push to GitHub)
-context_portal/
-
-# Internal Development Documentation (keep locally, don't push to GitHub)
-docs/
-**/docs/
-
-
-# Temporary commit messages
-COMMIT_MESSAGE.txt
-
-# Backend development logs
-backend/logs/
-
-# Backend test cache directories
-backend/cache/test-*/
-
-# Backend duplicate/nested directories
-backend/backend/
-
-# Frontend Android build artifacts
-frontend/android/build/
-frontend/android/app/build/
-
-# Postman collections (removed from repo)
-postman/
-
-# Soularr config (removed from repo)
-soularr/
-
-# Legacy React Native files (if re-added)
-/App.tsx
-/app.json
-/src/
-
-# =============================================================================
-# IDE & Editor Settings
-# =============================================================================
-.claude/
-**/.claude/
-.cursor/
-**/.cursor/
-.vscode/
-**/.vscode/
-.roo/
-**/.roo/
-
-# =============================================================================
-# Android Build Artifacts (contains local paths)
-# =============================================================================
-frontend/android/app/build/
-frontend/android/build/
-frontend/android/.gradle/
-frontend/android/app/src/main/assets/capacitor.config.json
-
-# =============================================================================
-# Capacitor Generated Files
-# =============================================================================
-frontend/android/capacitor-cordova-android-plugins/build/
-
-# =============================================================================
-# Cache Files (user-specific data)
-# =============================================================================
+# Backend
 backend/cache/
 **/cache/covers/
 **/cache/transcodes/
-
-# =============================================================================
-# VPN / Private Configs (NEVER commit these!)
-# =============================================================================
-backend/mullvad/
 **/mullvad/
-*.conf
-**/key.txt
 
-# Android signing
-lidify.keystore
-keystore.b64
+# Frontend
+frontend/android/
+frontend/test-*.tsx
 
-# =============================================================================
 # AI Tools & Assistants
-# =============================================================================
+.claude/
+**/.claude/
+!.claude/commands/
+.cursor/
+**/.cursor/
+.roo/
+**/.roo/
 .aider*
 .serena/
 **/.serena/
@@ -408,15 +139,30 @@ keystore.b64
 **/.vibe/
 .claudeignore
 CLAUDE.md
+AGENTS.md
 
-# AI-generated planning/reports/documentation (keep locally)
+# Internal Documentation (public docs are in project root)
+docs/
+**/docs/
+context_portal/
 issues/
 plans/
 systems/
 
-# =============================================================================
-# Development/Debug Test Files (keep locally, don't push to GitHub)
-AGENTS.md
-# =============================================================================
-frontend/test-*.tsx
-frontend/features/library/components/LazyArtistCard.tsx
+# Development
+.worktrees/
+reset-and-setup.sh
+organize-singles.sh
+COMMIT_MESSAGE.txt
+backend/backend/
+postman/
+soularr/
+
+# Legacy (removed from repo)
+/App.tsx
+/app.json
+/src/
+
+# Allow README files
+!README.md
+!readme.md

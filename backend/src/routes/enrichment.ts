@@ -5,6 +5,11 @@ import { enrichmentService } from "../services/enrichment";
 import {
     getEnrichmentProgress,
     runFullEnrichment,
+    reRunArtistsOnly,
+    reRunMoodTagsOnly,
+    reRunAudioAnalysisOnly,
+    reRunVibeEmbeddingsOnly,
+    triggerEnrichmentNow,
 } from "../workers/unifiedEnrichment";
 import { enrichmentStateService } from "../services/enrichmentState";
 import { enrichmentFailureService } from "../services/enrichmentFailureService";
@@ -133,28 +138,19 @@ router.post("/full", requireAdmin, async (req, res) => {
  * Admin only - selective re-enrichment for large libraries
  */
 router.post("/reset-artists", requireAdmin, async (req, res) => {
-    try {
-        const { resetArtistsOnly, triggerEnrichmentNow } = await import(
-            "../workers/unifiedEnrichment"
-        );
+     try {
+         const result = await reRunArtistsOnly();
 
-        const result = await resetArtistsOnly();
-
-        // Trigger enrichment in background
-        triggerEnrichmentNow().catch((err) => {
-            logger.error("Artist enrichment trigger failed:", err);
-        });
-
-        res.json({
-            message: "Artist enrichment reset",
-            description: `${result.count} artists queued for re-enrichment`,
-            count: result.count,
-        });
-    } catch (error) {
-        logger.error("Reset artists error:", error);
-        res.status(500).json({ error: "Failed to reset artist enrichment" });
-    }
-});
+         res.json({
+             message: "Artist enrichment reset",
+             description: `${result.count} artists queued for re-enrichment`,
+             count: result.count,
+         });
+     } catch (error) {
+         logger.error("Reset artists error:", error);
+         res.status(500).json({ error: "Failed to reset artist enrichment" });
+     }
+ });
 
 /**
  * POST /enrichment/reset-mood-tags
@@ -162,28 +158,19 @@ router.post("/reset-artists", requireAdmin, async (req, res) => {
  * Admin only - selective re-enrichment for large libraries
  */
 router.post("/reset-mood-tags", requireAdmin, async (req, res) => {
-    try {
-        const { resetMoodTagsOnly, triggerEnrichmentNow } = await import(
-            "../workers/unifiedEnrichment"
-        );
+     try {
+         const result = await reRunMoodTagsOnly();
 
-        const result = await resetMoodTagsOnly();
-
-        // Trigger enrichment in background
-        triggerEnrichmentNow().catch((err) => {
-            logger.error("Mood tag enrichment trigger failed:", err);
-        });
-
-        res.json({
-            message: "Mood tags reset",
-            description: `${result.count} tracks queued for mood tag re-enrichment`,
-            count: result.count,
-        });
-    } catch (error) {
-        logger.error("Reset mood tags error:", error);
-        res.status(500).json({ error: "Failed to reset mood tags" });
-    }
-});
+         res.json({
+             message: "Mood tags reset",
+             description: `${result.count} tracks queued for mood tag re-enrichment`,
+             count: result.count,
+         });
+     } catch (error) {
+         logger.error("Reset mood tags error:", error);
+         res.status(500).json({ error: "Failed to reset mood tags" });
+     }
+ });
 
 /**
  * POST /enrichment/reset-audio-analysis
@@ -191,50 +178,61 @@ router.post("/reset-mood-tags", requireAdmin, async (req, res) => {
  * Admin only - selective re-enrichment for large libraries
  */
 router.post("/reset-audio-analysis", requireAdmin, async (req, res) => {
-    try {
-        const { resetAudioAnalysisOnly } = await import(
-            "../workers/unifiedEnrichment"
-        );
+     try {
+         const queued = await reRunAudioAnalysisOnly();
 
-        const result = await resetAudioAnalysisOnly();
+         res.json({
+             message: "Audio analysis reset",
+             description: `${queued} tracks queued for audio re-analysis`,
+             count: queued,
+         });
+     } catch (error) {
+         logger.error("Reset audio analysis error:", error);
+         res.status(500).json({ error: "Failed to reset audio analysis" });
+     }
+ });
 
-        res.json({
-            message: "Audio analysis reset",
-            description: `${result.count} tracks queued for audio re-analysis`,
-            count: result.count,
-        });
-    } catch (error) {
-        logger.error("Reset audio analysis error:", error);
-        res.status(500).json({ error: "Failed to reset audio analysis" });
-    }
-});
+ /**
+  * POST /enrichment/reset-vibe-embeddings
+  * Reset only vibe embeddings (keeps all other enrichment intact)
+  * Admin only - selective re-enrichment for large libraries
+  */
+ router.post("/reset-vibe-embeddings", requireAdmin, async (req, res) => {
+     try {
+         const queued = await reRunVibeEmbeddingsOnly();
 
-/**
- * POST /enrichment/sync
- * Trigger incremental enrichment (only processes pending items)
- * Fast sync that picks up new content without re-processing everything
- */
-router.post("/sync", async (req, res) => {
-    try {
-        const { triggerEnrichmentNow } = await import(
-            "../workers/unifiedEnrichment"
-        );
+         res.json({
+             message: "Vibe embeddings reset",
+             description: `${queued} tracks queued for vibe embedding re-analysis`,
+             count: queued,
+         });
+     } catch (error) {
+         logger.error("Reset vibe embeddings error:", error);
+         res.status(500).json({ error: "Failed to reset vibe embeddings" });
+     }
+ });
 
-        // Trigger immediate enrichment cycle (incremental mode)
-        const result = await triggerEnrichmentNow();
+ /**
+  * POST /enrichment/sync
+  * Trigger incremental enrichment (only processes pending items)
+  * Fast sync that picks up new content without re-processing everything
+  */
+ router.post("/sync", async (req, res) => {
+     try {
+         const result = await triggerEnrichmentNow();
 
-        res.json({
-            message: "Incremental sync started",
-            description: "Processing new and pending items only",
-            result,
-        });
-    } catch (error: any) {
-        logger.error("Trigger sync error:", error);
-        res.status(500).json({
-            error: error.message || "Failed to start sync",
-        });
-    }
-});
+         res.json({
+             message: "Incremental sync started",
+             description: "Processing new and pending items only",
+             result,
+         });
+     } catch (error: any) {
+         logger.error("Trigger sync error:", error);
+         res.status(500).json({
+             error: error.message || "Failed to start sync",
+         });
+     }
+ });
 
 /**
  * GET /enrichment/settings

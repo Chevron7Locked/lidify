@@ -58,10 +58,6 @@ function deezerRadioToUnified(radio: DeezerRadioStation): PlaylistPreview {
     };
 }
 
-// ============================================
-// Playlist Endpoints
-// ============================================
-
 /**
  * GET /api/browse/playlists/featured
  * Get featured/chart playlists from Deezer
@@ -138,10 +134,6 @@ router.get("/playlists/:id", async (req, res) => {
     }
 });
 
-// ============================================
-// Radio Endpoints
-// ============================================
-
 /**
  * GET /api/browse/radios
  * Get all radio stations (mood/theme based mixes)
@@ -214,10 +206,6 @@ router.get("/radios/:id", async (req, res) => {
         res.status(500).json({ error: error.message || "Failed to fetch radio tracks" });
     }
 });
-
-// ============================================
-// Genre Endpoints
-// ============================================
 
 /**
  * GET /api/browse/genres
@@ -296,10 +284,6 @@ router.get("/genres/:id/playlists", async (req, res) => {
     }
 });
 
-// ============================================
-// URL Parsing (supports both Spotify & Deezer)
-// ============================================
-
 /**
  * POST /api/browse/playlists/parse
  * Parse a Spotify or Deezer URL and return playlist info
@@ -342,10 +326,6 @@ router.post("/playlists/parse", async (req, res) => {
         res.status(500).json({ error: error.message || "Failed to parse URL" });
     }
 });
-
-// ============================================
-// Combined Browse Endpoint (for frontend convenience)
-// ============================================
 
 /**
  * GET /api/browse/all

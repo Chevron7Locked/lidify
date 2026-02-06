@@ -4,10 +4,6 @@ import { config } from "../config";
 import { getSystemSettings } from "../utils/systemSettings";
 import { stripAlbumEdition } from "../utils/artistNormalization";
 
-// ============================================
-// STRUCTURED ERROR TYPES
-// ============================================
-
 /**
  * Error types for music acquisition failures
  * Used to determine fallback strategies
@@ -1162,9 +1158,6 @@ class LidarrService {
             // Use the verified album data
             const updatedAlbum = verifyResponse.data;
 
-            // ============================================================
-            // PHASE 2.1: Proactive anyReleaseOk for edition variants
-            // ============================================================
             const editionPatterns = [
                 /\(remaster/i,
                 /\(deluxe/i,
@@ -1264,9 +1257,6 @@ class LidarrService {
                 );
 
                 if (result.message?.includes("0 reports")) {
-                    // ============================================================
-                    // PHASE 2.3: Enhanced diagnostics for 0 reports
-                    // ============================================================
                     try {
                         const albumDetails = await this.client.get(
                             `/api/v1/album/${updatedAlbum.id}`
@@ -1351,9 +1341,6 @@ class LidarrService {
                         );
 
                         if (retryResult.message?.includes("0 reports")) {
-                            // ============================================================
-                            // PHASE 2.2: Fallback to base album title
-                            // ============================================================
                             const baseAlbumTitle = this.extractBaseTitle(albumTitle);
 
                             if (baseAlbumTitle !== albumTitle && baseAlbumTitle.length > 2) {
@@ -1797,10 +1784,6 @@ class LidarrService {
         }
     }
 
-    // ============================================
-    // Tag Management Methods (for discovery tracking)
-    // ============================================
-
     /**
      * Get all tags from Lidarr
      */
@@ -2097,10 +2080,6 @@ class LidarrService {
         }
     }
 
-    // ============================================
-    // Release Iteration Methods (for exhaustive retry)
-    // ============================================
-
     /**
      * Get all available releases for an album from all indexers
      * This is what Lidarr's "Interactive Search" uses
@@ -2349,10 +2328,6 @@ class LidarrService {
         }
     }
 
-    // ============================================
-    // BATCH RECONCILIATION METHODS
-    // ============================================
-
     /**
      * Fetch all data needed for reconciliation in minimal API calls.
      * Returns indexed Maps for O(1) lookups against job data.
@@ -2557,10 +2532,6 @@ export interface LidarrRelease {
 }
 
 export const lidarrService = new LidarrService();
-
-// ============================================
-// Queue Cleaner Functions
-// ============================================
 
 // Types for queue monitoring
 interface QueueItem {

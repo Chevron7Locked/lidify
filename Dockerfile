@@ -183,7 +183,7 @@ RUN npm ci && npm cache clean --force
 COPY frontend/ ./
 
 # Build Next.js (production)
-ENV NEXT_PUBLIC_API_URL=
+ENV NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:3006
 RUN npm run build
 
 # ============================================

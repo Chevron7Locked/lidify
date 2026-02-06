@@ -537,10 +537,6 @@ router.put("/:id/items/reorder", async (req, res) => {
     }
 });
 
-// ============================================
-// Pending Tracks (from Spotify imports)
-// ============================================
-
 /**
  * GET /playlists/:id/pending
  * Get pending tracks for a playlist (tracks from Spotify that haven't been matched yet)

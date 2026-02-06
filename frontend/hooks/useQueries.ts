@@ -20,12 +20,6 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tansta
 import { api } from "@/lib/api";
 import type { Artist, Album, Track } from "@/features/library/types";
 
-// ============================================================================
-// QUERY KEY FACTORIES
-// ============================================================================
-// These functions generate consistent query keys for caching
-// See: https://tanstack.com/query/latest/docs/react/guides/query-keys
-
 export const queryKeys = {
     // Artist queries
     artist: (id: string) => ["artist", id] as const,
@@ -102,10 +96,6 @@ export const queryKeys = {
     browseRadios: (limit?: number) => ["browse", "radios", limit] as const,
 };
 
-// ============================================================================
-// ARTIST QUERIES
-// ============================================================================
-
 /**
  * Hook to fetch artist data with automatic library/discovery fallback
  *
@@ -173,10 +163,6 @@ export function useArtistDiscoveryQuery(nameOrMbid: string | undefined) {
         staleTime: 10 * 60 * 1000, // 10 minutes
     });
 }
-
-// ============================================================================
-// ALBUM QUERIES
-// ============================================================================
 
 /**
  * Hook to fetch album data with automatic library/discovery fallback
@@ -266,10 +252,6 @@ export function useAlbumsQuery(params?: {
     });
 }
 
-// ============================================================================
-// LIBRARY QUERIES
-// ============================================================================
-
 /**
  * Hook to fetch recently listened items (Continue Listening)
  *
@@ -307,10 +289,6 @@ export function useRecentlyAddedQuery(limit: number = 10) {
         staleTime: 2 * 60 * 1000, // 2 minutes
     });
 }
-
-// ============================================================================
-// LIBRARY PAGE QUERIES (Artists/Albums/Tracks with pagination)
-// ============================================================================
 
 export type LibraryFilter = "owned" | "discovery" | "all";
 export type SortOption = "name" | "name-desc" | "recent" | "tracks";
@@ -592,10 +570,6 @@ export function useLibraryTracksQuery({
     });
 }
 
-// ============================================================================
-// RECOMMENDATION QUERIES
-// ============================================================================
-
 /**
  * Hook to fetch personalized recommendations
  *
@@ -662,10 +636,6 @@ export function useSimilarAlbumsQuery(
     });
 }
 
-// ============================================================================
-// SEARCH QUERIES
-// ============================================================================
-
 /**
  * Hook to search library with debouncing
  *
@@ -722,10 +692,6 @@ export function useDiscoverSearchQuery(
     });
 }
 
-// ============================================================================
-// PLAYLIST QUERIES
-// ============================================================================
-
 /**
  * Hook to fetch all playlists
  *
@@ -765,10 +731,6 @@ export function usePlaylistQuery(id: string | undefined) {
     });
 }
 
-// ============================================================================
-// MIX QUERIES
-// ============================================================================
-
 /**
  * Hook to fetch all mixes (Made For You)
  *
@@ -805,10 +767,6 @@ export function useMixQuery(id: string | undefined) {
     });
 }
 
-// ============================================================================
-// POPULAR ARTISTS QUERY
-// ============================================================================
-
 /**
  * Hook to fetch popular artists from Last.fm
  *
@@ -827,10 +785,6 @@ export function usePopularArtistsQuery(limit: number = 20) {
         staleTime: 10 * 60 * 1000, // 10 minutes
     });
 }
-
-// ============================================================================
-// AUDIOBOOK QUERIES
-// ============================================================================
 
 /**
  * Hook to fetch all audiobooks
@@ -862,10 +816,6 @@ export function useAudiobookQuery(id: string | undefined) {
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 }
-
-// ============================================================================
-// PODCAST QUERIES
-// ============================================================================
 
 /**
  * Hook to fetch all subscribed podcasts
@@ -929,11 +879,6 @@ export function useTopPodcastsQuery(limit: number = 20, genreId?: number) {
         staleTime: 10 * 60 * 1000, // 10 minutes
     });
 }
-
-// ============================================================================
-// MUTATION HOOKS
-// ============================================================================
-// These hooks handle data modifications and automatically invalidate related queries
 
 /**
  * Hook to refresh mixes with cache invalidation
@@ -1040,10 +985,6 @@ export function useDeletePlaylistMutation() {
         },
     });
 }
-
-// ============================================================================
-// BROWSE QUERIES (Deezer Playlists/Radios)
-// ============================================================================
 
 interface PlaylistPreview {
     id: string;
