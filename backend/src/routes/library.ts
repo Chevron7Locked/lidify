@@ -136,18 +136,16 @@ router.post("/scan", async (req, res) => {
             });
         }
 
-        // First, organize any SLSKD downloads from Docker container to music library
-        // This ensures files are moved before the scan finds them
+        // Organize any Soulseek downloads and run legacy migration/cleanup
         try {
             const { organizeSingles } = await import(
                 "../workers/organizeSingles"
             );
-            logger.info("[Scan] Organizing SLSKD downloads before scan...");
+            logger.info("[Scan] Organizing Soulseek downloads before scan...");
             await organizeSingles();
-            logger.info("[Scan] SLSKD organization complete");
+            logger.info("[Scan] Soulseek organization complete");
         } catch (err: any) {
-            // Not a fatal error - SLSKD might not be running or have no files
-            logger.info("[Scan] SLSKD organization skipped:", err.message);
+            logger.info("[Scan] Soulseek organization skipped:", err.message);
         }
 
         const userId = req.user?.id || "system";

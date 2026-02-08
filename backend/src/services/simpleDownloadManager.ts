@@ -1402,8 +1402,8 @@ class SimpleDownloadManager {
 
             // Skip Soulseek jobs - they complete via their own pipeline
             if (
-                metadata?.source === "slskd" ||
-                metadata?.source === "soulseek_direct"
+                metadata?.source === "soulseek_direct" ||
+                metadata?.source === "slskd"
             ) {
                 continue;
             }

@@ -93,7 +93,7 @@ export function readSessionLog(): string {
 
 /**
  * Log a message from any component to the unified session log
- * Use this for SLSKD, organize, etc.
+ * Use this for Soulseek, organize, etc.
  */
 export function sessionLog(component: string, message: string, level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG' = 'INFO'): void {
     writeToSessionLog(component, level, message);
@@ -220,13 +220,13 @@ class PlaylistLogger {
         this.error(`✗ Failed: "${albumName}" by ${artistName} - ${reason}`);
     }
 
-    logSlskdFallbackStart(albumName: string, artistName: string): void {
+    logSoulseekFallbackStart(albumName: string, artistName: string): void {
         this.info('');
         this.info('--- SOULSEEK FALLBACK ---');
         this.info(`Trying Soulseek for: "${albumName}" by ${artistName}`);
     }
 
-    logSlskdSearchResult(found: boolean, quality?: string, username?: string, trackCount?: number, sizeMB?: number): void {
+    logSoulseekSearchResult(found: boolean, quality?: string, username?: string, trackCount?: number, sizeMB?: number): void {
         if (found) {
             this.info(`✓ Soulseek match: ${quality} from ${username} (${trackCount} tracks, ${sizeMB}MB)`);
         } else {
@@ -234,11 +234,11 @@ class PlaylistLogger {
         }
     }
 
-    logSlskdDownloadQueued(filesQueued: number, username: string): void {
+    logSoulseekDownloadQueued(filesQueued: number, username: string): void {
         this.info(`✓ Soulseek: Queued ${filesQueued} files from ${username}`);
     }
 
-    logSlskdDownloadFailed(reason: string): void {
+    logSoulseekDownloadFailed(reason: string): void {
         this.error(`✗ Soulseek download failed: ${reason}`);
     }
 

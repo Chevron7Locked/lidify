@@ -1,7 +1,7 @@
 import { logger } from "../utils/logger";
 
 /**
- * Soulseek routes - Direct connection via slsk-client
+ * Soulseek routes - Direct connection via vendored soulseek-ts
  * Supports both general searches (for UI) and track-specific searches (for downloads)
  */
 

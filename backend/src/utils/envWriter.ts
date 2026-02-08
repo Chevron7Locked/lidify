@@ -56,7 +56,7 @@ export async function writeEnvFile(
         "Fanart.tv": ["FANART_API_KEY"],
         OpenAI: ["OPENAI_API_KEY"],
         Audiobookshelf: ["AUDIOBOOKSHELF_URL", "AUDIOBOOKSHELF_API_KEY"],
-        Soulseek: ["SLSKD_SOULSEEK_USERNAME", "SLSKD_SOULSEEK_PASSWORD"],
+        Soulseek: ["SOULSEEK_USERNAME", "SOULSEEK_PASSWORD"],
         "VPN (Mullvad)": [
             "MULLVAD_PRIVATE_KEY",
             "MULLVAD_ADDRESSES",

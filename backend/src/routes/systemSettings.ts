@@ -50,7 +50,7 @@ const systemSettingsSchema = z.object({
     audiobookshelfUrl: z.string().optional(),
     audiobookshelfApiKey: z.string().nullable().optional(),
 
-    // Soulseek (direct connection via slsk-client)
+    // Soulseek (direct connection via vendored soulseek-ts)
     soulseekUsername: z.string().nullable().optional(),
     soulseekPassword: z.string().nullable().optional(),
 
@@ -625,7 +625,7 @@ router.post("/test-audiobookshelf", async (req, res) => {
     }
 });
 
-// Test Soulseek connection (direct via slsk-client)
+// Test Soulseek connection (direct via vendored soulseek-ts)
 router.post("/test-soulseek", async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -638,31 +638,13 @@ router.post("/test-soulseek", async (req, res) => {
 
         logger.debug(`[SOULSEEK-TEST] Testing connection as "${username}"...`);
 
-        // Import soulseek service
-        const { soulseekService } = await import("../services/soulseek");
-
-        // Temporarily set credentials for test
-        // The service will use the provided credentials
         try {
-            // Try to connect with the provided credentials
-            const slsk = require("slsk-client");
+            const { SlskClient } = await import("../lib/soulseek/client");
+            const testClient = new SlskClient();
 
-            await new Promise<void>((resolve, reject) => {
-                slsk.connect(
-                    { user: username, pass: password },
-                    (err: Error | null, client: any) => {
-                        if (err) {
-                            logger.debug(
-                                `[SOULSEEK-TEST] Connection failed: ${err.message}`
-                            );
-                            return reject(err);
-                        }
-                        logger.debug(`[SOULSEEK-TEST] Connected successfully`);
-                        // We don't need to keep the connection open for the test
-                        resolve();
-                    }
-                );
-            });
+            await testClient.login(username, password);
+            logger.debug(`[SOULSEEK-TEST] Connected successfully`);
+            testClient.destroy();
 
             res.json({
                 success: true,
