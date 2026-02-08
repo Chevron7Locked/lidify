@@ -51,6 +51,13 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
   loggedIn = false
   downloads: Download[]
 
+  private serverAddress: Address
+  private listenPort: number
+  private reconnectAttempts = 0
+  private reconnectTimeout: NodeJS.Timeout | null = null
+  private autoReconnect = true
+  private credentials: { username: string; password: string } | null = null
+
   constructor({
     serverAddress = {
       host: 'server.slsknet.org',
@@ -59,6 +66,8 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
     listenPort = 2234,
   }: { serverAddress?: Address; listenPort?: number } = {}) {
     super()
+    this.serverAddress = serverAddress
+    this.listenPort = listenPort
     this.server = new SlskServer(serverAddress)
     this.listen = new SlskListen(listenPort)
     this.peers = new Map()
@@ -66,6 +75,55 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
     this.downloads = []
     this.fileTransferConnections = []
 
+    this.wireServerHandlers()
+
+    this.listen.on('error', (error) => this.emit('listen-error', error))
+
+    this.listen.on('message', (msg) => {
+      const handler = async () => {
+        switch (msg.kind) {
+          case 'peerInit': {
+            const existingPeer = this.peers.get(msg.username)
+            if (existingPeer) {
+              return
+            }
+
+            const peerAddress = await this.getPeerAddress(msg.username)
+
+            const peer = new SlskPeer(
+              {
+                host: peerAddress.host,
+                port: peerAddress.port,
+              },
+              msg.username
+            )
+
+            peer.once('close', () => {
+              peer.destroy()
+              this.peers.delete(msg.username)
+            })
+
+            peer.on('message', (msg) => this.peerMessages.emit('message', msg, peer))
+            peer.on('error', (error) => this.emit('peer-error', error, peer))
+
+            this.peers.set(msg.username, peer)
+
+            break
+          }
+        }
+      }
+
+      try {
+        void handler()
+      } catch (error) {
+        this.emit('client-error', error)
+      }
+    })
+
+    this.wirePeerMessageHandlers()
+  }
+
+  private wireServerHandlers() {
     this.server.on('error', (error) => this.emit('server-error', error))
 
     this.server.on('message', (msg) => {
@@ -202,50 +260,9 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
         this.emit('client-error', error)
       }
     })
+  }
 
-    this.listen.on('error', (error) => this.emit('listen-error', error))
-
-    this.listen.on('message', (msg) => {
-      const handler = async () => {
-        switch (msg.kind) {
-          case 'peerInit': {
-            const existingPeer = this.peers.get(msg.username)
-            if (existingPeer) {
-              return
-            }
-
-            const peerAddress = await this.getPeerAddress(msg.username)
-
-            const peer = new SlskPeer(
-              {
-                host: peerAddress.host,
-                port: peerAddress.port,
-              },
-              msg.username
-            )
-
-            peer.once('close', () => {
-              peer.destroy()
-              this.peers.delete(msg.username)
-            })
-
-            peer.on('message', (msg) => this.peerMessages.emit('message', msg, peer))
-            peer.on('error', (error) => this.emit('peer-error', error, peer))
-
-            this.peers.set(msg.username, peer)
-
-            break
-          }
-        }
-      }
-
-      try {
-        void handler()
-      } catch (error) {
-        this.emit('client-error', error)
-      }
-    })
-
+  private wirePeerMessageHandlers() {
     this.peerMessages.on('message', (msg, peer) => {
       const handler = () => {
         switch (msg.kind) {
@@ -388,6 +405,48 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
 
     this.username = username
     this.loggedIn = true
+  }
+
+  async loginAndRemember(username: string, password: string, timeout?: number) {
+    this.credentials = { username, password }
+    await this.login(username, password, timeout)
+    this.reconnectAttempts = 0
+
+    this.server.conn.on('close', () => {
+      this.loggedIn = false
+      if (this.autoReconnect && this.credentials) {
+        this.scheduleReconnect()
+      }
+    })
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectTimeout) return
+
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 60000)
+    this.reconnectAttempts++
+
+    this.reconnectTimeout = setTimeout(async () => {
+      this.reconnectTimeout = null
+      if (!this.credentials || !this.autoReconnect) return
+
+      try {
+        this.server.destroy()
+        this.server = new SlskServer(this.serverAddress)
+        this.wireServerHandlers()
+        await this.login(this.credentials.username, this.credentials.password)
+        this.reconnectAttempts = 0
+
+        this.server.conn.on('close', () => {
+          this.loggedIn = false
+          if (this.autoReconnect && this.credentials) {
+            this.scheduleReconnect()
+          }
+        })
+      } catch {
+        this.scheduleReconnect()
+      }
+    }, delay)
   }
 
   search(
@@ -548,6 +607,11 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
   }
 
   destroy() {
+    this.autoReconnect = false
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
+    }
     this.server.destroy()
     this.listen.destroy()
     for (const peer of this.peers.values()) {
