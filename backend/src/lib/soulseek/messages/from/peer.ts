@@ -60,6 +60,12 @@ export type PlaceInQueueResponse = {
 
 export type UploadFailed = { kind: 'uploadFailed'; filename: string }
 
+export type UploadDenied = {
+  kind: 'uploadDenied'
+  filename: string
+  reason: string
+}
+
 export const fromPeerMessage = {
   sharedFileListRequest: (): SharedFileListRequest => {
     return { kind: 'sharedFileListRequest' }
@@ -141,6 +147,11 @@ export const fromPeerMessage = {
     const filename = msg.str()
     return { kind: 'uploadFailed', filename }
   },
+  uploadDenied: (msg: MessageParser): UploadDenied => {
+    const filename = msg.str()
+    const reason = msg.str()
+    return { kind: 'uploadDenied', filename, reason }
+  },
 }
 
 export const fromPeerMessageParser = (msg: MessageParser) => {
@@ -161,5 +172,7 @@ export const fromPeerMessageParser = (msg: MessageParser) => {
       return fromPeerMessage.placeInQueueResponse(msg)
     case 46:
       return fromPeerMessage.uploadFailed(msg)
+    case 50:
+      return fromPeerMessage.uploadDenied(msg)
   }
 }

@@ -312,6 +312,22 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
 
             break
           }
+          case 'uploadDenied': {
+            const existingDownloadIndex = this.downloads.findIndex(
+              (d) => d.username === peer.username && d.filename === msg.filename
+            )
+
+            if (existingDownloadIndex !== -1) {
+              const download = this.downloads[existingDownloadIndex]
+              download.stream.destroy(new Error(`Upload denied: ${msg.reason}`))
+              download.events.emit('status', 'denied' as any, {
+                ...makeDownloadStatusData(download),
+                reason: msg.reason,
+              } as any)
+              this.downloads = this.downloads.filter((_, i) => i !== existingDownloadIndex)
+            }
+            break
+          }
         }
       }
 
