@@ -190,15 +190,36 @@ export async function searchWithStrategies(
             strategy,
             query: strategy.buildQuery(artistName, trackTitle, albumName)
         }))
-        .filter(({ query }) => query.length > 0);
+        .filter(({ query, strategy }) => {
+            // Skip strategies that produce overly long queries (Soulseek best practice)
+            if (query.length > 100) {
+                sessionLog(
+                    "SOULSEEK",
+                    `[Search #${searchId}] Skipping strategy "${strategy.name}" - query too long (${query.length} chars)`,
+                    "DEBUG"
+                );
+                return false;
+            }
+            return query.length > 0;
+        });
 
     let allResponses: FileSearchResponse[] = [];
     let successfulStrategy: string | null = null;
 
     for (const { strategy, query } of applicableStrategies) {
+        // Log query length and content for debugging
+        if (query.length > 80) {
+            sessionLog(
+                "SOULSEEK",
+                `[Search #${searchId}] WARNING: Long query (${query.length} chars) may not match filenames`,
+                "WARN"
+            );
+        }
+
         sessionLog(
             "SOULSEEK",
-            `[Search #${searchId}] Strategy "${strategy.name}": "${query}"`
+            `[Search #${searchId}] Strategy "${strategy.name}": "${query}" (${query.length} chars)`,
+            "INFO"
         );
 
         try {
