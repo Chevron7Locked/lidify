@@ -23,11 +23,19 @@ export interface SearchStrategy {
  */
 function stripClassicalMetadata(title: string): string {
     return title
+        // Remove movement numbers: "I.", "II.", "III.", "IV.", etc.
+        // Matches Roman numerals (I, V, X combinations) followed by period
         .replace(/\b[IVX]+\.\s*/g, "")
+        // Replace colons with spaces (used as separators in classical titles)
         .replace(/:\s*/g, " ")
+        // Remove opus/catalog numbers used to identify classical works
+        // Op. (Opus), K. (Köchel), BWV (Bach), RV (Vivaldi), Hob. (Haydn), D. (Schubert), WoO (Beethoven)
         .replace(/\b(Op\.|K\.|BWV|RV|Hob\.|D\.|WoO)\s*\d+[a-z]?/gi, "")
+        // Remove key signatures that appear in classical titles
         .replace(/\bin\s+[A-G]\s+(Major|Minor|sharp|flat)/gi, "")
+        // Remove arrangement notes like "(Arr. for Piano from Concerto)"
         .replace(/\(Arr\.[^)]+\)/gi, "")
+        // Remove "inspired by" phrases that don't appear in filenames
         .replace(/inspired by[^,]+,?\s*/gi, "")
         .replace(/\s+/g, " ")
         .trim();
@@ -91,8 +99,16 @@ export function normalizeTrackTitle(title: string, level: 'aggressive' | 'modera
  * Normalize artist name
  */
 export function normalizeArtistName(artist: string): string {
-    return artist
-        .replace(/^the\s+/i, "")
+    const artistLower = artist.toLowerCase();
+
+    // Don't remove "the" if it's the entire artist name (e.g., "The The")
+    // Only remove "the " prefix if there's more content after it
+    let normalized = artist;
+    if (artistLower.startsWith("the ") && artistLower.length > 4) {
+        normalized = artist.slice(4);
+    }
+
+    return normalized
         .replace(/\s*&\s*/g, " and ")
         .replace(/[\u2018\u2019\u2032`]/g, "'")
         .replace(/[\u201C\u201D]/g, '"')
@@ -164,18 +180,19 @@ export async function searchWithStrategies(
 ): Promise<FileSearchResponse[]> {
     const audioExtensions = [".flac", ".mp3", ".m4a", ".ogg", ".opus", ".wav", ".aac"];
 
-    // Filter strategies based on whether we have album name
+    // Filter strategies based on whether we have album name and cache built queries
     const applicableStrategies = SEARCH_STRATEGIES.filter(strategy => {
         const query = strategy.buildQuery(artistName, trackTitle, albumName);
         return query.length > 0;
-    });
+    }).map(strategy => ({
+        strategy,
+        query: strategy.buildQuery(artistName, trackTitle, albumName)
+    }));
 
     let allResponses: FileSearchResponse[] = [];
     let successfulStrategy: string | null = null;
 
-    for (const strategy of applicableStrategies) {
-        const query = strategy.buildQuery(artistName, trackTitle, albumName);
-
+    for (const { strategy, query } of applicableStrategies) {
         sessionLog(
             "SOULSEEK",
             `[Search #${searchId}] Strategy "${strategy.name}": "${query}"`
