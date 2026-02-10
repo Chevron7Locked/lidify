@@ -48,7 +48,7 @@ class SoulseekService {
     private readonly FAILED_RECONNECT_COOLDOWN = 5000;
     private readonly DOWNLOAD_TIMEOUT_INITIAL = 60000;
     private readonly DOWNLOAD_TIMEOUT_RETRY = 30000;
-    private readonly MAX_DOWNLOAD_RETRIES = 5;
+    private readonly MAX_DOWNLOAD_RETRIES = 10; // Try more alternatives since we have 20
 
     private failedUsers = new Map<
         string,
@@ -516,8 +516,9 @@ class SoulseekService {
             .filter((w) => w.length > 2)
             .slice(0, 3);
 
+        // Filter for active users only (have upload slots available)
         const availableResults = results.filter(
-            (file) => !this.isUserBlocked(file.user)
+            (file) => !this.isUserBlocked(file.user) && file.slots === true
         );
 
         const scored = availableResults.map((file) => {
