@@ -270,6 +270,7 @@ class SoulseekService {
     async searchTrack(
         artistName: string,
         trackTitle: string,
+        albumName?: string,
         isRetry: boolean = false,
         timeoutMs: number = 15000,
         onResult?: (result: FileSearchResponse) => void
@@ -351,6 +352,7 @@ class SoulseekService {
                     return this.searchTrack(
                         artistName,
                         trackTitle,
+                        albumName,
                         true,
                         timeoutMs,
                         onResult
@@ -456,6 +458,7 @@ class SoulseekService {
                 return this.searchTrack(
                     artistName,
                     trackTitle,
+                    albumName,
                     true,
                     timeoutMs,
                     onResult
