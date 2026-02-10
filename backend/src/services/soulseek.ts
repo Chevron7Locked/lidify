@@ -589,6 +589,14 @@ class SoulseekService {
             const normalizedFilename = filename.replace(/[^a-z0-9]/g, "");
             const shortFilename = filename.split(/[/\\]/).pop() || filename;
 
+            // Scoring system:
+            // - Has upload slots: +40 (file is available now)
+            // - Fast connection: +15 (quick download)
+            // - Artist match: +50 (exact) or +35 (partial)
+            // - Title match: +50 (exact) or +40 (all words) or +25 (some words)
+            // - FLAC quality: +30, MP3 320: +20, MP3 256: +10
+            // - Size in range: +10-15
+            // Minimum score 5 = any partial match
             let score = 0;
 
             if (file.slots) score += 40;
@@ -659,10 +667,13 @@ class SoulseekService {
             };
         });
 
+        // Lower threshold to 5 - be more lenient with partial matches
+        // Soulseek's natural matching is good, don't over-filter
+        // Research: slsk-batchdl does minimal filtering, relies on user ranking
         return scored
-            .filter((m) => m.score >= 20)
+            .filter((m) => m.score >= 5)
             .sort((a, b) => b.score - a.score)
-            .slice(0, 10);
+            .slice(0, 20);
     }
 
     public async downloadTrack(
