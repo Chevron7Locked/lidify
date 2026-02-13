@@ -55,14 +55,15 @@ export function AudioPlaybackProvider({ children }: { children: ReactNode }) {
     });
     const [duration, setDuration] = useState(0);
     const [isBuffering, setIsBuffering] = useState(false);
-    const [_targetSeekPosition, setTargetSeekPosition] = useState<number | null>(
-        null
-    );
+    const setTargetSeekPosition = useCallback((_position: number | null) => {
+        // No-op: target seek position is managed by the seek lock mechanism
+    }, []);
     const [canSeek, setCanSeek] = useState(true); // Default true for music, false for uncached podcasts
     const [downloadProgress, setDownloadProgress] = useState<number | null>(
         null
     );
     const [audioError, setAudioError] = useState<string | null>(null);
+    const audioErrorRef = useRef<string | null>(null);
     const [playbackState, setPlaybackState] = useState<PlaybackState>("IDLE");
     const [isHydrated] = useState(() => typeof window !== "undefined");
     const lastSaveTimeRef = useRef<number>(0);
@@ -76,31 +77,31 @@ export function AudioPlaybackProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
+    // Sync audioError to ref so the subscription callback reads the latest value
+    useEffect(() => {
+        audioErrorRef.current = audioError;
+    }, [audioError]);
+
     // Subscribe to state machine changes
     useEffect(() => {
         const unsubscribe = playbackStateMachine.subscribe((ctx) => {
             setPlaybackState(ctx.state);
 
-            // Derive isPlaying and isBuffering from state machine
-            // This creates a single source of truth
             const machineIsPlaying = ctx.state === "PLAYING";
             const machineIsBuffering = ctx.state === "BUFFERING" || ctx.state === "LOADING";
 
-            // Only update if different to prevent unnecessary renders
             setIsPlaying((prev) => prev !== machineIsPlaying ? machineIsPlaying : prev);
             setIsBuffering((prev) => prev !== machineIsBuffering ? machineIsBuffering : prev);
 
-            // Update error state
             if (ctx.state === "ERROR" && ctx.error) {
                 setAudioError(ctx.error);
-            } else if (ctx.state !== "ERROR" && audioError) {
-                // Clear error when leaving error state
+            } else if (ctx.state !== "ERROR" && audioErrorRef.current) {
                 setAudioError(null);
             }
         });
 
         return unsubscribe;
-    }, [audioError]);
+    }, []); // Stable -- never re-subscribes
 
     // Seek lock state - prevents stale timeupdate events from overwriting optimistic UI updates
     const [isSeekLocked, setIsSeekLocked] = useState(false);
@@ -233,6 +234,7 @@ export function AudioPlaybackProvider({ children }: { children: ReactNode }) {
             audioError,
             playbackState,
             setCurrentTimeFromEngine,
+            setTargetSeekPosition,
             lockSeek,
             clearAudioError,
         ]
