@@ -30,6 +30,7 @@ export class SlskListen extends (EventEmitter as new () => TypedEventEmitter<Sls
 
       c.on('data', (chunk) => msgs.write(chunk))
       c.on('error', (error) => this.emit('error', error))
+      c.on('close', () => msgs.destroy())
 
       msgs.on('message', (msg: MessageParser) => {
         try {

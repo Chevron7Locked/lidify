@@ -41,6 +41,7 @@ import vibeRoutes from "./routes/vibe";
 import systemRoutes from "./routes/system";
 import eventsRoutes from "./routes/events";
 import { dataCacheService } from "./services/dataCache";
+import { enrichmentStateService } from "./services/enrichmentState";
 import { errorHandler } from "./middleware/errorHandler";
 import { requireAuth, requireAdmin } from "./middleware/auth";
 import {
@@ -350,7 +351,7 @@ app.listen(config.port, "0.0.0.0", async () => {
 
     // Schedule daily cleanup (every 24 hours)
     const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-    setInterval(() => {
+    podcastCleanupInterval = setInterval(() => {
         cleanupExpiredCache().catch((err) => {
             logger.error("Scheduled podcast cache cleanup failed:", err);
         });
@@ -460,6 +461,8 @@ app.listen(config.port, "0.0.0.0", async () => {
 
 // Graceful shutdown handling
 let isShuttingDown = false;
+let healthCheckInterval: NodeJS.Timeout | null = null;
+let podcastCleanupInterval: NodeJS.Timeout | null = null;
 
 async function gracefulShutdown(signal: string) {
     if (isShuttingDown) {
@@ -475,10 +478,18 @@ async function gracefulShutdown(signal: string) {
         const { shutdownWorkers } = await import("./workers");
         await shutdownWorkers();
 
+        // Clear scheduled intervals
+        if (healthCheckInterval) clearInterval(healthCheckInterval);
+        if (podcastCleanupInterval) clearInterval(podcastCleanupInterval);
+
         // Disconnect Soulseek
         logger.debug("Disconnecting Soulseek...");
         const { soulseekService } = await import("./services/soulseek");
         soulseekService.disconnect();
+
+        // Disconnect enrichment state Redis connections
+        logger.debug("Disconnecting enrichment state service...");
+        await enrichmentStateService.disconnect();
 
         // Close Redis connection
         logger.debug("Closing Redis connection...");
@@ -524,7 +535,7 @@ process.on("uncaughtException", (error) => {
 // Periodic health check to keep database connections alive and detect issues early
 // Runs every 5 minutes to prevent idle connection drops
 const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000;
-setInterval(async () => {
+healthCheckInterval = setInterval(async () => {
     try {
         // Ping PostgreSQL
         await prisma.$queryRaw`SELECT 1`;

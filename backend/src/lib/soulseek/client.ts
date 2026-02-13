@@ -645,9 +645,17 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
     for (const peer of this.peers.values()) {
       peer.destroy()
     }
+    this.peers.clear()
     for (const fileTransferConnection of this.fileTransferConnections) {
       fileTransferConnection.destroy()
     }
+    this.fileTransferConnections = []
+    for (const download of this.downloads) {
+      download.stream.destroy()
+    }
+    this.downloads = []
+    this.peerMessages.removeAllListeners()
+    this.removeAllListeners()
   }
 }
 
