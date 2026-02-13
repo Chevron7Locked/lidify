@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { eventBus, SSEEvent } from "../services/eventBus";
 import { logger } from "../utils/logger";
+import { prisma } from "../utils/db";
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const connections = new Map<string, Set<Response>>();
  * SSE endpoint for real-time event streaming.
  * Auth via query param because EventSource API cannot set headers.
  */
-router.get("/", (req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
     const token = req.query.token as string | undefined;
     if (!token || !JWT_SECRET) {
         res.status(401).json({ error: "Unauthorized" });
@@ -23,7 +24,27 @@ router.get("/", (req: Request, res: Response) => {
 
     let userId: string;
     try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+        const decoded = jwt.verify(token, JWT_SECRET) as {
+            userId: string;
+            tokenVersion?: number
+        };
+
+        // Validate tokenVersion against database (same as authenticateRequest in middleware/auth.ts)
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.userId },
+            select: { id: true, tokenVersion: true },
+        });
+
+        if (!user) {
+            res.status(401).json({ error: "User not found" });
+            return;
+        }
+
+        if (decoded.tokenVersion === undefined || decoded.tokenVersion !== user.tokenVersion) {
+            res.status(401).json({ error: "Token has been revoked" });
+            return;
+        }
+
         userId = decoded.userId;
     } catch {
         res.status(401).json({ error: "Invalid token" });
