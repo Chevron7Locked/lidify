@@ -770,6 +770,7 @@ export class DiscoverWeeklyService {
 
         // Trigger ONE scan with batch ID
         await scanQueue.add("scan", {
+            userId: batch.userId,
             type: "full",
             source: "discover-weekly-completion",
             discoveryBatchId: batchId,

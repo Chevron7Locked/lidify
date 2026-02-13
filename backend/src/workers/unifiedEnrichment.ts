@@ -404,15 +404,15 @@ async function runEnrichmentCycle(fullMode: boolean): Promise<{
         return emptyResult;
     }
 
-    // Skip if already running (unless full mode or immediate request)
-    const bypassRunningCheck = fullMode || immediateEnrichmentRequested;
-    if (isRunning && !bypassRunningCheck) {
+    // Never allow concurrent runs
+    if (isRunning) {
         return emptyResult;
     }
 
     // Enforce minimum interval (unless full mode or immediate request)
+    const bypassIntervalCheck = fullMode || immediateEnrichmentRequested;
     const now = Date.now();
-    if (!bypassRunningCheck && now - lastRunTime < MIN_INTERVAL_MS) {
+    if (!bypassIntervalCheck && now - lastRunTime < MIN_INTERVAL_MS) {
         return emptyResult;
     }
 

@@ -59,6 +59,12 @@ class EnrichmentStateService {
     constructor() {
         this.redis = new Redis(config.redisUrl);
         this.publisher = new Redis(config.redisUrl);
+        this.redis.on('error', (err) => {
+            logger.error('[EnrichmentState] Redis error:', err);
+        });
+        this.publisher.on('error', (err) => {
+            logger.error('[EnrichmentState] Redis publisher error:', err);
+        });
     }
 
     /**

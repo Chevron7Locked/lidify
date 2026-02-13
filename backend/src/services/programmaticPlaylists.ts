@@ -791,6 +791,10 @@ export class ProgrammaticPlaylistService {
     ): Promise<ProgrammaticMix | null> {
         // Get tracks with low play count (0-2 plays)
         const allTracks = await prisma.track.findMany({
+            where: {
+                album: { location: "LIBRARY" },
+            },
+            take: 5000,
             include: {
                 _count: {
                     select: {

@@ -318,7 +318,7 @@ class DownloadQueueManager {
             `[TIMER] Starting ${this.TIMEOUT_MINUTES}-minute timeout for automatic scan`
         );
 
-        this.timeoutTimer = setTimeout(() => {
+        this.timeoutTimer = setTimeout(async () => {
             if (this.activeDownloads.size > 0) {
                 logger.debug(
                     `\n  Timeout reached! ${this.activeDownloads.size} downloads still pending.`
@@ -334,15 +334,17 @@ class DownloadQueueManager {
                     toFail.push(downloadId);
                 }
                 for (const downloadId of toFail) {
-                    this.failDownload(
-                        downloadId,
-                        "Download timeout - never completed"
-                    ).catch((err) => {
+                    try {
+                        await this.failDownload(
+                            downloadId,
+                            "Download timeout - never completed"
+                        );
+                    } catch (err) {
                         logger.error(
                             `Error failing download ${downloadId}:`,
                             err
                         );
-                    });
+                    }
                 }
 
                 logger.debug(

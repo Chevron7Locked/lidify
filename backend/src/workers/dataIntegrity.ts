@@ -92,14 +92,14 @@ export async function runDataIntegrityCheck(): Promise<IntegrityReport> {
         });
 
         if (!hasActiveRecord && !hasOwnedRecord) {
-            // Delete tracks first
-            await prisma.track.deleteMany({
-                where: { albumId: album.id },
-            });
-            // Delete album
-            await prisma.album.delete({
-                where: { id: album.id },
-            });
+            await prisma.$transaction([
+                prisma.track.deleteMany({
+                    where: { albumId: album.id },
+                }),
+                prisma.album.delete({
+                    where: { id: album.id },
+                }),
+            ]);
             report.orphanedAlbums++;
             logger.debug(
                 `     Removed orphaned album: ${album.artist.name} - ${album.title}`

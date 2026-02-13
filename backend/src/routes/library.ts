@@ -3766,6 +3766,7 @@ router.get("/radio", async (req, res) => {
 
                             // Normalize to standard octave range (77-154 BPM)
                             const normalizeToOctave = (bpm: number): number => {
+                                if (!bpm || bpm <= 0 || !isFinite(bpm)) return 120;
                                 while (bpm < 77) bpm *= 2;
                                 while (bpm > 154) bpm /= 2;
                                 return bpm;

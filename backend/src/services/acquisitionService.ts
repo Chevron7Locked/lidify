@@ -57,7 +57,7 @@ export interface TrackAcquisitionRequest {
  */
 export interface AcquisitionResult {
     success: boolean;
-    downloadJobId?: number;
+    downloadJobId?: string;
     source?: "soulseek" | "lidarr";
     error?: string;
     errorType?: AcquisitionErrorType;
@@ -601,7 +601,7 @@ class AcquisitionService {
                 return {
                     success: false,
                     tracksTotal: tracks.length,
-                    downloadJobId: parseInt(job.id),
+                    downloadJobId: job.id,
                     error: `No tracks found on Soulseek (searched ${tracks.length} tracks)`,
                 };
             }
@@ -638,7 +638,7 @@ class AcquisitionService {
             return {
                 success: isSuccess,
                 source: "soulseek",
-                downloadJobId: parseInt(job.id),
+                downloadJobId: job.id,
                 tracksDownloaded: batchResult.successful,
                 tracksTotal: tracks.length,
                 error: isSuccess
@@ -715,7 +715,7 @@ class AcquisitionService {
                 return {
                     success: true,
                     source: "lidarr",
-                    downloadJobId: parseInt(job.id),
+                    downloadJobId: job.id,
                     correlationId: result.correlationId,
                 };
             } else {
