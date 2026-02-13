@@ -10,6 +10,7 @@ import { dispatchQueryEvent } from "@/lib/query-events";
 import {
     playbackStateMachine,
     HeartbeatMonitor,
+    getAudioFormat,
 } from "@/lib/audio";
 import {
     useEffect,
@@ -536,15 +537,7 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                 0;
             setDuration(fallbackDuration);
 
-            let format = "mp3";
-            const filePath = currentTrack?.filePath || "";
-            if (filePath) {
-                const ext = filePath.split(".").pop()?.toLowerCase();
-                if (ext === "flac") format = "flac";
-                else if (ext === "m4a" || ext === "aac") format = "mp4";
-                else if (ext === "ogg" || ext === "opus") format = "webm";
-                else if (ext === "wav") format = "wav";
-            }
+            const format = getAudioFormat(currentTrack?.filePath);
 
             howlerEngine.load(streamUrl, false, format);
             if (playbackType === "podcast" && currentPodcast) {
@@ -672,16 +665,7 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
         preloadTimeoutRef.current = setTimeout(() => {
             const streamUrl = api.getStreamUrl(nextTrack.id);
 
-            // Determine format from file path
-            let format = "mp3";
-            const filePath = nextTrack.filePath || "";
-            if (filePath) {
-                const ext = filePath.split(".").pop()?.toLowerCase();
-                if (ext === "flac") format = "flac";
-                else if (ext === "m4a" || ext === "aac") format = "mp4";
-                else if (ext === "ogg" || ext === "opus") format = "webm";
-                else if (ext === "wav") format = "wav";
-            }
+            const format = getAudioFormat(nextTrack.filePath);
 
             howlerEngine.preload(streamUrl, format);
             lastPreloadedTrackIdRef.current = nextTrack.id;

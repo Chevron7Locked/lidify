@@ -3,3 +3,5 @@ export type { PlaybackState, StateContext, StateListener } from './playback-stat
 
 export { HeartbeatMonitor } from './heartbeat-monitor';
 export type { HeartbeatConfig, HeartbeatCallbacks } from './heartbeat-monitor';
+
+export { getAudioFormat } from './format-utils';
