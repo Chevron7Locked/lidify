@@ -458,7 +458,24 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
             return;
         }
 
-        if (isLoadingRef.current) return;
+        if (isLoadingRef.current) {
+            // A load is already in progress but a new track was requested.
+            // Abort the current load -- the new track takes priority.
+            // The engine's load() handles cleanup internally via cleanup(true).
+            if (loadListenerRef.current) {
+                howlerEngine.off("load", loadListenerRef.current);
+                loadListenerRef.current = null;
+            }
+            if (loadErrorListenerRef.current) {
+                howlerEngine.off("loaderror", loadErrorListenerRef.current);
+                loadErrorListenerRef.current = null;
+            }
+            // Clear loading timeout from previous load
+            if (loadingTimeoutRef.current) {
+                clearTimeout(loadingTimeoutRef.current);
+                loadingTimeoutRef.current = null;
+            }
+        }
 
         isLoadingRef.current = true;
         lastTrackIdRef.current = currentMediaId;
