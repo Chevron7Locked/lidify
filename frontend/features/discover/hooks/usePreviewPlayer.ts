@@ -15,6 +15,7 @@ export function usePreviewPlayer() {
             previewAudios.forEach((audio) => {
                 audio.pause();
                 audio.src = "";
+                audio.load();
             });
             // Resume main player if needed
             if (mainPlayerWasPausedRef.current) {
