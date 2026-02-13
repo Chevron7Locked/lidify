@@ -1,6 +1,8 @@
 "use client";
 
-import { Play, Pause, Check, ArrowUpDown, CheckCircle } from "lucide-react";
+import { useState } from "react";
+import { Play, Pause, Check, ArrowUpDown, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
+import DOMPurify from "dompurify";
 import { cn } from "@/utils/cn";
 import { Podcast, Episode } from "../types";
 import { formatDuration } from "@/utils/formatTime";
@@ -18,6 +20,199 @@ interface EpisodeListProps {
     onMarkComplete?: (episodeId: string, duration: number) => void;
 }
 
+function EpisodeRow({
+    episode,
+    index,
+    isCurrentEpisode,
+    isPlaying,
+    onPlayPause,
+    onPlay,
+    onMarkComplete,
+}: {
+    episode: Episode;
+    index: number;
+    isCurrentEpisode: boolean;
+    isPlaying: boolean;
+    onPlayPause: (episode: Episode) => void;
+    onPlay: (episode: Episode) => void;
+    onMarkComplete?: (episodeId: string, duration: number) => void;
+}) {
+    const [expanded, setExpanded] = useState(false);
+    const isInProgress =
+        episode.progress &&
+        !episode.progress.isFinished &&
+        episode.progress.currentTime > 0;
+    const hasDescription = episode.description && episode.description.trim().length > 0;
+
+    return (
+        <div
+            className={cn(
+                "group relative rounded-lg transition-all",
+                isCurrentEpisode
+                    ? "bg-white/5 border border-[#3b82f6]/30"
+                    : "border border-transparent hover:bg-white/[0.03] hover:border-white/5"
+            )}
+        >
+            {/* Progress bar */}
+            {episode.progress && episode.progress.progress > 0 && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                        className="h-full bg-[#3b82f6]/60 transition-all"
+                        style={{
+                            width: `${episode.progress.progress}%`,
+                        }}
+                    />
+                </div>
+            )}
+
+            <div
+                onDoubleClick={() => {
+                    if (!isCurrentEpisode) {
+                        onPlay(episode);
+                    }
+                }}
+                className="flex items-center gap-4 px-3 py-3 cursor-pointer"
+            >
+                {/* Number / Play/Pause */}
+                <div className="w-8 flex items-center justify-center shrink-0">
+                    {episode.progress?.isFinished ? (
+                        <Check className="w-4 h-4 text-green-400" />
+                    ) : (
+                        <>
+                            <span
+                                className={cn(
+                                    "text-xs font-mono",
+                                    isCurrentEpisode && isPlaying
+                                        ? "hidden"
+                                        : "group-hover:hidden",
+                                    isCurrentEpisode
+                                        ? "text-[#3b82f6] font-black"
+                                        : "text-white/30"
+                                )}
+                            >
+                                {index + 1}
+                            </span>
+                            {isCurrentEpisode && isPlaying ? (
+                                <Pause
+                                    className="w-4 h-4 text-[#3b82f6] cursor-pointer"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onPlayPause(episode);
+                                    }}
+                                />
+                            ) : (
+                                <Play
+                                    className={cn(
+                                        "w-4 h-4 cursor-pointer",
+                                        isCurrentEpisode
+                                            ? "text-[#3b82f6]"
+                                            : "text-white hidden group-hover:block"
+                                    )}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onPlayPause(episode);
+                                    }}
+                                />
+                            )}
+                        </>
+                    )}
+                </div>
+
+                {/* Episode Info */}
+                <div className="flex-1 min-w-0">
+                    <h3
+                        className={cn(
+                            "font-black truncate text-sm tracking-tight",
+                            isCurrentEpisode
+                                ? "text-[#3b82f6]"
+                                : "text-white"
+                        )}
+                    >
+                        {episode.title}
+                    </h3>
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-white/40 uppercase tracking-wider mt-0.5">
+                        <span>{formatDate(episode.publishedAt)}</span>
+                        {episode.season && (
+                            <>
+                                <span className="text-white/20">|</span>
+                                <span>S{episode.season}</span>
+                            </>
+                        )}
+                        {episode.episodeNumber && (
+                            <>
+                                <span className="text-white/20">|</span>
+                                <span>E{episode.episodeNumber}</span>
+                            </>
+                        )}
+                        {episode.progress?.isFinished && (
+                            <>
+                                <span className="text-white/20">|</span>
+                                <span className="text-green-400">Finished</span>
+                            </>
+                        )}
+                        {isInProgress && episode.progress && (
+                            <>
+                                <span className="text-white/20">|</span>
+                                <span className="text-[#3b82f6]">
+                                    {Math.floor(episode.progress.progress)}%
+                                </span>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* Duration */}
+                <span className="text-[10px] font-mono text-white/30 shrink-0 uppercase tracking-wider">
+                    {formatDuration(episode.duration)}
+                </span>
+
+                {/* Expand description */}
+                {hasDescription && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setExpanded(!expanded);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-white/10 text-white/30 hover:text-white/60 transition-all shrink-0"
+                    >
+                        {expanded ? (
+                            <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                            <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                    </button>
+                )}
+
+                {/* Complete Button */}
+                {onMarkComplete && !episode.progress?.isFinished && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onMarkComplete(episode.id, episode.duration);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-white/10"
+                        title="Mark as complete"
+                    >
+                        <CheckCircle className="w-4 h-4 text-white/40 hover:text-green-400 transition-colors" />
+                    </button>
+                )}
+            </div>
+
+            {/* Expanded description */}
+            {expanded && hasDescription && (
+                <div className="px-3 pb-3 pl-[52px]">
+                    <div
+                        className="text-xs text-white/40 leading-relaxed max-w-3xl line-clamp-6 [&_a]:text-[#3b82f6] [&_a]:no-underline [&_a:hover]:underline"
+                        dangerouslySetInnerHTML={{
+                            __html: DOMPurify.sanitize(episode.description || ""),
+                        }}
+                    />
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function EpisodeList({
     podcast: _podcast,
     episodes,
@@ -31,167 +226,39 @@ export function EpisodeList({
 }: EpisodeListProps) {
     return (
         <section>
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-white">All Episodes</h2>
+            <div className="flex items-center gap-3 mb-6">
+                <span className="w-1 h-8 bg-gradient-to-b from-[#3b82f6] to-[#2563eb] rounded-full shrink-0" />
+                <h2 className="text-2xl font-black tracking-tighter uppercase">All Episodes</h2>
+                <span className="text-xs font-mono text-[#3b82f6]">
+                    {episodes.length}
+                </span>
+                <span className="flex-1 border-t border-white/10" />
                 <button
                     onClick={() =>
                         onSortOrderChange(
                             sortOrder === "newest" ? "oldest" : "newest"
                         )
                     }
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-sm text-white/70 hover:text-white transition-all"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-xs font-mono uppercase tracking-wider text-white/50 hover:text-white transition-all"
                 >
-                    <ArrowUpDown className="w-4 h-4" />
-                    {sortOrder === "newest" ? "Newest First" : "Oldest First"}
+                    <ArrowUpDown className="w-3.5 h-3.5" />
+                    {sortOrder === "newest" ? "Newest" : "Oldest"}
                 </button>
             </div>
 
-            <div className="space-y-1">
-                {episodes.map((episode, index) => {
-                    const isCurrentEpisode = isEpisodePlaying(episode.id);
-                    const isInProgress =
-                        episode.progress &&
-                        !episode.progress.isFinished &&
-                        episode.progress.currentTime > 0;
-
-                    return (
-                        <div
-                            key={episode.id}
-                            className={cn(
-                                "group relative rounded-md transition-all",
-                                isCurrentEpisode ? "bg-white/10" : "hover:bg-white/5"
-                            )}
-                        >
-                            {/* Progress bar at the bottom */}
-                            {episode.progress && episode.progress.progress > 0 && (
-                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/5 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-[#ecb200]/60 transition-all"
-                                        style={{
-                                            width: `${episode.progress.progress}%`,
-                                        }}
-                                    />
-                                </div>
-                            )}
-
-                            <div
-                                onClick={() => {
-                                    if (!isCurrentEpisode) {
-                                        onPlay(episode);
-                                    }
-                                }}
-                                className="flex items-center gap-4 px-3 py-3 cursor-pointer"
-                            >
-                                {/* Number / Play/Pause Icon */}
-                                <div className="w-8 flex items-center justify-center shrink-0">
-                                    {episode.progress?.isFinished ? (
-                                        <Check className="w-4 h-4 text-green-400" />
-                                    ) : (
-                                        <>
-                                            <span
-                                                className={cn(
-                                                    "text-sm",
-                                                    isCurrentEpisode && isPlaying
-                                                        ? "hidden"
-                                                        : "group-hover:hidden",
-                                                    isCurrentEpisode
-                                                        ? "text-[#ecb200] font-bold"
-                                                        : "text-white/40"
-                                                )}
-                                            >
-                                                {index + 1}
-                                            </span>
-                                            {isCurrentEpisode && isPlaying ? (
-                                                <Pause
-                                                    className="w-4 h-4 text-[#ecb200] cursor-pointer"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onPlayPause(episode);
-                                                    }}
-                                                />
-                                            ) : (
-                                                <Play
-                                                    className={cn(
-                                                        "w-4 h-4 cursor-pointer",
-                                                        isCurrentEpisode
-                                                            ? "text-[#ecb200]"
-                                                            : "text-white hidden group-hover:block"
-                                                    )}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onPlayPause(episode);
-                                                    }}
-                                                />
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-
-                                {/* Episode Info */}
-                                <div className="flex-1 min-w-0">
-                                    <h3
-                                        className={cn(
-                                            "font-medium truncate text-sm",
-                                            isCurrentEpisode
-                                                ? "text-[#ecb200]"
-                                                : "text-white"
-                                        )}
-                                    >
-                                        {episode.title}
-                                    </h3>
-                                    <div className="flex items-center gap-2 text-xs text-white/50 mt-0.5">
-                                        <span>{formatDate(episode.publishedAt)}</span>
-                                        {episode.season && (
-                                            <>
-                                                <span>•</span>
-                                                <span>S{episode.season}</span>
-                                            </>
-                                        )}
-                                        {episode.episodeNumber && (
-                                            <>
-                                                <span>•</span>
-                                                <span>E{episode.episodeNumber}</span>
-                                            </>
-                                        )}
-                                        {episode.progress?.isFinished && (
-                                            <>
-                                                <span>•</span>
-                                                <span className="text-green-400">Finished</span>
-                                            </>
-                                        )}
-                                        {isInProgress && episode.progress && (
-                                            <>
-                                                <span>•</span>
-                                                <span className="text-[#ecb200]">
-                                                    {Math.floor(episode.progress.progress)}%
-                                                </span>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Duration */}
-                                <span className="text-xs text-white/40 shrink-0">
-                                    {formatDuration(episode.duration)}
-                                </span>
-
-                                {/* Complete Button - visible on hover for incomplete episodes */}
-                                {onMarkComplete && !episode.progress?.isFinished && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onMarkComplete(episode.id, episode.duration);
-                                        }}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1.5 rounded-full hover:bg-white/10"
-                                        title="Mark as complete"
-                                    >
-                                        <CheckCircle className="w-4 h-4 text-white/60 hover:text-green-400" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
+            <div className="space-y-0.5">
+                {episodes.map((episode, index) => (
+                    <EpisodeRow
+                        key={episode.id}
+                        episode={episode}
+                        index={index}
+                        isCurrentEpisode={isEpisodePlaying(episode.id)}
+                        isPlaying={isPlaying}
+                        onPlayPause={onPlayPause}
+                        onPlay={onPlay}
+                        onMarkComplete={onMarkComplete}
+                    />
+                ))}
             </div>
         </section>
     );
