@@ -91,6 +91,10 @@ const AudioControlsContext = createContext<
 export function AudioControlsProvider({ children }: { children: ReactNode }) {
     const state = useAudioState();
     const playback = useAudioPlayback();
+    const currentTimeRef = useRef(playback.currentTime);
+    useEffect(() => {
+        currentTimeRef.current = playback.currentTime;
+    }, [playback.currentTime]);
     const upNextInsertRef = useRef<number>(0);
     const shuffleInsertPosRef = useRef<number>(0);
     const lastQueueInsertAtRef = useRef<number | null>(null);
@@ -343,8 +347,9 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
                     : Math.max(time, 0);
 
             // Lock seek to prevent stale timeupdate events from overwriting optimistic update
-            // This is especially important for podcasts where seeking may require audio reload
-            playback.lockSeek(clampedTime);
+            // Podcasts/audiobooks need a longer timeout since seeking may require audio reload
+            const seekTimeout = state.playbackType === "track" ? 500 : 3000;
+            playback.lockSeek(clampedTime, seekTimeout);
 
             // Optimistically update local playback time for instant UI feedback
             playback.setCurrentTime(clampedTime);
@@ -718,16 +723,16 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
 
     const skipForward = useCallback(
         (seconds: number = 30) => {
-            seek(playback.currentTime + seconds);
+            seek(currentTimeRef.current + seconds);
         },
-        [playback.currentTime, seek]
+        [seek]
     );
 
     const skipBackward = useCallback(
         (seconds: number = 30) => {
-            seek(playback.currentTime - seconds);
+            seek(currentTimeRef.current - seconds);
         },
-        [playback.currentTime, seek]
+        [seek]
     );
 
     const setPlayerModeWithHistory = useCallback(

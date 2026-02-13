@@ -31,7 +31,7 @@ interface AudioPlaybackContextType {
     setTargetSeekPosition: (position: number | null) => void;
     setCanSeek: (canSeek: boolean) => void;
     setDownloadProgress: (progress: number | null) => void;
-    lockSeek: (targetTime: number) => void; // Lock updates during seek
+    lockSeek: (targetTime: number, timeoutMs?: number) => void; // Lock updates during seek
     clearAudioError: () => void; // Clear the audio error state
 }
 
@@ -109,7 +109,7 @@ export function AudioPlaybackProvider({ children }: { children: ReactNode }) {
     const seekLockTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Lock the seek state - ignores timeupdate events until audio catches up or timeout
-    const lockSeek = useCallback((targetTime: number) => {
+    const lockSeek = useCallback((targetTime: number, timeoutMs: number = 500) => {
         setIsSeekLocked(true);
         seekTargetRef.current = targetTime;
 
@@ -118,12 +118,12 @@ export function AudioPlaybackProvider({ children }: { children: ReactNode }) {
             clearTimeout(seekLockTimeoutRef.current);
         }
 
-        // Auto-unlock after 500ms as a safety measure
+        // Auto-unlock after timeout as a safety measure
         seekLockTimeoutRef.current = setTimeout(() => {
             setIsSeekLocked(false);
             seekTargetRef.current = null;
             seekLockTimeoutRef.current = null;
-        }, 500);
+        }, timeoutMs);
     }, []);
 
     // setCurrentTimeFromEngine - for timeupdate events from Howler
