@@ -385,61 +385,65 @@ export function AudioStateProvider({ children }: { children: ReactNode }) {
             });
     }, []);
 
-    // Save state to localStorage whenever it changes
+    // Save state to localStorage whenever it changes (debounced)
     useEffect(() => {
         if (!isHydrated || typeof window === "undefined") return;
 
-        try {
-            if (currentTrack) {
+        const timeoutId = setTimeout(() => {
+            try {
+                if (currentTrack) {
+                    localStorage.setItem(
+                        STORAGE_KEYS.CURRENT_TRACK,
+                        JSON.stringify(currentTrack)
+                    );
+                } else {
+                    localStorage.removeItem(STORAGE_KEYS.CURRENT_TRACK);
+                }
+                if (currentAudiobook) {
+                    localStorage.setItem(
+                        STORAGE_KEYS.CURRENT_AUDIOBOOK,
+                        JSON.stringify(currentAudiobook)
+                    );
+                } else {
+                    localStorage.removeItem(STORAGE_KEYS.CURRENT_AUDIOBOOK);
+                }
+                if (currentPodcast) {
+                    localStorage.setItem(
+                        STORAGE_KEYS.CURRENT_PODCAST,
+                        JSON.stringify(currentPodcast)
+                    );
+                } else {
+                    localStorage.removeItem(STORAGE_KEYS.CURRENT_PODCAST);
+                }
+                if (playbackType) {
+                    localStorage.setItem(STORAGE_KEYS.PLAYBACK_TYPE, playbackType);
+                } else {
+                    localStorage.removeItem(STORAGE_KEYS.PLAYBACK_TYPE);
+                }
+                localStorage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(queue));
                 localStorage.setItem(
-                    STORAGE_KEYS.CURRENT_TRACK,
-                    JSON.stringify(currentTrack)
+                    STORAGE_KEYS.CURRENT_INDEX,
+                    currentIndex.toString()
                 );
-            } else {
-                localStorage.removeItem(STORAGE_KEYS.CURRENT_TRACK);
+                localStorage.setItem(STORAGE_KEYS.IS_SHUFFLE, isShuffle.toString());
+                localStorage.setItem(STORAGE_KEYS.REPEAT_MODE, repeatMode);
+                if (podcastEpisodeQueue) {
+                    localStorage.setItem(
+                        STORAGE_KEYS.PODCAST_EPISODE_QUEUE,
+                        JSON.stringify(podcastEpisodeQueue)
+                    );
+                } else {
+                    localStorage.removeItem(STORAGE_KEYS.PODCAST_EPISODE_QUEUE);
+                }
+                localStorage.setItem(STORAGE_KEYS.PLAYER_MODE, playerMode);
+                localStorage.setItem(STORAGE_KEYS.VOLUME, volume.toString());
+                localStorage.setItem(STORAGE_KEYS.IS_MUTED, isMuted.toString());
+            } catch (error) {
+                console.error("[AudioState] Failed to save state:", error);
             }
-            if (currentAudiobook) {
-                localStorage.setItem(
-                    STORAGE_KEYS.CURRENT_AUDIOBOOK,
-                    JSON.stringify(currentAudiobook)
-                );
-            } else {
-                localStorage.removeItem(STORAGE_KEYS.CURRENT_AUDIOBOOK);
-            }
-            if (currentPodcast) {
-                localStorage.setItem(
-                    STORAGE_KEYS.CURRENT_PODCAST,
-                    JSON.stringify(currentPodcast)
-                );
-            } else {
-                localStorage.removeItem(STORAGE_KEYS.CURRENT_PODCAST);
-            }
-            if (playbackType) {
-                localStorage.setItem(STORAGE_KEYS.PLAYBACK_TYPE, playbackType);
-            } else {
-                localStorage.removeItem(STORAGE_KEYS.PLAYBACK_TYPE);
-            }
-            localStorage.setItem(STORAGE_KEYS.QUEUE, JSON.stringify(queue));
-            localStorage.setItem(
-                STORAGE_KEYS.CURRENT_INDEX,
-                currentIndex.toString()
-            );
-            localStorage.setItem(STORAGE_KEYS.IS_SHUFFLE, isShuffle.toString());
-            localStorage.setItem(STORAGE_KEYS.REPEAT_MODE, repeatMode);
-            if (podcastEpisodeQueue) {
-                localStorage.setItem(
-                    STORAGE_KEYS.PODCAST_EPISODE_QUEUE,
-                    JSON.stringify(podcastEpisodeQueue)
-                );
-            } else {
-                localStorage.removeItem(STORAGE_KEYS.PODCAST_EPISODE_QUEUE);
-            }
-            localStorage.setItem(STORAGE_KEYS.PLAYER_MODE, playerMode);
-            localStorage.setItem(STORAGE_KEYS.VOLUME, volume.toString());
-            localStorage.setItem(STORAGE_KEYS.IS_MUTED, isMuted.toString());
-        } catch (error) {
-            console.error("[AudioState] Failed to save state:", error);
-        }
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
     }, [
         currentTrack,
         currentAudiobook,
