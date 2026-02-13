@@ -31,8 +31,8 @@ function getEncryptionKey(): Buffer {
     }
 
     if (key.length < 32) {
-        // Pad with zeros if too short
-        return Buffer.from(key.padEnd(32, "0"));
+        logger.warn("SETTINGS_ENCRYPTION_KEY is shorter than 32 characters -- deriving key via SHA-256. Consider using a 32+ char key.");
+        return crypto.createHash("sha256").update(key).digest();
     }
     // Truncate if too long
     return Buffer.from(key.slice(0, 32));

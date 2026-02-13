@@ -198,7 +198,12 @@ export async function requireAdmin(
     res: Response,
     next: NextFunction
 ) {
-    if (!req.user || req.user.role !== "admin") {
+    const user = await authenticateRequest(req, false);
+    if (!user) {
+        return res.status(401).json({ error: "Not authenticated" });
+    }
+    req.user = user;
+    if (user.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
     }
     next();
@@ -210,102 +215,10 @@ export async function requireAuthOrToken(
     res: Response,
     next: NextFunction
 ) {
-    // First, check session-based auth (primary method for web)
-    if (req.session?.userId) {
-        try {
-            const user = await prisma.user.findUnique({
-                where: { id: req.session.userId },
-                select: { id: true, username: true, role: true },
-            });
-
-            if (user) {
-                req.user = user;
-                return next();
-            }
-        } catch (error) {
-            logger.error("Session auth error:", error);
-        }
+    const user = await authenticateRequest(req, true);
+    if (user) {
+        req.user = user;
+        return next();
     }
-
-    // Check for API key in X-API-Key header (for mobile/external apps)
-    const apiKey = req.headers["x-api-key"] as string;
-    if (apiKey) {
-        try {
-            const apiKeyRecord = await prisma.apiKey.findUnique({
-                where: { key: apiKey },
-                include: {
-                    user: { select: { id: true, username: true, role: true } },
-                },
-            });
-
-            if (apiKeyRecord && apiKeyRecord.user) {
-                // Update last used timestamp (async, don't block)
-                prisma.apiKey
-                    .update({
-                        where: { id: apiKeyRecord.id },
-                        data: { lastUsed: new Date() },
-                    })
-                    .catch(() => {}); // Ignore errors on lastUsed update
-
-                req.user = apiKeyRecord.user;
-                return next();
-            }
-        } catch (error) {
-            logger.error("API key auth error:", error);
-        }
-    }
-
-    // Check for token in query param (for streaming URLs from audio elements)
-    const tokenParam = req.query.token as string;
-    if (tokenParam) {
-        try {
-            const decoded = jwt.verify(tokenParam, JWT_SECRET_VALIDATED) as unknown as JWTPayload;
-            const user = await prisma.user.findUnique({
-                where: { id: decoded.userId },
-                select: { id: true, username: true, role: true, tokenVersion: true },
-            });
-
-            if (user) {
-                // Validate tokenVersion - reject if password was changed
-                if (decoded.tokenVersion === undefined || decoded.tokenVersion !== user.tokenVersion) {
-                    // Token was issued before password change, reject
-                } else {
-                    req.user = { id: user.id, username: user.username, role: user.role };
-                    return next();
-                }
-            }
-        } catch (error) {
-            // Token invalid, try other methods
-        }
-    }
-
-    // Fallback: check JWT token in Authorization header
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.startsWith("Bearer ")
-        ? authHeader.substring(7)
-        : null;
-
-    if (token) {
-        try {
-            const decoded = jwt.verify(token, JWT_SECRET_VALIDATED) as unknown as JWTPayload;
-            const user = await prisma.user.findUnique({
-                where: { id: decoded.userId },
-                select: { id: true, username: true, role: true, tokenVersion: true },
-            });
-
-            if (user) {
-                // Validate tokenVersion - reject if password was changed
-                if (decoded.tokenVersion === undefined || decoded.tokenVersion !== user.tokenVersion) {
-                    // Token was issued before password change, reject
-                } else {
-                    req.user = { id: user.id, username: user.username, role: user.role };
-                    return next();
-                }
-            }
-        } catch (error) {
-            // Token invalid, continue to error
-        }
-    }
-
     return res.status(401).json({ error: "Not authenticated" });
 }

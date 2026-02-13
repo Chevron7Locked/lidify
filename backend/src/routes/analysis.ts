@@ -455,7 +455,7 @@ router.put("/clap-workers", requireAuth, requireAdmin, async (req, res) => {
 router.post("/vibe/failure", async (req, res) => {
     // Internal endpoint - verify shared secret from CLAP analyzer
     const internalSecret = req.headers["x-internal-secret"];
-    if (internalSecret !== process.env.INTERNAL_API_SECRET) {
+    if (!process.env.INTERNAL_API_SECRET || internalSecret !== process.env.INTERNAL_API_SECRET) {
         return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -604,7 +604,7 @@ router.post("/vibe/retry", requireAuth, requireAdmin, async (req, res) => {
 router.post("/vibe/success", async (req, res) => {
     // Internal endpoint - verify shared secret from CLAP analyzer
     const internalSecret = req.headers["x-internal-secret"];
-    if (internalSecret !== process.env.INTERNAL_API_SECRET) {
+    if (!process.env.INTERNAL_API_SECRET || internalSecret !== process.env.INTERNAL_API_SECRET) {
         return res.status(403).json({ error: "Forbidden" });
     }
 

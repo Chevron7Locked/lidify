@@ -11,8 +11,10 @@ import { logger } from "../utils/logger";
 import { Router } from "express";
 import { lidarrService, CalendarRelease } from "../services/lidarr";
 import { prisma } from "../utils/db";
+import { requireAuthOrToken } from "../middleware/auth";
 
 const router = Router();
+router.use(requireAuthOrToken);
 
 interface ReleaseRadarResponse {
     upcoming: ReleaseItem[];

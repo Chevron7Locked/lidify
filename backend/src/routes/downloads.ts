@@ -664,6 +664,14 @@ router.patch("/:id", async (req, res) => {
         const userId = req.user!.id;
         const { status } = req.body;
 
+        const VALID_STATUSES = ["pending", "processing", "completed", "failed", "exhausted"];
+        if (status && !VALID_STATUSES.includes(status)) {
+            return res.status(400).json({ error: "Invalid status", validStatuses: VALID_STATUSES });
+        }
+        if (!status) {
+            return res.status(400).json({ error: "status field is required" });
+        }
+
         const job = await prisma.downloadJob.findFirst({
             where: {
                 id,

@@ -6,8 +6,10 @@ import { fanartService } from "../services/fanart";
 import { deezerService } from "../services/deezer";
 import { redisClient } from "../utils/redis";
 import { normalizeToArray } from "../utils/normalize";
+import { requireAuthOrToken } from "../middleware/auth";
 
 const router = Router();
+router.use(requireAuthOrToken);
 
 // Cache TTL for discovery content (shorter since it's not owned)
 const DISCOVERY_CACHE_TTL = 24 * 60 * 60; // 24 hours
