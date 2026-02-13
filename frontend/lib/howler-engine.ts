@@ -733,7 +733,7 @@ class HowlerEngine {
      * Safe for rapid consecutive calls - tracks pending cleanups
      * @param immediate - Skip fade and clean up synchronously (used during track changes to prevent doubled audio)
      */
-    private cleanup(immediate: boolean = false): void {
+    cleanup(immediate: boolean = false): void {
         this.cancelPreload();
         this.stopTimeUpdates();
 

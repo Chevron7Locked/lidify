@@ -1175,7 +1175,7 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            howlerEngine.stop();
+            howlerEngine.cleanup(true);
 
             if (progressSaveIntervalRef.current) {
                 clearInterval(progressSaveIntervalRef.current);
