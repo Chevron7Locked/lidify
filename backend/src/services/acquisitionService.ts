@@ -68,14 +68,6 @@ export interface AcquisitionResult {
 }
 
 /**
- * Service availability check result
- */
-interface ServiceAvailability {
-    lidarrAvailable: boolean;
-    soulseekAvailable: boolean;
-}
-
-/**
  * Download behavior matrix configuration
  */
 interface DownloadBehavior {

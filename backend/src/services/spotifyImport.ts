@@ -2227,13 +2227,6 @@ const settings = await getSystemSettings();
             },
         });
 
-        // Save unmatched tracks as pending tracks for later auto-matching
-        const unmatchedTracks = job.pendingTracks.filter((_, index) => {
-            // We need to track which indices were matched
-            // Since matchedTrackIds doesn't preserve order, we need a different approach
-            return true; // We'll recalculate below
-        });
-
         // Recalculate unmatched - tracks that weren't added to playlist
         const matchedTitlesNormalized = new Set<string>();
         for (const pendingTrack of job.pendingTracks) {
