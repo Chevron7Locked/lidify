@@ -296,7 +296,7 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
                 );
             }
         },
-        [currentPodcast, isBuffering]
+        [currentPodcast]
     );
 
     // Refs for unmount progress save (kept in sync via useLayoutEffect)
