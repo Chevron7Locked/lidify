@@ -159,15 +159,16 @@ private activeDownloads = 0;
             return;
         }
 
-        // Client exists but not logged in - clean it up and allow immediate reconnect
+        // If already connecting, wait for that connection
+        if (this.connecting && this.connectPromise) {
+            return this.connectPromise;
+        }
+
+        // Client exists but not logged in AND not connecting - clean it up and allow immediate reconnect
         let cleanedUpStaleClient = false;
         if (this.client && !this.client.loggedIn) {
             this.forceDisconnect();
             cleanedUpStaleClient = true;
-        }
-
-        if (this.connecting && this.connectPromise) {
-            return this.connectPromise;
         }
 
         const now = Date.now();
