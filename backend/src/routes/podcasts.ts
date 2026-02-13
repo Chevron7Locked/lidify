@@ -1593,31 +1593,36 @@ export async function refreshPodcastFeed(podcastId: string): Promise<{ newEpisod
         },
     });
 
+    // Batch fetch all existing GUIDs to avoid N+1 queries
+    const feedGuids = episodes.map(e => e.guid).filter(Boolean);
+    const existingGuids = new Set(
+        (await prisma.podcastEpisode.findMany({
+            where: { podcastId, guid: { in: feedGuids } },
+            select: { guid: true },
+        })).map(e => e.guid)
+    );
+
     let newEpisodesCount = 0;
     for (const ep of episodes) {
-        const existing = await prisma.podcastEpisode.findUnique({
-            where: { podcastId_guid: { podcastId, guid: ep.guid } },
-        });
+        if (existingGuids.has(ep.guid)) continue;
 
-        if (!existing) {
-            await prisma.podcastEpisode.create({
-                data: {
-                    podcastId,
-                    guid: ep.guid,
-                    title: ep.title,
-                    description: ep.description,
-                    audioUrl: ep.audioUrl,
-                    duration: ep.duration,
-                    publishedAt: ep.publishedAt,
-                    episodeNumber: ep.episodeNumber,
-                    season: ep.season,
-                    imageUrl: ep.imageUrl,
-                    fileSize: ep.fileSize,
-                    mimeType: ep.mimeType,
-                },
-            });
-            newEpisodesCount++;
-        }
+        await prisma.podcastEpisode.create({
+            data: {
+                podcastId,
+                guid: ep.guid,
+                title: ep.title,
+                description: ep.description,
+                audioUrl: ep.audioUrl,
+                duration: ep.duration,
+                publishedAt: ep.publishedAt,
+                episodeNumber: ep.episodeNumber,
+                season: ep.season,
+                imageUrl: ep.imageUrl,
+                fileSize: ep.fileSize,
+                mimeType: ep.mimeType,
+            },
+        });
+        newEpisodesCount++;
     }
 
     return { newEpisodesCount, totalEpisodes: episodes.length };

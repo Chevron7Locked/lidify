@@ -272,43 +272,57 @@ router.get("/current", async (req, res) => {
         // Filter unavailable albums:
         // 1. Remove albums that successfully downloaded (have DiscoveryAlbum record)
         // 2. Remove albums that the user now owns (in Album table)
+
+        // Batch fetch: albums matching by rgMbid
+        const allUnavailableMbids = unavailableAlbums
+            .map((a) => a.albumMbid)
+            .filter(Boolean);
+        const existingByMbid = new Set(
+            (await prisma.album.findMany({
+                where: { rgMbid: { in: allUnavailableMbids } },
+                select: { rgMbid: true },
+            })).map((a) => a.rgMbid)
+        );
+
+        // Batch fetch: all library albums with their artist names for fuzzy matching
+        const libraryAlbumsForMatch = await prisma.album.findMany({
+            select: {
+                title: true,
+                artist: { select: { name: true } },
+            },
+        });
+        const libraryAlbumIndex = libraryAlbumsForMatch.map((a) => ({
+            title: a.title.toLowerCase().trim(),
+            artist: a.artist.name.toLowerCase().trim(),
+        }));
+
         const filteredUnavailable: typeof unavailableAlbums = [];
         for (const album of unavailableAlbums) {
-            // Skip if this album successfully downloaded this week
             if (successfulMbids.has(album.albumMbid)) {
                 continue;
             }
 
-            // Skip if album exists in user's library by artist+title (normalized match)
+            // Check rgMbid match from batch query
+            if (existingByMbid.has(album.albumMbid)) {
+                continue;
+            }
+
+            // Check fuzzy title/artist match in-memory
             const normalizedArtist = album.artistName.toLowerCase().trim();
             const normalizedAlbum = album.albumTitle
                 .toLowerCase()
-                .replace(/\(.*?\)/g, "") // Remove parenthetical content
-                .replace(/\[.*?\]/g, "") // Remove bracketed content
+                .replace(/\(.*?\)/g, "")
+                .replace(/\[.*?\]/g, "")
                 .trim();
 
-            const existsInLibrary = await prisma.album.findFirst({
-                where: {
-                    OR: [
-                        { rgMbid: album.albumMbid },
-                        {
-                            title: {
-                                contains: normalizedAlbum,
-                                mode: "insensitive",
-                            },
-                            artist: {
-                                name: {
-                                    contains: normalizedArtist,
-                                    mode: "insensitive",
-                                },
-                            },
-                        },
-                    ],
-                },
-            });
+            const existsInLibrary = libraryAlbumIndex.some(
+                (lib) =>
+                    lib.title.includes(normalizedAlbum) &&
+                    lib.artist.includes(normalizedArtist)
+            );
 
             if (existsInLibrary) {
-                continue; // User already owns this album, don't show as unavailable
+                continue;
             }
 
             filteredUnavailable.push(album);
@@ -1780,6 +1794,33 @@ router.post("/cleanup-lidarr", async (req, res) => {
         const artistsKept: string[] = [];
         const errors: string[] = [];
 
+        // Batch fetch all artist MBIDs that have native owned albums
+        const nativeOwnedArtistMbids = new Set(
+            (await prisma.ownedAlbum.findMany({
+                where: { source: "native_scan" },
+                select: { artist: { select: { mbid: true } } },
+                distinct: ["artistId"],
+            })).map((oa) => oa.artist.mbid).filter(Boolean)
+        );
+
+        // Batch fetch all artist MBIDs that have LIKED/MOVED discovery albums
+        const keptDiscoveryArtistMbids = new Set(
+            (await prisma.discoveryAlbum.findMany({
+                where: { status: { in: ["LIKED", "MOVED"] } },
+                select: { artistMbid: true },
+                distinct: ["artistMbid"],
+            })).map((da) => da.artistMbid)
+        );
+
+        // Batch fetch all artist MBIDs that have ACTIVE discovery albums
+        const activeDiscoveryArtistMbids = new Set(
+            (await prisma.discoveryAlbum.findMany({
+                where: { status: "ACTIVE" },
+                select: { artistMbid: true },
+                distinct: ["artistMbid"],
+            })).map((da) => da.artistMbid)
+        );
+
         for (const lidarrArtist of lidarrArtists) {
             const artistMbid = lidarrArtist.foreignArtistId;
             const artistName = lidarrArtist.artistName;
@@ -1787,35 +1828,11 @@ router.post("/cleanup-lidarr", async (req, res) => {
             if (!artistMbid) continue;
 
             try {
-                // Check if this artist has any NATIVE library content (real user library)
-                // This is more reliable than checking Album.location which can be wrong
-                const hasNativeOwnedAlbums = await prisma.ownedAlbum.findFirst({
-                    where: {
-                        artist: { mbid: artistMbid },
-                        source: "native_scan",
-                    },
-                });
-
-                // Check if artist has any LIKED/MOVED discovery albums
-                const hasKeptDiscoveryAlbums =
-                    await prisma.discoveryAlbum.findFirst({
-                        where: {
-                            artistMbid: artistMbid,
-                            status: { in: ["LIKED", "MOVED"] },
-                        },
-                    });
-
-                // Check if artist has any ACTIVE discovery albums (current playlist)
-                const hasActiveDiscoveryAlbums =
-                    await prisma.discoveryAlbum.findFirst({
-                        where: {
-                            artistMbid: artistMbid,
-                            status: "ACTIVE",
-                        },
-                    });
+                const hasNativeOwnedAlbums = nativeOwnedArtistMbids.has(artistMbid);
+                const hasKeptDiscoveryAlbums = keptDiscoveryArtistMbids.has(artistMbid);
+                const hasActiveDiscoveryAlbums = activeDiscoveryArtistMbids.has(artistMbid);
 
                 if (hasNativeOwnedAlbums || hasKeptDiscoveryAlbums) {
-                    // This artist should stay in Lidarr
                     artistsKept.push(
                         `${artistName} (has native library or kept albums)`
                     );
@@ -1823,7 +1840,6 @@ router.post("/cleanup-lidarr", async (req, res) => {
                 }
 
                 if (hasActiveDiscoveryAlbums) {
-                    // This artist has a current discovery album, keep for now
                     artistsKept.push(`${artistName} (has active discovery)`);
                     continue;
                 }
