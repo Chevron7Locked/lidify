@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { api } from "@/lib/api";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { howlerEngine } from "@/lib/howler-engine";
 
 interface PreviewableTrack {
@@ -9,6 +9,7 @@ interface PreviewableTrack {
 }
 
 export function useTrackPreview<T extends PreviewableTrack>() {
+    const { toast } = useToast();
     const [previewTrack, setPreviewTrack] = useState<string | null>(null);
     const [previewPlaying, setPreviewPlaying] = useState(false);
     const previewAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -34,7 +35,7 @@ export function useTrackPreview<T extends PreviewableTrack>() {
     const showNoPreviewToast = (trackId: string) => {
         if (toastShownForNoPreviewRef.current.has(trackId)) return;
         toastShownForNoPreviewRef.current.add(trackId);
-        toast("No Deezer preview available", { duration: 1500 });
+        toast.info("No Deezer preview available");
     };
 
     const handlePreview = async (

@@ -25,7 +25,7 @@ import {
     RefreshCw,
 } from "lucide-react";
 import { useState, useMemo } from "react";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { KeyboardShortcutsTooltip } from "./KeyboardShortcutsTooltip";
 import { cn } from "@/utils/cn";
 import { useFeatures } from "@/lib/features-context";
@@ -38,6 +38,7 @@ import { SeekSlider } from "./SeekSlider";
  * Does NOT manage audio element - that's handled by AudioElement component
  */
 export function FullPlayer() {
+    const { toast } = useToast();
     // Use split contexts to avoid re-rendering on every currentTime update
     const {
         currentTrack,
@@ -128,10 +129,7 @@ export function FullPlayer() {
             const result = await startVibeMode();
 
             if (result.success && result.trackCount > 0) {
-                toast.success(`Vibe mode on`, {
-                    description: `${result.trackCount} similar tracks queued up next`,
-                    icon: <AudioWaveform className="w-4 h-4 text-brand" />,
-                });
+                toast.success(`Vibe mode on - ${result.trackCount} similar tracks queued up next`);
             } else {
                 toast.error("Couldn't find matching tracks in your library");
             }

@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { api } from "@/lib/api";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { Trash2, Loader2, ArrowLeft } from "lucide-react";
 import type { DiscoverConfig } from "@/features/discover/types";
 
@@ -19,6 +19,7 @@ export function DiscoverSettingsTab({
     onPlaylistCleared,
     onBack,
 }: DiscoverSettingsTabProps) {
+    const { toast } = useToast();
     const [isClearing, setIsClearing] = useState(false);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
 

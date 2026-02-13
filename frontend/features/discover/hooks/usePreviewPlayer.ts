@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { howlerEngine } from "@/lib/howler-engine";
 
 export function usePreviewPlayer() {
+    const { toast } = useToast();
     const [currentPreview, setCurrentPreview] = useState<string | null>(null);
     const [previewAudios, setPreviewAudios] = useState<
         Map<string, HTMLAudioElement>
@@ -101,7 +102,7 @@ export function usePreviewPlayer() {
                     });
             }
         },
-        [currentPreview, previewAudios]
+        [toast, currentPreview, previewAudios]
     );
 
     return {

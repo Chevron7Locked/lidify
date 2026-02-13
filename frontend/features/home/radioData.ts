@@ -2,9 +2,8 @@ import { api } from "@/lib/api";
 import { useAudioControls } from "@/lib/audio-controls-context";
 import { Track } from "@/lib/audio-state-context";
 import { shuffleArray } from "@/utils/shuffle";
-import { toast } from "sonner";
-import { Shuffle } from "lucide-react";
-import { createElement, useState } from "react";
+import { useToast } from "@/lib/toast-context";
+import { useState } from "react";
 
 export interface RadioStation {
     id: string;
@@ -136,6 +135,7 @@ function getDecadeName(decade: number): string {
 }
 
 export function useRadioPlayer() {
+    const { toast } = useToast();
     const { playTracks } = useAudioControls();
     const [loadingStation, setLoadingStation] = useState<string | null>(null);
 
@@ -156,18 +156,13 @@ export function useRadioPlayer() {
                 return;
             }
             if (response.tracks.length < (station.minTracks || 10)) {
-                toast.error(`Not enough tracks for ${station.name} radio`, {
-                    description: `Found ${response.tracks.length}, need at least ${station.minTracks || 10}`,
-                });
+                toast.error(`Not enough tracks for ${station.name} radio (found ${response.tracks.length}, need ${station.minTracks || 10})`);
                 return;
             }
 
             const shuffled = shuffleArray(response.tracks);
             playTracks(shuffled, 0);
-            toast.success(`${station.name} Radio`, {
-                description: `Shuffling ${shuffled.length} tracks`,
-                icon: createElement(Shuffle, { className: "w-4 h-4" }),
-            });
+            toast.success(`${station.name} Radio - Shuffling ${shuffled.length} tracks`);
         } catch (error) {
             console.error("Failed to start radio:", error);
             toast.error("Failed to start radio station");

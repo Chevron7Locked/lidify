@@ -26,7 +26,7 @@ import {
     AlertTriangle,
     RefreshCw,
 } from "lucide-react";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { cn } from "@/utils/cn";
 import { clampTime } from "@/utils/formatTime";
 import { useState, useRef, useEffect, lazy, Suspense } from "react";
@@ -37,6 +37,7 @@ import { useFeatures } from "@/lib/features-context";
 const EnhancedVibeOverlay = lazy(() => import("./VibeOverlayEnhanced").then(mod => ({ default: mod.EnhancedVibeOverlay })));
 
 export function MiniPlayer() {
+    const { toast } = useToast();
     const {
         currentTrack,
         currentAudiobook,
@@ -119,10 +120,7 @@ export function MiniPlayer() {
             const result = await startVibeMode();
 
             if (result.success && result.trackCount > 0) {
-                toast.success(`Vibe mode on`, {
-                    description: `${result.trackCount} similar tracks queued up next`,
-                    icon: <AudioWaveform className="w-4 h-4 text-brand" />,
-                });
+                toast.success(`Vibe mode on - ${result.trackCount} similar tracks queued up next`);
             } else {
                 toast.error("Couldn't find matching tracks in your library");
             }

@@ -20,7 +20,7 @@ import {
     Flame,
     Guitar,
 } from "lucide-react";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 
 interface MoodMixerProps {
     isOpen: boolean;
@@ -107,6 +107,7 @@ const MOOD_ORDER: MoodType[] = [
 ];
 
 export function MoodMixer({ isOpen, onClose }: MoodMixerProps) {
+    const { toast } = useToast();
     const { playTracks } = useAudioControls();
     const queryClient = useQueryClient();
     const [presets, setPresets] = useState<MoodBucketPreset[]>([]);
@@ -168,9 +169,7 @@ export function MoodMixer({ isOpen, onClose }: MoodMixerProps) {
                 // Save as user's active mood mix
                 await api.saveMoodBucketMix(mood);
 
-                toast.success(`${config.label} Mix`, {
-                    description: `Playing ${tracks.length} tracks`,
-                });
+                toast.success(`${config.label} Mix - Playing ${tracks.length} tracks`);
 
                 // Force immediate refetch of mixes on home page
                 // Using refetchQueries instead of invalidateQueries for immediate update
@@ -182,10 +181,7 @@ export function MoodMixer({ isOpen, onClose }: MoodMixerProps) {
 
                 onClose();
             } else {
-                toast.error("Not enough tracks for this mood", {
-                    description:
-                        "Try analyzing more music or choose a different mood",
-                });
+                toast.error("Not enough tracks for this mood - try analyzing more music or choose a different mood");
             }
         } catch (error: unknown) {
             console.error("Failed to generate mood mix:", error);

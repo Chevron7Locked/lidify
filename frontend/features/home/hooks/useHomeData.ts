@@ -8,7 +8,7 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import type {
     Artist,
     ListenedItem,
@@ -66,6 +66,7 @@ export interface UseHomeDataReturn {
  * @returns {UseHomeDataReturn} All home page data and loading states
  */
 export function useHomeData(): UseHomeDataReturn {
+    const { toast } = useToast();
     const { isAuthenticated } = useAuth();
     const queryClient = useQueryClient();
 

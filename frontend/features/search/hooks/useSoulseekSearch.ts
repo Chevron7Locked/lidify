@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { searchResultStore } from "@/lib/search-result-store";
 import type { SoulseekResult } from "../types";
 
@@ -24,6 +24,7 @@ interface UseSoulseekSearchReturn {
 export function useSoulseekSearch({
     query,
 }: UseSoulseekSearchProps): UseSoulseekSearchReturn {
+    const { toast } = useToast();
     const queryClient = useQueryClient();
     const [soulseekResults, setSoulseekResults] = useState<SoulseekResult[]>([]);
     const [isSoulseekSearching, setIsSoulseekSearching] = useState(false);
@@ -164,7 +165,7 @@ export function useSoulseekSearch({
                 return newSet;
             });
         }
-    }, [queryClient]);
+    }, [toast, queryClient]);
 
     const handleBulkDownload = useCallback(async (results: SoulseekResult[]) => {
         for (const result of results) {

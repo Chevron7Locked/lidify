@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useAudio } from "@/lib/audio-context";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { api } from "@/lib/api";
 import { DiscoverTrack, DiscoverPlaylist } from "../types";
 
@@ -13,6 +13,7 @@ export function useDiscoverActions(
     markGenerationStart?: () => void,
     updateTrackLiked?: (albumId: string, isLiked: boolean) => void
 ) {
+    const { toast } = useToast();
     const { playTracks, isPlaying, pause, resume } = useAudio();
 
     const handleGenerate = useCallback(async () => {
@@ -51,7 +52,7 @@ export function useDiscoverActions(
                 toast.error(err.message || "Failed to generate playlist");
             }
         }
-    }, [isGenerating, refreshBatchStatus, setPendingGeneration, markGenerationStart]);
+    }, [toast, isGenerating, refreshBatchStatus, setPendingGeneration, markGenerationStart]);
 
     const handleLike = useCallback(
         async (track: DiscoverTrack) => {
@@ -78,7 +79,7 @@ export function useDiscoverActions(
                 toast.error(error instanceof Error ? error.message : "Failed to update");
             }
         },
-        [onGenerationComplete, updateTrackLiked]
+        [toast, onGenerationComplete, updateTrackLiked]
     );
 
     const handlePlayPlaylist = useCallback(() => {

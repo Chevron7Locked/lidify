@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Edit, X, Save } from "lucide-react";
 import { api } from "@/lib/api";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { GradientSpinner } from "./ui/GradientSpinner";
 import Image from "next/image";
 
@@ -44,6 +44,7 @@ export function MetadataEditor({
     currentData,
     onSave,
 }: MetadataEditorProps) {
+    const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isResetting, setIsResetting] = useState(false);

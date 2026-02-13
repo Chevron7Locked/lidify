@@ -24,11 +24,12 @@ import {
 import { formatTime, clampTime, formatTimeRemaining } from "@/utils/formatTime";
 import { cn } from "@/utils/cn";
 import { useIsMobile, useIsTablet } from "@/hooks/useMediaQuery";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { SeekSlider } from "./SeekSlider";
 import { useFeatures } from "@/lib/features-context";
 
 export function OverlayPlayer() {
+    const { toast } = useToast();
     const {
         currentTrack,
         currentAudiobook,
@@ -161,10 +162,7 @@ export function OverlayPlayer() {
             const result = await startVibeMode();
 
             if (result.success && result.trackCount > 0) {
-                toast.success(`Vibe mode on`, {
-                    description: `${result.trackCount} similar tracks queued`,
-                    icon: <AudioWaveform className="w-4 h-4 text-brand" />,
-                });
+                toast.success(`Vibe mode on - ${result.trackCount} similar tracks queued`);
             } else {
                 toast.error("Couldn't find matching tracks");
             }

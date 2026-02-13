@@ -1,10 +1,11 @@
 import { useCallback } from 'react';
 import { api } from '@/lib/api';
-import { toast } from 'sonner';
+import { useToast } from '@/lib/toast-context';
 import { useDownloadContext } from '@/lib/download-context';
 import { Artist, Album } from '../types';
 
 export function useDownloadActions() {
+  const { toast } = useToast();
   const { addPendingDownload, isPendingByMbid } = useDownloadContext();
 
   const downloadArtist = useCallback(
@@ -29,26 +30,18 @@ export function useDownloadActions() {
         // Add to pending downloads
         addPendingDownload('artist', artist.name, artist.mbid);
 
-        // Show immediate feedback
-        toast.loading(`Preparing download: "${artist.name}"...`, {
-          id: `download-${artist.mbid}`,
-        });
+        toast.info(`Preparing download: "${artist.name}"...`);
 
         // Trigger download
         await api.downloadArtist(artist.name, artist.mbid);
 
-        // Update the loading toast to success
-        toast.success(`Downloading ${artist.name}`, {
-          id: `download-${artist.mbid}`,
-        });
+        toast.success(`Downloading ${artist.name}`);
       } catch (error: unknown) {
         console.error('Failed to download artist:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to download artist', {
-          id: `download-${artist.mbid}`,
-        });
+        toast.error(error instanceof Error ? error.message : 'Failed to download artist');
       }
     },
-    [addPendingDownload, isPendingByMbid]
+    [toast, addPendingDownload, isPendingByMbid]
   );
 
   const downloadAlbum = useCallback(
@@ -74,26 +67,18 @@ export function useDownloadActions() {
         // Add to pending downloads
         addPendingDownload('album', `${artistName} - ${album.title}`, mbid);
 
-        // Show immediate feedback
-        toast.loading(`Preparing download: "${album.title}"...`, {
-          id: `download-${mbid}`,
-        });
+        toast.info(`Preparing download: "${album.title}"...`);
 
         // Trigger download
         await api.downloadAlbum(artistName, album.title, mbid);
 
-        // Update the loading toast to success
-        toast.success(`Downloading ${album.title}`, {
-          id: `download-${mbid}`,
-        });
+        toast.success(`Downloading ${album.title}`);
       } catch (error: unknown) {
         console.error('Failed to download album:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to download album', {
-          id: `download-${mbid}`,
-        });
+        toast.error(error instanceof Error ? error.message : 'Failed to download album');
       }
     },
-    [addPendingDownload, isPendingByMbid]
+    [toast, addPendingDownload, isPendingByMbid]
   );
 
   return {

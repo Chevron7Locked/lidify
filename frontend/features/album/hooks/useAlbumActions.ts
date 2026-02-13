@@ -2,10 +2,11 @@ import { api } from "@/lib/api";
 import { useAudioControls } from "@/lib/audio-context";
 import { useDownloadContext } from "@/lib/download-context";
 import { shuffleArray } from "@/utils/shuffle";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { Album, Track } from "../types";
 
 export function useAlbumActions() {
+    const { toast } = useToast();
     // Use controls-only hook to avoid re-renders from playback state changes
     const {
         playTracks,
@@ -145,10 +146,7 @@ export function useAlbumActions() {
         try {
             addPendingDownload("album", album.title, mbid);
 
-            // Show immediate feedback to user
-            toast.loading(`Preparing download: "${album.title}"...`, {
-                id: `download-${mbid}`,
-            });
+            toast.info(`Preparing download: "${album.title}"...`);
 
             await api.downloadAlbum(
                 album.artist?.name || "Unknown Artist",
@@ -156,14 +154,9 @@ export function useAlbumActions() {
                 mbid
             );
 
-            // Update the loading toast to success
-            toast.success(`Downloading "${album.title}"`, {
-                id: `download-${mbid}`,
-            });
+            toast.success(`Downloading "${album.title}"`);
         } catch {
-            toast.error("Failed to start album download", {
-                id: `download-${mbid}`,
-            });
+            toast.error("Failed to start album download");
         }
     };
 

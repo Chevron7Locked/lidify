@@ -1,5 +1,5 @@
 import { useParams, useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/hooks/useQueries";
 import { api } from "@/lib/api";
@@ -7,6 +7,7 @@ import type { AlbumSource } from "../types";
 import { useMemo, useEffect } from "react";
 
 export function useAlbumData(albumId?: string) {
+    const { toast } = useToast();
     const params = useParams();
     const router = useRouter();
     const id = albumId || (params.id as string);
@@ -44,7 +45,7 @@ export function useAlbumData(albumId?: string) {
             toast.error("Failed to load album");
             router.back();
         }
-    }, [error, isLoading, router]);
+    }, [error, isLoading, router, toast]);
 
     return {
         album,

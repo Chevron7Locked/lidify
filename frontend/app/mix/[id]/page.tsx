@@ -10,7 +10,7 @@ import { Play, Pause, Music, Shuffle, Save, ListPlus } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { formatTime } from "@/utils/formatTime";
 import { shuffleArray } from "@/utils/shuffle";
-import { toast } from "sonner";
+import { useToast } from "@/lib/toast-context";
 import { useMixQuery } from "@/hooks/useQueries";
 
 interface MixTrack {
@@ -29,6 +29,7 @@ interface MixTrack {
 }
 
 export default function MixPage() {
+    const { toast } = useToast();
     const params = useParams();
     const router = useRouter();
     const mixId = params.id as string;
