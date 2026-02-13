@@ -127,7 +127,7 @@ const TrackRow = memo(
                             handleRowClick(e);
                         }}
                         className="w-full flex items-center justify-center"
-                        aria-label={isPlaying ? "Now playing" : "Play"}
+                        aria-label={isPlaying ? "Pause" : "Play"}
                     >
                         <span
                             className={cn(

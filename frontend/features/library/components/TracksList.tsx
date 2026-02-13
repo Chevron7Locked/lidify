@@ -64,7 +64,7 @@ const TrackRow = memo(
                             onPlayTrack();
                         }}
                         className="w-8 h-8 flex items-center justify-center"
-                        aria-label="Play"
+                        aria-label={isCurrentlyPlaying ? "Pause" : "Play"}
                     >
                         <span
                             className={cn(

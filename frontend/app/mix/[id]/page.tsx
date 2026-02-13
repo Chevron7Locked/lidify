@@ -319,7 +319,7 @@ export default function MixPage() {
                                                     handlePlayTrack(index);
                                                 }}
                                                 className="w-8 h-8 flex items-center justify-center"
-                                                aria-label="Play"
+                                                aria-label={isCurrentlyPlaying && isPlaying ? "Pause" : "Play"}
                                             >
                                                 <span
                                                     className={cn(
