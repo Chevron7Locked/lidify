@@ -27,6 +27,12 @@ export function useMediaSession() {
         currentTime,
     } = useAudio();
 
+    const currentTimeRef = useRef(currentTime);
+
+    useEffect(() => {
+        currentTimeRef.current = currentTime;
+    }, [currentTime]);
+
     // Track if this device has initiated playback locally
     // Prevents cross-device media session interference from state sync
     const hasPlayedLocallyRef = useRef(false);
@@ -240,7 +246,7 @@ export function useMediaSession() {
                 previous();
             } else {
                 // For audiobooks/podcasts, seek backward 30s
-                seek(Math.max(currentTime - 30, 0));
+                seek(Math.max(currentTimeRef.current - 30, 0));
             }
         });
 
@@ -251,7 +257,7 @@ export function useMediaSession() {
                 // For audiobooks/podcasts, seek forward 30s
                 const duration =
                     currentAudiobook?.duration || currentPodcast?.duration || 0;
-                seek(Math.min(currentTime + 30, duration));
+                seek(Math.min(currentTimeRef.current + 30, duration));
             }
         });
 
@@ -261,7 +267,7 @@ export function useMediaSession() {
                 "seekbackward",
                 (details) => {
                     const skipTime = details.seekOffset || 10;
-                    seek(Math.max(currentTime - skipTime, 0));
+                    seek(Math.max(currentTimeRef.current - skipTime, 0));
                 }
             );
 
@@ -274,7 +280,7 @@ export function useMediaSession() {
                         currentAudiobook?.duration ||
                         currentPodcast?.duration ||
                         0;
-                    seek(Math.min(currentTime + skipTime, duration));
+                    seek(Math.min(currentTimeRef.current + skipTime, duration));
                 }
             );
 
@@ -315,7 +321,6 @@ export function useMediaSession() {
         next,
         previous,
         seek,
-        currentTime,
         playbackType,
         currentTrack,
         currentAudiobook,

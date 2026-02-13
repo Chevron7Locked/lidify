@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAudio } from '@/lib/audio-context';
 import { useIsTV } from '@/lib/tv-utils';
 
@@ -36,6 +36,17 @@ export function useKeyboardShortcuts() {
     currentPodcast,
   } = useAudio();
 
+  const currentTimeRef = useRef(currentTime);
+  const volumeRef = useRef(volume);
+
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
+
   useEffect(() => {
     // Disable keyboard shortcuts on TV - use remote's media keys instead
     if (isTV) return;
@@ -71,22 +82,22 @@ export function useKeyboardShortcuts() {
         case 'arrowright': // Right arrow - Seek forward 10s
           if (playbackType === 'track' || playbackType === 'audiobook' || playbackType === 'podcast') {
             const duration = currentTrack?.duration || currentAudiobook?.duration || currentPodcast?.duration || 0;
-            seek(Math.min(currentTime + 10, duration));
+            seek(Math.min(currentTimeRef.current + 10, duration));
           }
           break;
 
         case 'arrowleft': // Left arrow - Seek backward 10s
           if (playbackType === 'track' || playbackType === 'audiobook' || playbackType === 'podcast') {
-            seek(Math.max(currentTime - 10, 0));
+            seek(Math.max(currentTimeRef.current - 10, 0));
           }
           break;
 
         case 'arrowup': // Up arrow - Volume up 10%
-          setVolume(Math.min(volume + 0.1, 1));
+          setVolume(Math.min(volumeRef.current + 0.1, 1));
           break;
 
         case 'arrowdown': // Down arrow - Volume down 10%
-          setVolume(Math.max(volume - 0.1, 0));
+          setVolume(Math.max(volumeRef.current - 0.1, 0));
           break;
 
         case 'm': // M - Toggle mute
@@ -126,9 +137,7 @@ export function useKeyboardShortcuts() {
     next,
     previous,
     seek,
-    currentTime,
     setVolume,
-    volume,
     toggleMute,
     toggleShuffle,
     playbackType,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useAudio } from "@/lib/audio-context";
+import { useAudioState, useAudioPlayback, useAudioControls } from "@/lib/audio-context";
 import { useMediaInfo } from "@/hooks/useMediaInfo";
 import Image from "next/image";
 import Link from "next/link";
@@ -35,16 +35,21 @@ export function OverlayPlayer() {
         currentAudiobook,
         currentPodcast,
         playbackType,
+        isShuffle,
+        repeatMode,
+        vibeMode,
+    } = useAudioState();
+    const {
         isPlaying,
         isBuffering,
         currentTime,
         canSeek,
         downloadProgress,
-        isShuffle,
-        repeatMode,
-        vibeMode,
         audioError,
         clearAudioError,
+        duration: playbackDuration,
+    } = useAudioPlayback();
+    const {
         pause,
         resume,
         next,
@@ -57,8 +62,7 @@ export function OverlayPlayer() {
         toggleRepeat,
         startVibeMode,
         stopVibeMode,
-        duration: playbackDuration,
-    } = useAudio();
+    } = useAudioControls();
 
     const isMobile = useIsMobile();
     const isTablet = useIsTablet();

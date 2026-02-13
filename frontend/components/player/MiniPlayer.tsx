@@ -1,6 +1,6 @@
 "use client";
 
-import { useAudio } from "@/lib/audio-context";
+import { useAudioState, useAudioPlayback, useAudioControls } from "@/lib/audio-context";
 import { useMediaInfo } from "@/hooks/useMediaInfo";
 import { useIsMobile, useIsTablet } from "@/hooks/useMediaQuery";
 import Image from "next/image";
@@ -43,19 +43,23 @@ export function MiniPlayer() {
         currentAudiobook,
         currentPodcast,
         playbackType,
-        isPlaying,
-        isBuffering,
         isShuffle,
         repeatMode,
+        vibeMode,
+        queue,
+        currentIndex,
+    } = useAudioState();
+    const {
+        isPlaying,
+        isBuffering,
         currentTime,
         duration: playbackDuration,
         canSeek,
         downloadProgress,
-        vibeMode,
-        queue,
-        currentIndex,
         audioError,
         clearAudioError,
+    } = useAudioPlayback();
+    const {
         pause,
         resume,
         next,
@@ -68,7 +72,7 @@ export function MiniPlayer() {
         setPlayerMode,
         startVibeMode,
         stopVibeMode,
-    } = useAudio();
+    } = useAudioControls();
     const isMobile = useIsMobile();
     const isTablet = useIsTablet();
     const isMobileOrTablet = isMobile || isTablet;

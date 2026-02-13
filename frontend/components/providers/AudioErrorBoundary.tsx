@@ -36,14 +36,7 @@ export class AudioErrorBoundary extends Component<Props, State> {
 
     render() {
         if (this.state.hasError) {
-            // If there's a custom fallback, use it
-            if (this.props.fallback) {
-                return this.props.fallback;
-            }
-            
-            // Otherwise, render children without audio functionality
-            // This allows the app to continue working, just without audio
-            return this.props.children;
+            return this.props.fallback || null;
         }
 
         return this.props.children;

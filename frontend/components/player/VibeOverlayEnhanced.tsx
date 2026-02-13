@@ -99,6 +99,11 @@ const AudioWaveform = memo(function AudioWaveform({
         resize();
 
         const animate = () => {
+            if (document.hidden) {
+                animationRef.current = requestAnimationFrame(animate);
+                return;
+            }
+
             const width = canvas.offsetWidth;
             const height = canvas.offsetHeight;
 

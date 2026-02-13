@@ -112,11 +112,13 @@ export default function AudiobooksPage() {
         return inProgress;
     }, [audiobooks, currentAudiobook]);
 
-    const allGenres = Array.from(
-        new Set(audiobooks.flatMap((book) => book.genres || []))
-    ).sort();
+    const allGenres = useMemo(() =>
+        Array.from(
+            new Set(audiobooks.flatMap((book) => book.genres || []))
+        ).sort(),
+    [audiobooks]);
 
-    const getFilteredAndSortedBooks = () => {
+    const filteredBooks = useMemo(() => {
         let filtered = audiobooks;
         switch (filter) {
             case "listening":
@@ -172,9 +174,7 @@ export default function AudiobooksPage() {
         }
 
         return sorted;
-    };
-
-    const filteredBooks = getFilteredAndSortedBooks();
+    }, [audiobooks, filter, continueListening, selectedGenre, sortBy]);
 
     const totalPages = Math.ceil(filteredBooks.length / itemsPerPage);
     const paginatedBooks = useMemo(() => {
@@ -189,9 +189,9 @@ export default function AudiobooksPage() {
         setCurrentPage(1);
     }
 
-    const getSeriesAndStandalone = () => {
+    const { series, standalone } = useMemo(() => {
         const seriesMap = new Map<string, Audiobook[]>();
-        const standalone: Audiobook[] = [];
+        const standaloneBooks: Audiobook[] = [];
 
         paginatedBooks.forEach((book) => {
             if (book.series && book.series.name && book.series.name.trim() !== "") {
@@ -201,7 +201,7 @@ export default function AudiobooksPage() {
                 }
                 seriesMap.get(seriesName)!.push(book);
             } else {
-                standalone.push(book);
+                standaloneBooks.push(book);
             }
         });
 
@@ -213,10 +213,8 @@ export default function AudiobooksPage() {
             });
         });
 
-        return { series: Array.from(seriesMap.entries()), standalone };
-    };
-
-    const { series, standalone } = getSeriesAndStandalone();
+        return { series: Array.from(seriesMap.entries()), standalone: standaloneBooks };
+    }, [paginatedBooks]);
 
     const getCoverUrl = (coverUrl: string | null, size = 300) => {
         if (!coverUrl) return null;

@@ -73,6 +73,17 @@ export function TVLayout({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
+    const currentTimeRef = useRef(currentTime);
+    const durationRef = useRef(duration);
+
+    useEffect(() => {
+        currentTimeRef.current = currentTime;
+    }, [currentTime]);
+
+    useEffect(() => {
+        durationRef.current = duration;
+    }, [duration]);
+
     const hasMedia = !!(currentTrack || currentAudiobook || currentPodcast);
 
     let title = "";
@@ -142,12 +153,12 @@ export function TVLayout({ children }: { children: React.ReactNode }) {
                 case DPAD_KEYS.FAST_FORWARD:
                 case "MediaFastForward":
                     e.preventDefault();
-                    seek(Math.min(currentTime + 10, duration));
+                    seek(Math.min(currentTimeRef.current + 10, durationRef.current));
                     return;
                 case DPAD_KEYS.REWIND:
                 case "MediaRewind":
                     e.preventDefault();
-                    seek(Math.max(currentTime - 10, 0));
+                    seek(Math.max(currentTimeRef.current - 10, 0));
                     return;
             }
         }
@@ -172,7 +183,7 @@ export function TVLayout({ children }: { children: React.ReactNode }) {
             // Delegate to content navigation hook
             handleContentKeyDown(e);
         }
-    }, [isNavFocused, focusedTabIndex, router, hasMedia, isPlaying, pause, resume, next, previous, seek, currentTime, duration, focusFirstCard, handleContentKeyDown]);
+    }, [isNavFocused, focusedTabIndex, router, hasMedia, isPlaying, pause, resume, next, previous, seek, focusFirstCard, handleContentKeyDown]);
 
     useEffect(() => {
         window.addEventListener("keydown", handleKeyDown);
