@@ -5,5 +5,3 @@ export { SettingsRow } from "./SettingsRow";
 export { SettingsToggle } from "./SettingsToggle";
 export { SettingsSelect } from "./SettingsSelect";
 export { SettingsInput } from "./SettingsInput";
-export { ConnectionCard } from "./ConnectionCard";
-

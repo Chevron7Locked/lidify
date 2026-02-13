@@ -1,8 +1,5 @@
 export { PlaybackStateMachine, playbackStateMachine } from './playback-state-machine';
 export type { PlaybackState, StateContext, StateListener } from './playback-state-machine';
 
-export { OperationLock, operationLock } from './operation-lock';
-export type { OperationType } from './operation-lock';
-
 export { HeartbeatMonitor } from './heartbeat-monitor';
 export type { HeartbeatConfig, HeartbeatCallbacks } from './heartbeat-monitor';
