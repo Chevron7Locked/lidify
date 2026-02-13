@@ -166,7 +166,14 @@ class HowlerEngine {
                 this.state.duration = this.howl.duration() || 0;
 
                 // Use setTimeout to emit after caller registers listeners
+                // Guard against staleness: if a newer load replaces this one before
+                // the microtask fires, bail out to prevent playing the wrong track
+                const loadedHowl = this.howl;
+                const loadedSrc = src;
                 setTimeout(() => {
+                    if (this.howl !== loadedHowl || this.state.currentSrc !== loadedSrc) {
+                        return; // A newer load replaced this one
+                    }
                     this.emit("load", { duration: this.state.duration });
                     if (autoplay) {
                         this.play();
