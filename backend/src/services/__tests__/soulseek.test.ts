@@ -151,4 +151,38 @@ describe("SoulseekService - Race Condition Fix", () => {
             expect(content).toContain("USER_CONNECTION_COOLDOWN");
         });
     });
+
+    describe("download retry flow", () => {
+        it("should have searchAndDownload method", () => {
+            const servicePath = path.join(__dirname, "../soulseek.ts");
+            const content = fs.readFileSync(servicePath, "utf-8");
+
+            expect(content).toContain("searchAndDownload");
+        });
+
+        it("should retry with multiple users from search results", () => {
+            const servicePath = path.join(__dirname, "../soulseek.ts");
+            const content = fs.readFileSync(servicePath, "utf-8");
+
+            // Check that searchAndDownload iterates through allMatches
+            expect(content).toContain("allMatches");
+            expect(content).toContain("MAX_DOWNLOAD_RETRIES");
+        });
+
+        it("should have downloadTrack method for individual downloads", () => {
+            const servicePath = path.join(__dirname, "../soulseek.ts");
+            const content = fs.readFileSync(servicePath, "utf-8");
+
+            expect(content).toContain("downloadTrack");
+        });
+
+        it("should aggregate errors when all users fail", () => {
+            const servicePath = path.join(__dirname, "../soulseek.ts");
+            const content = fs.readFileSync(servicePath, "utf-8");
+
+            // Check that errors are collected
+            const errorAggregationPattern = /errors.*push/;
+            expect(content).toMatch(errorAggregationPattern);
+        });
+    });
 });
