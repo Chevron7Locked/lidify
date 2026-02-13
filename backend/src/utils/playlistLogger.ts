@@ -49,11 +49,9 @@ function initSessionLog(): void {
 ================================================================================
 
 `;
-    try {
-        fs.writeFileSync(SESSION_LOG, header);
-    } catch (error) {
+    fs.promises.writeFile(SESSION_LOG, header).catch((error) => {
         logger.error('Failed to initialize session log:', error);
-    }
+    });
 }
 
 // Write to session log (unified log for all components)
@@ -62,11 +60,9 @@ function writeToSessionLog(component: string, level: string, message: string): v
     const timestamp = new Date().toISOString().split('T')[1].replace('Z', '');
     const line = `[${timestamp}] [${component}] [${level}] ${message}\n`;
 
-    try {
-        fs.appendFileSync(SESSION_LOG, line);
-    } catch (error) {
+    fs.promises.appendFile(SESSION_LOG, line).catch(() => {
         // Silently fail - don't spam console
-    }
+    });
 }
 
 /**
@@ -150,12 +146,11 @@ class PlaylistLogger {
     }
 
     private flush(): void {
-        try {
-            fs.appendFileSync(this.logFile, this.buffer.join(''));
-            this.buffer = [];
-        } catch (error) {
+        const data = this.buffer.join('');
+        this.buffer = [];
+        fs.promises.appendFile(this.logFile, data).catch((error) => {
             logger.error(`[Playlist Logger] Failed to write to ${this.logFile}:`, error);
-        }
+        });
     }
 
     info(message: string): void {
@@ -269,10 +264,8 @@ export function logPlaylistEvent(message: string): void {
     
     logger.debug(`[Playlist] ${message}`);
     
-    try {
-        fs.appendFileSync(eventsFile, line);
-    } catch (error) {
+    fs.promises.appendFile(eventsFile, line).catch((error) => {
         logger.error(`Failed to write to events log:`, error);
-    }
+    });
 }
 

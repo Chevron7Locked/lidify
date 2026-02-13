@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import axios, { AxiosInstance } from "axios";
 import { logger } from "../utils/logger";
 import { redisClient } from "../utils/redis";
@@ -140,7 +141,7 @@ class WikidataService {
 
             // Convert to Wikimedia Commons URL
             const fileName = imageName.replace(/ /g, "_");
-            const md5 = require("crypto")
+            const md5 = crypto
                 .createHash("md5")
                 .update(fileName)
                 .digest("hex");

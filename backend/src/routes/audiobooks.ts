@@ -1,10 +1,15 @@
 import { Router } from "express";
+import * as fs from "fs";
+import * as path from "path";
 import { logger } from "../utils/logger";
 import { audiobookshelfService } from "../services/audiobookshelf";
 import { audiobookCacheService } from "../services/audiobookCache";
 import { prisma } from "../utils/db";
 import { requireAuthOrToken } from "../middleware/auth";
 import { imageLimiter, apiLimiter } from "../middleware/rateLimiter";
+import { getSystemSettings } from "../utils/systemSettings";
+import { notificationService } from "../services/notificationService";
+import { config } from "../config";
 
 const router = Router();
 
@@ -19,10 +24,6 @@ router.get(
     apiLimiter,
     async (req, res) => {
         try {
-            // Check if Audiobookshelf is enabled
-            const { getSystemSettings } = await import(
-                "../utils/systemSettings"
-            );
             const settings = await getSystemSettings();
 
             if (!settings?.audiobookshelfEnabled) {
@@ -74,8 +75,6 @@ router.get(
  */
 router.post("/sync", requireAuthOrToken, apiLimiter, async (req, res) => {
     try {
-        const { getSystemSettings } = await import("../utils/systemSettings");
-        const { notificationService } = await import("../services/notificationService");
         const settings = await getSystemSettings();
 
         if (!settings?.audiobookshelfEnabled) {
@@ -125,7 +124,6 @@ router.post("/sync", requireAuthOrToken, apiLimiter, async (req, res) => {
 router.get("/debug-series", requireAuthOrToken, async (req, res) => {
     logger.debug("[Audiobooks] Debug series endpoint called");
     try {
-        const { getSystemSettings } = await import("../utils/systemSettings");
         const settings = await getSystemSettings();
 
         if (!settings?.audiobookshelfEnabled) {
@@ -191,8 +189,6 @@ router.get("/debug-series", requireAuthOrToken, async (req, res) => {
  */
 router.get("/search", requireAuthOrToken, apiLimiter, async (req, res) => {
     try {
-        // Check if Audiobookshelf is enabled
-        const { getSystemSettings } = await import("../utils/systemSettings");
         const settings = await getSystemSettings();
 
         if (!settings?.audiobookshelfEnabled) {
@@ -223,8 +219,6 @@ router.get("/search", requireAuthOrToken, apiLimiter, async (req, res) => {
 router.get("/", requireAuthOrToken, apiLimiter, async (req, res) => {
     logger.debug("[Audiobooks] GET / - fetching audiobooks list");
     try {
-        // Check if Audiobookshelf is enabled first
-        const { getSystemSettings } = await import("../utils/systemSettings");
         const settings = await getSystemSettings();
 
         if (!settings?.audiobookshelfEnabled) {
@@ -315,10 +309,6 @@ router.get(
     apiLimiter,
     async (req, res) => {
         try {
-            // Check if Audiobookshelf is enabled
-            const { getSystemSettings } = await import(
-                "../utils/systemSettings"
-            );
             const settings = await getSystemSettings();
 
             if (!settings?.audiobookshelfEnabled) {
@@ -426,9 +416,6 @@ router.options("/:id/cover", (req, res) => {
 router.get("/:id/cover", async (req, res) => {
     try {
         const { id } = req.params;
-        const fs = await import("fs");
-        const path = await import("path");
-        const { config } = await import("../config");
 
         const audiobook = await prisma.audiobook.findUnique({
             where: { id },
@@ -469,9 +456,8 @@ router.get("/:id/cover", async (req, res) => {
 
         // Fallback: proxy from Audiobookshelf if coverUrl is available
         if (audiobook?.coverUrl) {
-            const { getSystemSettings } = await import("../utils/systemSettings");
             const settings = await getSystemSettings();
-            
+
             if (settings?.audiobookshelfUrl && settings?.audiobookshelfApiKey) {
                 const baseUrl = settings.audiobookshelfUrl.replace(/\/$/, "");
                 const coverApiUrl = `${baseUrl}/api/${audiobook.coverUrl}`;
@@ -518,8 +504,6 @@ router.get("/:id/cover", async (req, res) => {
  */
 router.get("/:id", requireAuthOrToken, apiLimiter, async (req, res) => {
     try {
-        // Check if Audiobookshelf is enabled
-        const { getSystemSettings } = await import("../utils/systemSettings");
         const settings = await getSystemSettings();
 
         if (!settings?.audiobookshelfEnabled) {
@@ -620,8 +604,6 @@ router.get("/:id/stream", requireAuthOrToken, async (req, res) => {
         );
         logger.debug(`[Audiobook Stream] User: ${req.user?.id || "unknown"}`);
 
-        // Check if Audiobookshelf is enabled
-        const { getSystemSettings } = await import("../utils/systemSettings");
         const settings = await getSystemSettings();
 
         if (!settings?.audiobookshelfEnabled) {
@@ -708,10 +690,6 @@ router.post(
     apiLimiter,
     async (req, res) => {
         try {
-            // Check if Audiobookshelf is enabled
-            const { getSystemSettings } = await import(
-                "../utils/systemSettings"
-            );
             const settings = await getSystemSettings();
 
             if (!settings?.audiobookshelfEnabled) {
@@ -883,10 +861,6 @@ router.delete(
     apiLimiter,
     async (req, res) => {
         try {
-            // Check if Audiobookshelf is enabled
-            const { getSystemSettings } = await import(
-                "../utils/systemSettings"
-            );
             const settings = await getSystemSettings();
 
             if (!settings?.audiobookshelfEnabled) {

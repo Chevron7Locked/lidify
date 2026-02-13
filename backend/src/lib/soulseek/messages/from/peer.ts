@@ -70,6 +70,9 @@ export const fromPeerMessage = {
   sharedFileListRequest: (): SharedFileListRequest => {
     return { kind: 'sharedFileListRequest' }
   },
+  // TODO: Replace zlib.unzipSync with async zlib.unzip (promisified) to avoid
+  // blocking the event loop on large search responses. Requires making this
+  // function async, which cascades to fromPeerMessageParser and its callers.
   fileSearchResponse: (msg_: MessageParser): FileSearchResponse => {
     const content = msg_.data.slice(msg_.pointer)
     const buffer = zlib.unzipSync(content)

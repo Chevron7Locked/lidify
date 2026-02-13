@@ -1,10 +1,13 @@
 import * as fs from "fs";
+import { exec } from "child_process";
+import { promisify } from "util";
 import { logger } from "./logger";
 import * as path from "path";
-import { execSync } from "child_process";
 import { AppError, ErrorCode, ErrorCategory } from "./errors";
 import ffmpegPath from "@ffmpeg-installer/ffmpeg";
 import { getSystemSettings } from "./systemSettings";
+
+const execAsync = promisify(exec);
 
 export interface MusicConfig {
     musicPath: string;
@@ -119,14 +122,12 @@ export async function validateMusicConfig(): Promise<MusicConfig> {
         }
 
         // Verify it's executable by running version check
-        const result = execSync(`"${ffmpegPath.path}" -version`, {
-            encoding: "utf8",
-        });
-        if (!result.includes("ffmpeg version")) {
+        const { stdout } = await execAsync(`"${ffmpegPath.path}" -version`);
+        if (!stdout.includes("ffmpeg version")) {
             throw new Error("Invalid ffmpeg output");
         }
 
-        logger.debug(`FFmpeg detected (bundled): ${result.split("\n")[0]}`);
+        logger.debug(`FFmpeg detected (bundled): ${stdout.split("\n")[0]}`);
         logger.debug(`   FFmpeg path: ${ffmpegPath.path}`);
     } catch (err: any) {
         logger.warn(

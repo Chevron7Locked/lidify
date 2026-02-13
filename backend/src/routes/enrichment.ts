@@ -2,6 +2,7 @@ import { Router } from "express";
 import { logger } from "../utils/logger";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 import { enrichmentService } from "../services/enrichment";
+import { prisma } from "../utils/db";
 import {
     getEnrichmentProgress,
     runFullEnrichment,
@@ -359,7 +360,7 @@ router.post("/album/:id", async (req, res) => {
  */
 router.post("/start", async (req, res) => {
     try {
-        const { prisma } = await import("../utils/db");
+
         const systemSettings = await prisma.systemSettings.findUnique({
             where: { id: "default" },
             select: { autoEnrichMetadata: true },
@@ -449,7 +450,7 @@ router.post("/retry", requireAdmin, async (req, res) => {
         );
 
         // Group by type and trigger appropriate re-enrichment
-        const { prisma } = await import("../utils/db");
+
         let queued = 0;
         let skipped = 0;
 
@@ -658,7 +659,7 @@ router.put("/artists/:id/metadata", async (req, res) => {
             updateData.hasUserOverrides = true;
         }
 
-        const { prisma } = await import("../utils/db");
+
         const artist = await prisma.artist.update({
             where: { id: req.params.id },
             data: updateData,
@@ -725,7 +726,7 @@ router.put("/albums/:id/metadata", async (req, res) => {
             updateData.hasUserOverrides = true;
         }
 
-        const { prisma } = await import("../utils/db");
+
         const album = await prisma.album.update({
             where: { id: req.params.id },
             data: updateData,
@@ -783,7 +784,7 @@ router.put("/tracks/:id/metadata", async (req, res) => {
             updateData.hasUserOverrides = true;
         }
 
-        const { prisma } = await import("../utils/db");
+
         const track = await prisma.track.update({
             where: { id: req.params.id },
             data: updateData,
@@ -818,7 +819,7 @@ router.put("/tracks/:id/metadata", async (req, res) => {
  */
 router.post("/artists/:id/reset", async (req, res) => {
     try {
-        const { prisma } = await import("../utils/db");
+
 
         // Check if artist exists first
         const existingArtist = await prisma.artist.findUnique({
@@ -886,7 +887,7 @@ router.post("/artists/:id/reset", async (req, res) => {
  */
 router.post("/albums/:id/reset", async (req, res) => {
     try {
-        const { prisma } = await import("../utils/db");
+
 
         // Check if album exists first
         const existingAlbum = await prisma.album.findUnique({
@@ -953,7 +954,7 @@ router.post("/albums/:id/reset", async (req, res) => {
  */
 router.post("/tracks/:id/reset", async (req, res) => {
     try {
-        const { prisma } = await import("../utils/db");
+
 
         // Check if track exists first
         const existingTrack = await prisma.track.findUnique({
@@ -1056,7 +1057,7 @@ router.put("/concurrency", requireAdmin, async (req, res) => {
         );
 
         // Update system settings in database
-        const { prisma } = await import("../utils/db");
+
         await prisma.systemSettings.upsert({
             where: { id: "default" },
             create: {
