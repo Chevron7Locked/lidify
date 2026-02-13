@@ -150,9 +150,11 @@ export const HowlerAudioElement = memo(function HowlerAudioElement() {
             onStall: () => {
                 // Playback stalled - time not moving but Howler says playing
                 console.warn("[HowlerAudioElement] Heartbeat detected stall");
-                playbackStateMachine.transition("BUFFERING");
-                setIsBuffering(true);
-                heartbeatRef.current?.startBufferTimeout();
+                const transitioned = playbackStateMachine.transition("BUFFERING");
+                if (transitioned) {
+                    setIsBuffering(true);
+                    heartbeatRef.current?.startBufferTimeout();
+                }
             },
             onUnexpectedStop: () => {
                 // Howler stopped without us knowing

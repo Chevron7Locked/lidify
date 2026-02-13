@@ -27,7 +27,7 @@ const VALID_TRANSITIONS: Record<PlaybackState, PlaybackState[]> = {
   LOADING: ['READY', 'PLAYING', 'ERROR', 'IDLE'],
   READY: ['PLAYING', 'LOADING', 'IDLE'],
   PLAYING: ['READY', 'BUFFERING', 'LOADING', 'ERROR', 'IDLE'],
-  BUFFERING: ['PLAYING', 'ERROR', 'IDLE'],
+  BUFFERING: ['PLAYING', 'READY', 'ERROR', 'IDLE'],
   ERROR: ['LOADING', 'IDLE'],
 };
 
