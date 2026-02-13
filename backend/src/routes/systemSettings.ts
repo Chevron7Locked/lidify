@@ -220,18 +220,15 @@ router.post("/", async (req, res) => {
             }
         }
 
-        // Write to .env file for Docker containers
+        // Write only non-sensitive config to .env for Docker containers.
+        // Secrets (API keys, passwords, tokens) are stored encrypted in the
+        // database and must NOT be written in plaintext to the .env file.
         try {
             await writeEnvFile({
                 LIDARR_ENABLED: data.lidarrEnabled ? "true" : "false",
                 LIDARR_URL: data.lidarrUrl || null,
-                LIDARR_API_KEY: data.lidarrApiKey || null,
-                FANART_API_KEY: data.fanartApiKey || null,
-                OPENAI_API_KEY: data.openaiApiKey || null,
                 AUDIOBOOKSHELF_URL: data.audiobookshelfUrl || null,
-                AUDIOBOOKSHELF_API_KEY: data.audiobookshelfApiKey || null,
                 SOULSEEK_USERNAME: data.soulseekUsername || null,
-                SOULSEEK_PASSWORD: data.soulseekPassword || null,
             });
             logger.debug(".env file synchronized with database settings");
         } catch (envError) {

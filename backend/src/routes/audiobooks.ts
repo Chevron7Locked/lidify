@@ -122,6 +122,9 @@ router.post("/sync", requireAuthOrToken, apiLimiter, async (req, res) => {
  */
 // Debug endpoint for series data
 router.get("/debug-series", requireAuthOrToken, async (req, res) => {
+    if (process.env.NODE_ENV === "production") {
+        return res.status(404).json({ error: "Not found" });
+    }
     logger.debug("[Audiobooks] Debug series endpoint called");
     try {
         const settings = await getSystemSettings();

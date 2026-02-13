@@ -635,8 +635,6 @@ private recordUserFailure(username: string): void {
             if (sizeMB >= 3 && sizeMB <= 100) score += 10;
             if (sizeMB >= 10 && sizeMB <= 50) score += 5;
 
-            if (file.speed > 1000000) score += 5;
-
             const quality = this.getQualityFromFilename(
                 file.file,
                 file.bitrate

@@ -326,8 +326,11 @@ class NotificationPolicyService {
             return false;
         }
 
-        // Find other jobs for same album that have notified
-        const otherNotifiedJob = await prisma.downloadJob.findFirst({
+        // Find all other terminal jobs for this user, then check metadata
+        // for matching artist+album with a notification already sent.
+        // We must use findMany because Prisma cannot filter on JSON fields
+        // portably, and findFirst only checked the first row.
+        const otherJobs = await prisma.downloadJob.findMany({
             where: {
                 id: { not: job.id },
                 userId: job.userId,
@@ -335,21 +338,20 @@ class NotificationPolicyService {
             },
         });
 
-        if (otherNotifiedJob) {
-            const otherMeta = (otherNotifiedJob.metadata as any) || {};
+        for (const otherJob of otherJobs) {
+            const otherMeta = (otherJob.metadata as any) || {};
             const otherArtist =
                 otherMeta?.artistName?.toLowerCase().trim() || "";
             const otherAlbum =
                 otherMeta?.albumTitle?.toLowerCase().trim() || "";
 
-            // Check if same album and notification was sent
             if (
                 otherArtist === artistName &&
                 otherAlbum === albumTitle &&
                 otherMeta?.notificationSent === true
             ) {
                 logger.debug(
-                    `[NOTIFICATION-POLICY]   Found duplicate notification in job ${otherNotifiedJob.id}`
+                    `[NOTIFICATION-POLICY]   Found duplicate notification in job ${otherJob.id}`
                 );
                 return true;
             }

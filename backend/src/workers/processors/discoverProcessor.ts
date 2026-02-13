@@ -70,11 +70,7 @@ export async function processDiscoverWeekly(
         );
         logger.error(`[DiscoverJob ${job.id}] Stack trace:`, error.stack);
 
-        return {
-            success: false,
-            playlistName: "",
-            songCount: 0,
-            error: error.message || "Unknown error",
-        };
+        // Re-throw so Bull can track the failure and trigger retries
+        throw error;
     }
 }
