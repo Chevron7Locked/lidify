@@ -17,6 +17,7 @@ export type SlskDownloadEvents = {
   data?: (data: Buffer) => void
   progress?: (metadata: { totalBytes: bigint; receivedBytes: bigint; progress: number }) => void
   complete?: (receivedBytes: bigint) => void
+  error?: (error: Error) => void
 }
 export type SlskDownloadEventEmitter = TypedEventEmitter<SlskDownloadEvents>
 

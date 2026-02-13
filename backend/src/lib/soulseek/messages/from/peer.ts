@@ -156,7 +156,7 @@ export const fromPeerMessage = {
 
 export const fromPeerMessageParser = (msg: MessageParser) => {
   const size = msg.int32()
-  if (size <= 4) return
+  if (size < 4) return
 
   const code = msg.int32()
   switch (code) {

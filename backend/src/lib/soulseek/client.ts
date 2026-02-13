@@ -205,6 +205,36 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
                     const fileOffsetBuffer = Buffer.alloc(8)
                     fileOffsetBuffer.writeBigUInt64LE(download.receivedBytes, 0)
                     conn.write(fileOffsetBuffer)
+
+                    // Process any remaining file data in this chunk beyond the 4-byte token
+                    if (data.length > 4) {
+                      const fileData = data.slice(4)
+                      download.receivedBytes += BigInt(fileData.length)
+                      download.stream.write(fileData)
+                      download.events.emit('data', fileData)
+                      download.events.emit('progress', {
+                        receivedBytes: download.receivedBytes,
+                        totalBytes: download.totalBytes,
+                        progress:
+                          download.totalBytes > 0n
+                            ? Number((download.receivedBytes * 100n) / download.totalBytes) / 100
+                            : 0,
+                      })
+
+                      const isComplete = download.receivedBytes >= download.totalBytes
+                      if (isComplete) {
+                        conn.end()
+                        download.stream.end()
+                        download.status = 'complete'
+                        download.events.emit('complete', download.receivedBytes)
+                        download.events.emit(
+                          'status',
+                          'complete',
+                          makeDownloadStatusData(download)
+                        )
+                        this.downloads = this.downloads.filter((d) => d !== download)
+                      }
+                    }
                   } else {
                     download.receivedBytes += BigInt(data.length)
 
@@ -235,6 +265,13 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
 
                 conn.on('error', (error) => download?.stream.emit('error', error))
                 conn.on('close', () => {
+                  if (download && download.status !== 'complete') {
+                    download.events.emit(
+                      'error',
+                      new Error('Connection closed before transfer completed')
+                    )
+                    this.downloads = this.downloads.filter((d) => d !== download)
+                  }
                   download?.stream.end()
                   this.fileTransferConnections = this.fileTransferConnections.filter(
                     (c) => c !== conn
@@ -274,18 +311,12 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
                 return
               }
 
-              this.downloads[existingDownloadIndex] = {
-                ...this.downloads[existingDownloadIndex],
-                status: 'connected',
-                queuePosition: 0,
-                token: msg.token,
-                totalBytes: msg.size,
-              }
-              this.downloads[existingDownloadIndex].events.emit(
-                'status',
-                'connected',
-                makeDownloadStatusData(this.downloads[existingDownloadIndex])
-              )
+              const dl = this.downloads[existingDownloadIndex] as any
+              dl.status = 'connected'
+              dl.queuePosition = 0
+              dl.token = msg.token
+              dl.totalBytes = msg.size
+              dl.events.emit('status', 'connected', makeDownloadStatusData(dl))
 
               peer.send('transferResponse', {
                 token: msg.token,
@@ -305,23 +336,17 @@ export class SlskClient extends (EventEmitter as new () => TypedEventEmitter<Sls
               return
             }
 
-            const download = this.downloads[existingDownloadIndex]
+            const download = this.downloads[existingDownloadIndex] as any
             if (download.status === 'requested') {
-              this.downloads[existingDownloadIndex] = {
-                ...download,
-                status: 'queued',
-                queuePosition: msg.place,
-              }
-              this.downloads[existingDownloadIndex].events.emit(
+              download.status = 'queued'
+              download.queuePosition = msg.place
+              download.events.emit(
                 'status',
                 'queued',
-                makeDownloadStatusData(this.downloads[existingDownloadIndex])
+                makeDownloadStatusData(download)
               )
             } else if (download.status === 'queued') {
-              this.downloads[existingDownloadIndex] = {
-                ...download,
-                queuePosition: msg.place,
-              }
+              download.queuePosition = msg.place
             }
 
             break
