@@ -248,23 +248,28 @@ router.post("/refresh", async (req, res) => {
  */
 // GET /auth/me
 router.get("/me", requireAuth, async (req, res) => {
-    const user = await prisma.user.findUnique({
-        where: { id: req.user!.id },
-        select: {
-            id: true,
-            username: true,
-            role: true,
-            onboardingComplete: true,
-            enrichmentSettings: true,
-            createdAt: true,
-        },
-    });
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.user!.id },
+            select: {
+                id: true,
+                username: true,
+                role: true,
+                onboardingComplete: true,
+                enrichmentSettings: true,
+                createdAt: true,
+            },
+        });
 
-    if (!user) {
-        return res.status(404).json({ error: "User not found" });
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        res.json(user);
+    } catch (error) {
+        logger.error("Get current user error:", error);
+        res.status(500).json({ error: "Internal error" });
     }
-
-    res.json(user);
 });
 
 // POST /auth/change-password

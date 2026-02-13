@@ -1,4 +1,5 @@
 import { EventEmitter } from "events";
+import { logger } from "../utils/logger";
 
 export type SSEEventType =
     | "notification"
@@ -32,7 +33,11 @@ class EventBus {
     }
 
     emit(event: SSEEvent): void {
-        this.emitter.emit(CHANNEL, event);
+        try {
+            this.emitter.emit(CHANNEL, event);
+        } catch (error) {
+            logger.error("[EventBus] Listener error:", error);
+        }
     }
 
     subscribe(listener: (event: SSEEvent) => void): () => void {
