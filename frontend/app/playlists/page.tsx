@@ -332,14 +332,14 @@ export default function PlaylistsPage() {
             <div className="relative px-4 md:px-8 pt-8 pb-6">
                 <div className="max-w-[1800px] mx-auto">
                     {/* System status */}
-                    <div className="flex items-center gap-2 mb-4"">
+                    <div className="flex items-center gap-2 mb-4">
                         <div className="w-1.5 h-1.5 bg-[#fca208] rounded-full" />
                         <span className="text-xs font-mono text-white/50 uppercase tracking-wider">
                             Your Library
                         </span>
                     </div>
 
-                    <div className="flex items-end justify-between gap-4"">
+                    <div className="flex items-end justify-between gap-4">
                         <div>
                             <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white leading-none">
                                 PLAY<br />
@@ -391,7 +391,7 @@ export default function PlaylistsPage() {
                 <div className="max-w-[1800px] mx-auto">
                     {/* Hidden playlists notice */}
                     {showHiddenTab && (
-                        <div className="mb-6 px-4 py-3 bg-white/5 rounded-lg border border-white/10"">
+                        <div className="mb-6 px-4 py-3 bg-white/5 rounded-lg border border-white/10">
                             <p className="text-xs font-mono text-white/40 uppercase tracking-wider">
                                 Hidden playlists won&apos;t appear in your library. Hover
                                 and click the eye icon to restore.

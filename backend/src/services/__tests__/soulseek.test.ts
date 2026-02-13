@@ -152,6 +152,28 @@ describe("SoulseekService - Race Condition Fix", () => {
         });
     });
 
+    describe("reconnection cooldown bypass", () => {
+        it("should skip cooldown check when cleaning up stale client", () => {
+            const servicePath = path.join(__dirname, "../soulseek.ts");
+            const content = fs.readFileSync(servicePath, "utf-8");
+
+            // Check that cleanedUpStaleClient flag exists
+            expect(content).toContain("cleanedUpStaleClient");
+
+            // Check that cooldown checks use the flag
+            expect(content).toContain("!cleanedUpStaleClient");
+        });
+
+        it("should log individual download failure errors", () => {
+            const servicePath = path.join(__dirname, "../soulseek.ts");
+            const content = fs.readFileSync(servicePath, "utf-8");
+
+            // Check that individual failures are logged in downloadWithRetry
+            const logPattern = /Attempt \$\{attempt \+ 1\} failed: \$\{result\.error\}/;
+            expect(content).toMatch(logPattern);
+        });
+    });
+
     describe("download retry flow", () => {
         it("should have searchAndDownload method", () => {
             const servicePath = path.join(__dirname, "../soulseek.ts");

@@ -353,7 +353,7 @@ export default function AudiobooksPage() {
             <div className="relative px-4 md:px-8 pb-24">
                 <div className="max-w-[1800px] mx-auto">
                     {/* Filter and Sort Controls */}
-                    <div className="mb-8 space-y-3"">
+                    <div className="mb-8 space-y-3">
                         {/* First Row: Filter Pills and Shuffle */}
                         <div className="flex flex-wrap items-center gap-2">
                             {(["all", "listening", "finished"] as FilterType[]).map((f) => (

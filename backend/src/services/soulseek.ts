@@ -159,9 +159,11 @@ private activeDownloads = 0;
             return;
         }
 
-        // Client exists but not logged in - clean it up
+        // Client exists but not logged in - clean it up and allow immediate reconnect
+        let cleanedUpStaleClient = false;
         if (this.client && !this.client.loggedIn) {
             this.forceDisconnect();
+            cleanedUpStaleClient = true;
         }
 
         if (this.connecting && this.connectPromise) {
@@ -170,8 +172,10 @@ private activeDownloads = 0;
 
         const now = Date.now();
 
+        // Don't enforce cooldown if we just cleaned up a stale client
         if (
             !force &&
+            !cleanedUpStaleClient &&
             this.lastConnectAttempt > 0 &&
             now - this.lastConnectAttempt < this.RECONNECT_COOLDOWN
         ) {
@@ -180,8 +184,10 @@ private activeDownloads = 0;
             );
         }
 
+        // Don't enforce failed cooldown if we just cleaned up a stale client
         if (
             !force &&
+            !cleanedUpStaleClient &&
             this.lastFailedAttempt > 0 &&
             now - this.lastFailedAttempt < this.FAILED_RECONNECT_COOLDOWN
         ) {
@@ -1137,6 +1143,13 @@ private async downloadWithRetry(
                  }
                  return { success: true, filePath: destPath };
              }
+
+             // Log individual download failure for debugging
+             sessionLog(
+                 "SOULSEEK",
+                 `[${artistName} - ${trackTitle}] Attempt ${attempt + 1} failed: ${result.error}`,
+                 "WARN"
+             );
              errors.push(`${match.username}: ${result.error}`);
 
              if (attempt < matchesToTry.length - 1) {

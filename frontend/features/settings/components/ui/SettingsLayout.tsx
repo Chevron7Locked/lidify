@@ -89,7 +89,7 @@ export function SettingsLayout({ children, sidebarItems, isAdmin }: SettingsLayo
         <div className="min-h-screen bg-[#0a0a0a] relative">
             <div className="relative max-w-[1800px] mx-auto px-4 md:px-8 pt-8 pb-8">
                 {/* Editorial Header */}
-                <div className="mb-10"">
+                <div className="mb-10">
                     <div className="flex items-center gap-2 mb-4">
                         <div className="w-1.5 h-1.5 bg-[#fca208] rounded-full" />
                         <span className="text-xs font-mono text-white/50 uppercase tracking-wider">

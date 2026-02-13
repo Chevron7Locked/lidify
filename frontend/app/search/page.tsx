@@ -188,7 +188,7 @@ export default function SearchPage() {
                 {filterTab !== "soulseek" && (
                     <div className="space-y-12">
                         {show2ColumnLayout ? (
-                            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-8"">
+                            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-8">
                                 {/* Featured Result - Larger card */}
                                 <div className="space-y-4">
                                     <h2 className="text-2xl font-black tracking-tight flex items-center gap-3">

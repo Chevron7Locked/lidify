@@ -558,7 +558,7 @@ export default function PlaylistDetailPage() {
                     )}
 
                     {playlist.items?.length > 0 || playlist.pendingTracks?.length > 0 ? (
-                        <div className="w-full"">
+                        <div className="w-full">
                             {/* Section header */}
                             <div className="flex items-center gap-3 mb-6">
                                 <span className="w-1 h-8 bg-gradient-to-b from-[#fca208] to-[#f97316] rounded-full shrink-0" />
