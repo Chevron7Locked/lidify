@@ -16,97 +16,100 @@ const connections = new Map<string, Set<Response>>();
  * Auth via query param because EventSource API cannot set headers.
  */
 router.get("/", async (req: Request, res: Response) => {
-    const token = req.query.token as string | undefined;
-    if (!token || !JWT_SECRET) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
+  const token = req.query.token as string | undefined;
+  if (!token || !JWT_SECRET) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  let userId: string;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      userId: string;
+      tokenVersion?: number;
+    };
+
+    // Validate tokenVersion against database (same as authenticateRequest in middleware/auth.ts)
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true, tokenVersion: true },
+    });
+
+    if (!user) {
+      res.status(401).json({ error: "User not found" });
+      return;
     }
 
-    let userId: string;
+    if (
+      decoded.tokenVersion === undefined ||
+      decoded.tokenVersion !== user.tokenVersion
+    ) {
+      res.status(401).json({ error: "Token has been revoked" });
+      return;
+    }
+
+    userId = decoded.userId;
+  } catch {
+    res.status(401).json({ error: "Invalid token" });
+    return;
+  }
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+
+  if (!connections.has(userId)) {
+    connections.set(userId, new Set());
+  }
+  connections.get(userId)!.add(res);
+
+  logger.debug(`[SSE] Client connected: userId=${userId}`);
+
+  const safeSend = (data: string): boolean => {
     try {
-        const decoded = jwt.verify(token, JWT_SECRET) as {
-            userId: string;
-            tokenVersion?: number
-        };
-
-        // Validate tokenVersion against database (same as authenticateRequest in middleware/auth.ts)
-        const user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
-            select: { id: true, tokenVersion: true },
-        });
-
-        if (!user) {
-            res.status(401).json({ error: "User not found" });
-            return;
-        }
-
-        if (decoded.tokenVersion === undefined || decoded.tokenVersion !== user.tokenVersion) {
-            res.status(401).json({ error: "Token has been revoked" });
-            return;
-        }
-
-        userId = decoded.userId;
+      if (!res.destroyed && !res.writableEnded) {
+        res.write(data);
+        return true;
+      }
     } catch {
-        res.status(401).json({ error: "Invalid token" });
-        return;
+      // Connection already closed
     }
+    return false;
+  };
 
-    res.writeHead(200, {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        "X-Accel-Buffering": "no",
-    });
-
-    res.write(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
-
-    if (!connections.has(userId)) {
-        connections.set(userId, new Set());
+  const listener = (event: SSEEvent) => {
+    if (event.userId === userId) {
+      // Flatten payload into top-level so frontend can read data.searchId etc.
+      const { userId: _uid, payload, ...rest } = event;
+      safeSend(`data: ${JSON.stringify({ ...rest, ...payload })}\n\n`);
     }
-    connections.get(userId)!.add(res);
+  };
+  const unsubscribe = eventBus.subscribe(listener);
 
-    logger.debug(`[SSE] Client connected: userId=${userId}`);
+  const heartbeat = setInterval(() => {
+    if (!safeSend(`: heartbeat\n\n`)) {
+      clearInterval(heartbeat);
+      unsubscribe();
+    }
+  }, 30_000);
 
-    const safeSend = (data: string): boolean => {
-        try {
-            if (!res.destroyed && !res.writableEnded) {
-                res.write(data);
-                return true;
-            }
-        } catch {
-            // Connection already closed
-        }
-        return false;
-    };
-
-    const listener = (event: SSEEvent) => {
-        if (event.userId === userId) {
-            // Flatten payload into top-level so frontend can read data.searchId etc.
-            const { userId: _uid, payload, ...rest } = event;
-            safeSend(`data: ${JSON.stringify({ ...rest, ...payload })}\n\n`);
-        }
-    };
-    const unsubscribe = eventBus.subscribe(listener);
-
-    const heartbeat = setInterval(() => {
-        if (!safeSend(`: heartbeat\n\n`)) {
-            clearInterval(heartbeat);
-            unsubscribe();
-        }
-    }, 30_000);
-
-    req.on("close", () => {
-        clearInterval(heartbeat);
-        unsubscribe();
-        const userConns = connections.get(userId);
-        if (userConns) {
-            userConns.delete(res);
-            if (userConns.size === 0) {
-                connections.delete(userId);
-            }
-        }
-        logger.debug(`[SSE] Client disconnected: userId=${userId}`);
-    });
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+    const userConns = connections.get(userId);
+    if (userConns) {
+      userConns.delete(res);
+      if (userConns.size === 0) {
+        connections.delete(userId);
+      }
+    }
+    logger.debug(`[SSE] Client disconnected: userId=${userId}`);
+  });
 });
 
 export default router;
