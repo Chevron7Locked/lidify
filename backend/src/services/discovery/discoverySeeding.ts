@@ -25,11 +25,14 @@ export class DiscoverySeeding {
     /**
      * Gets seed artists based on user's listening history.
      * Falls back to library artists when insufficient play history.
+     * Uses recency weighting: plays in last 2 weeks count 2x more.
      */
     async getSeedArtists(userId: string, seedCount?: number): Promise<SeedArtist[]> {
         const limit = seedCount ?? this.DEFAULT_SEED_COUNT;
+        const twoWeeksAgo = subWeeks(new Date(), 2);
         const fourWeeksAgo = subWeeks(new Date(), 4);
 
+        // Get plays from last 4 weeks with recency weighting
         const recentPlays = await prisma.play.groupBy({
             by: ['trackId'],
             where: {
@@ -38,17 +41,31 @@ export class DiscoverySeeding {
                 source: { in: ['LIBRARY', 'DISCOVERY_KEPT'] },
             },
             _count: { id: true },
-            orderBy: { _count: { id: 'desc' } },
-            take: this.RECENT_PLAYS_LIMIT,
+            _max: { playedAt: true },
         });
 
-        if (recentPlays.length < this.MIN_PLAYS_THRESHOLD) {
+        // Weight: plays in last 2 weeks count 2x
+        const weightedPlays = recentPlays
+            .map(play => {
+                const isRecent = play._max.playedAt && play._max.playedAt >= twoWeeksAgo;
+                const weight = isRecent ? 2 : 1;
+                return {
+                    trackId: play.trackId,
+                    weightedCount: play._count.id * weight,
+                    rawCount: play._count.id,
+                };
+            })
+            .filter(p => p.rawCount >= this.MIN_PLAYS_THRESHOLD) // Filter <5 plays
+            .sort((a, b) => b.weightedCount - a.weightedCount)
+            .slice(0, this.RECENT_PLAYS_LIMIT);
+
+        if (weightedPlays.length < this.MIN_PLAYS_THRESHOLD) {
             return this.getFallbackSeedArtists(limit);
         }
 
         const tracks = await prisma.track.findMany({
             where: {
-                id: { in: recentPlays.map((p) => p.trackId) },
+                id: { in: weightedPlays.map((p) => p.trackId) },
                 album: { location: 'LIBRARY' },
             },
             include: { album: { include: { artist: true } } },
@@ -68,7 +85,7 @@ export class DiscoverySeeding {
         }
 
         const artists = Array.from(artistMap.values()).slice(0, limit);
-        logger.debug(`[DiscoverySeeding] Found ${artists.length} seed artists from play history`);
+        logger.debug(`[DiscoverySeeding] Found ${artists.length} recency-weighted seed artists`);
         return artists;
     }
 
