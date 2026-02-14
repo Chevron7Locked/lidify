@@ -175,18 +175,11 @@ describe("SoulseekService - Race Condition Fix", () => {
     });
 
     describe("download retry flow", () => {
-        it("should have searchAndDownload method", () => {
-            const servicePath = path.join(__dirname, "../soulseek.ts");
-            const content = fs.readFileSync(servicePath, "utf-8");
-
-            expect(content).toContain("searchAndDownload");
-        });
-
         it("should retry with multiple users from search results", () => {
             const servicePath = path.join(__dirname, "../soulseek.ts");
             const content = fs.readFileSync(servicePath, "utf-8");
 
-            // Check that searchAndDownload iterates through allMatches
+            // Check that downloadWithRetry iterates through allMatches
             expect(content).toContain("allMatches");
             expect(content).toContain("MAX_DOWNLOAD_RETRIES");
         });

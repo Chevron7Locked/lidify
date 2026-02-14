@@ -270,9 +270,25 @@ class AcquisitionService {
         // Update queue concurrency from user settings
         await this.updateQueueConcurrency();
 
-        return this.albumQueue.add(() =>
+        // Wrap acquisition with timeout - fail fast after 5 minutes
+        const MAX_ACQUISITION_TIME = 5 * 60 * 1000; // 5 minutes
+        const acquisitionPromise = this.albumQueue.add(() =>
             this.acquireAlbumInternal(request, context)
         );
+
+        const timeoutPromise = new Promise<AcquisitionResult>((resolve) => {
+            setTimeout(() => {
+                resolve({
+                    success: false,
+                    source: "timeout",
+                    error: `Acquisition timed out after ${MAX_ACQUISITION_TIME / 1000}s - tried all available sources`,
+                    tracks: [],
+                });
+            }, MAX_ACQUISITION_TIME);
+        });
+
+        // Race between acquisition and timeout
+        return Promise.race([acquisitionPromise, timeoutPromise]);
     }
 
     /**

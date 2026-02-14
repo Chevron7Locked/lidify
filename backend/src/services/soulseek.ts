@@ -917,76 +917,7 @@ writeStream.on("error", (err: Error) => {
         }
     }
 
-async searchAndDownload(
-         artistName: string,
-         trackTitle: string,
-         albumName: string,
-         musicPath: string
-     ): Promise<{ success: boolean; filePath?: string; error?: string }> {
-         const searchResult = await this.searchTrack(artistName, trackTitle, albumName);
-
-        if (!searchResult.found || searchResult.allMatches.length === 0) {
-            return { success: false, error: "No suitable match found" };
-        }
-
-        const sanitize = (name: string) =>
-            name.replace(/[<>:"/\\|?*]/g, "_").trim();
-        const errors: string[] = [];
-
-        const matchesToTry = searchResult.allMatches.slice(
-            0,
-            this.MAX_DOWNLOAD_RETRIES
-        );
-
-        for (let attempt = 0; attempt < matchesToTry.length; attempt++) {
-            const match = matchesToTry[attempt];
-
-            sessionLog(
-                "SOULSEEK",
-                `Attempt ${attempt + 1}/${matchesToTry.length}: Trying ${match.username} for ${match.filename}`
-            );
-
-            const destPath = path.join(
-                musicPath,
-                "Singles",
-                sanitize(artistName),
-                sanitize(albumName),
-                sanitize(match.filename)
-            );
-
-            const downloadResult = await this.downloadTrack(match, destPath);
-
-            if (downloadResult.success) {
-                if (attempt > 0) {
-                    sessionLog(
-                        "SOULSEEK",
-                        `Success on attempt ${attempt + 1} (user: ${match.username})`
-                    );
-                }
-                return { success: true, filePath: destPath };
-            }
-
-            const errorMsg = downloadResult.error || "Unknown error";
-            errors.push(`${match.username}: ${errorMsg}`);
-            sessionLog(
-                "SOULSEEK",
-                `Attempt ${attempt + 1} failed: ${errorMsg}, trying next user...`,
-                "WARN"
-            );
-        }
-
-        sessionLog(
-            "SOULSEEK",
-            `All ${matchesToTry.length} download attempts failed for: ${artistName} - ${trackTitle}`,
-            "ERROR"
-        );
-        return {
-            success: false,
-            error: `All ${matchesToTry.length} attempts failed: ${errors.join("; ")}`,
-        };
-    }
-
-    async downloadBestMatch(
+async downloadBestMatch(
         artistName: string,
         trackTitle: string,
         albumName: string,
