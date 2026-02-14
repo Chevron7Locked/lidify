@@ -18,6 +18,7 @@ import { prisma } from "../utils/db";
 import axios from "axios";
 import { lastFmService } from "./lastfm";
 import { musicBrainzService } from "./musicbrainz";
+import { updateBatchStatus } from "./discovery/optimisticBatchUpdate";
 import { lidarrService } from "./lidarr";
 import { scanQueue } from "../workers/queues";
 import { startOfWeek, subWeeks } from "date-fns";
@@ -549,13 +550,10 @@ export class DiscoverWeeklyService {
                     )}h old - force failing`
                 );
 
-                await prisma.discoveryBatch.update({
-                    where: { id: batch.id },
-                    data: {
-                        status: "failed",
-                        errorMessage: "Batch timed out after 2 hours",
-                        completedAt: new Date(),
-                    },
+                await updateBatchStatus(batch.id, {
+                    status: "failed",
+                    errorMessage: "Batch timed out after 2 hours",
+                    completedAt: new Date(),
                 });
 
                 // Mark any remaining pending/processing jobs as failed
@@ -720,27 +718,31 @@ export class DiscoverWeeklyService {
                 }
             }
 
-            // Update batch status
+            // Update batch status with optimistic locking
             if (completed === 0) {
-                await tx.discoveryBatch.update({
-                    where: { id: batchId },
-                    data: {
+                await updateBatchStatus(
+                    batchId,
+                    {
                         status: "failed",
                         completedAlbums: 0,
                         failedAlbums: failed,
                         errorMessage: "All downloads failed",
                         completedAt: new Date(),
                     },
-                });
+                    {},
+                    tx
+                );
             } else {
-                await tx.discoveryBatch.update({
-                    where: { id: batchId },
-                    data: {
+                await updateBatchStatus(
+                    batchId,
+                    {
                         status: "scanning",
                         completedAlbums: completed,
                         failedAlbums: failed,
                     },
-                });
+                    {},
+                    tx
+                );
             }
         });
 
@@ -959,13 +961,10 @@ export class DiscoverWeeklyService {
             logger.debug(
                 `   No tracks found after scan - albums may not have imported yet`
             );
-            await prisma.discoveryBatch.update({
-                where: { id: batchId },
-                data: {
-                    status: "failed",
-                    errorMessage: "No tracks found after scan",
-                    completedAt: new Date(),
-                },
+            await updateBatchStatus(batchId, {
+                status: "failed",
+                errorMessage: "No tracks found after scan",
+                completedAt: new Date(),
             });
             await discoveryBatchLogger.error(
                 batchId,
@@ -1347,15 +1346,17 @@ export class DiscoverWeeklyService {
                     trackCount++;
                 }
 
-                // Mark batch complete
-                await tx.discoveryBatch.update({
-                    where: { id: batchId },
-                    data: {
+                // Mark batch complete with optimistic locking
+                await updateBatchStatus(
+                    batchId,
+                    {
                         status: "completed",
                         finalSongCount: trackCount,
                         completedAt: new Date(),
                     },
-                });
+                    {},
+                    tx
+                );
 
                 return { albumCount: createdAlbums.size, trackCount };
             });
@@ -2081,11 +2082,13 @@ export class DiscoverWeeklyService {
                                 // Continue anyway - assume not in library if check fails
                             }
 
-                            // Check if owned
+                            // Check if owned (with fuzzy matching)
                             try {
                                 const owned = await discoverySeeding.isAlbumOwned(
                                     mbAlbum.id,
-                                    batch.userId
+                                    batch.userId,
+                                    similar.name,
+                                    album.name
                                 );
                                 if (owned) continue;
                             } catch (e: any) {
@@ -2273,9 +2276,14 @@ export class DiscoverWeeklyService {
                 }
                 seenAlbums.add(mbAlbum.id);
 
-                // Skip if owned by MBID
+                // Skip if owned (with fuzzy matching)
                 try {
-                    const owned = await discoverySeeding.isAlbumOwned(mbAlbum.id, userId);
+                    const owned = await discoverySeeding.isAlbumOwned(
+                        mbAlbum.id,
+                        userId,
+                        artist.name,
+                        album.name
+                    );
                     if (owned) {
                         skippedOwned++;
                         continue;
@@ -2490,8 +2498,13 @@ export class DiscoverWeeklyService {
                     );
                     if (!mbAlbum || seenAlbums.has(mbAlbum.id)) continue;
 
-                    // Check if owned by MBID
-                    const owned = await discoverySeeding.isAlbumOwned(mbAlbum.id, userId);
+                    // Check if owned (with fuzzy matching)
+                    const owned = await discoverySeeding.isAlbumOwned(
+                        mbAlbum.id,
+                        userId,
+                        artistName,
+                        album.name
+                    );
                     if (owned) continue;
 
                     // Check if owned by name (catches MBID mismatches)

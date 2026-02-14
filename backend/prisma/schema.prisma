@@ -781,6 +781,7 @@ model DiscoveryBatch {
   finalSongCount  Int           @default(0)
   logs            Json?
   errorMessage    String?
+  version         Int           @default(0)
   createdAt       DateTime      @default(now())
   completedAt     DateTime?
   jobs            DownloadJob[]
