@@ -3,6 +3,21 @@ import { logger } from "../utils/logger";
 import { config } from "../config";
 import { getSystemSettings } from "../utils/systemSettings";
 import { stripAlbumEdition } from "../utils/artistNormalization";
+import { lidarrApiCallsTotal, lidarrApiDuration } from "../utils/metrics";
+import type {
+    LidarrAlbum,
+    LidarrArtist,
+    LidarrTag,
+    LidarrRootFolder,
+    LidarrQualityProfile,
+    LidarrWebhookPayload,
+    LidarrAddAlbumRequest,
+    LidarrAddArtistRequest,
+    LidarrQueueItem,
+    LidarrQueueResponse,
+    LidarrHistoryRecord,
+    LidarrHistoryResponse,
+} from "../types/lidarr";
 
 /**
  * Error types for music acquisition failures
@@ -47,48 +62,14 @@ export class AcquisitionError extends Error {
     }
 }
 
-interface LidarrArtist {
-    id: number;
-    artistName: string;
-    foreignArtistId: string; // MusicBrainz ID
-    monitored: boolean;
-    tags?: number[]; // Tag IDs
-    artistType?: string;
-    qualityProfileId?: number;
-    metadataProfileId?: number;
-    rootFolderPath?: string;
-    statistics?: {
-        albumCount?: number;
-        trackFileCount?: number;
-        trackCount?: number;
-        totalTrackCount?: number;
-        sizeOnDisk?: number;
-        percentOfTracks?: number;
-    };
-    ratings?: {
-        votes?: number;
-        value?: number;
-    };
-}
-
-interface LidarrTag {
-    id: number;
-    label: string;
-}
-
 // Discovery tag label - used to identify discovery artists in Lidarr
 const DISCOVERY_TAG_LABEL = "lidify-discovery";
 
-interface LidarrAlbum {
-    id: number;
-    title: string;
-    foreignAlbumId: string; // MusicBrainz release group ID
-    artistId: number;
-    monitored: boolean;
-    artist?: {
-        foreignArtistId: string; // MusicBrainz artist ID
-        artistName: string;
-    };
+// Simple interface for MusicBrainz artist data (from external service)
+interface MusicBrainzArtist {
+    id: string;
+    name: string;
+    type?: string;
 }
 
 class LidarrService {
@@ -158,6 +139,49 @@ class LidarrService {
     }
 
     /**
+     * Wrapper for API calls with metrics tracking
+     */
+    private async apiCall<T>(
+        endpoint: string,
+        method: 'get' | 'post' | 'put' | 'delete',
+        data?: unknown
+    ): Promise<T> {
+        const startTime = Date.now();
+        let status = 'success';
+
+        try {
+            if (!this.client) {
+                throw new Error('Lidarr client not initialized');
+            }
+
+            let response;
+            switch (method) {
+                case 'get':
+                    response = await this.client.get(endpoint);
+                    break;
+                case 'post':
+                    response = await this.client.post(endpoint, data);
+                    break;
+                case 'put':
+                    response = await this.client.put(endpoint, data);
+                    break;
+                case 'delete':
+                    response = await this.client.delete(endpoint);
+                    break;
+            }
+
+            return response.data;
+        } catch (error) {
+            status = 'failed';
+            throw error;
+        } finally {
+            const duration = (Date.now() - startTime) / 1000;
+            lidarrApiCallsTotal.inc({ endpoint, status });
+            lidarrApiDuration.observe({ endpoint }, duration);
+        }
+    }
+
+    /**
      * Ensure the root folder exists in Lidarr, fallback to first available if not
      */
     private async ensureRootFolderExists(
@@ -169,8 +193,7 @@ class LidarrService {
 
         try {
             // Get all root folders from Lidarr
-            const response = await this.client.get("/api/v1/rootfolder");
-            const rootFolders = response.data;
+            const rootFolders = await this.apiCall<LidarrRootFolder[]>("/api/v1/rootfolder", 'get');
 
             if (rootFolders.length === 0) {
                 logger.warn("  No root folders configured in Lidarr!");
@@ -179,7 +202,7 @@ class LidarrService {
 
             // Check if requested path exists
             const exists = rootFolders.find(
-                (folder: any) => folder.path === requestedPath
+                (folder) => folder.path === requestedPath
             );
 
             if (exists) {
@@ -241,9 +264,9 @@ class LidarrService {
                     const mbArtists = await musicBrainzService.searchArtist(
                         artistName,
                         5
-                    );
+                    ) as MusicBrainzArtist[];
                     const mbArtist =
-                        mbArtists?.find((a: any) => a.id === mbid) || mbArtists?.[0];
+                        mbArtists?.find((a) => a.id === mbid) || mbArtists?.[0];
 
                     if (mbArtist) {
                         // Create a minimal Lidarr-compatible artist object
@@ -251,13 +274,23 @@ class LidarrService {
                             id: 0, // Will be assigned when added
                             artistName: mbArtist.name || artistName,
                             foreignArtistId: mbid,
+                            nameSlug: "",
+                            genres: [],
+                            links: [],
                             artistType: mbArtist.type || "Person",
                             monitored: false,
                             qualityProfileId: 1,
                             metadataProfileId: 1,
                             rootFolderPath: "/music",
                             tags: [],
-                            statistics: { albumCount: 0 },
+                            statistics: {
+                                albumCount: 0,
+                                trackFileCount: 0,
+                                trackCount: 0,
+                                totalTrackCount: 0,
+                                sizeOnDisk: 0,
+                                percentOfTracks: 0
+                            },
                         };
 
                         logger.debug(
@@ -289,22 +322,32 @@ class LidarrService {
                     const mbArtists = await musicBrainzService.searchArtist(
                         artistName,
                         5
-                    );
+                    ) as MusicBrainzArtist[];
                     const mbArtist =
-                        mbArtists?.find((a: any) => a.id === mbid) || mbArtists?.[0];
+                        mbArtists?.find((a) => a.id === mbid) || mbArtists?.[0];
 
                     if (mbArtist) {
                         const fallbackArtist: LidarrArtist = {
                             id: 0,
                             artistName: mbArtist.name || artistName,
                             foreignArtistId: mbid,
+                            nameSlug: "",
+                            genres: [],
+                            links: [],
                             artistType: mbArtist.type || "Person",
                             monitored: false,
                             qualityProfileId: 1,
                             metadataProfileId: 1,
                             rootFolderPath: "/music",
                             tags: [],
-                            statistics: { albumCount: 0 },
+                            statistics: {
+                                albumCount: 0,
+                                trackFileCount: 0,
+                                trackCount: 0,
+                                totalTrackCount: 0,
+                                sizeOnDisk: 0,
+                                percentOfTracks: 0
+                            },
                         };
                         logger.debug(
                             `   [FALLBACK] Created artist from MusicBrainz: ${fallbackArtist.artistName}`
@@ -552,7 +595,7 @@ class LidarrService {
                         const albumsResponse = await this.client.get(
                             `/api/v1/album?artistId=${exists.id}`
                         );
-                        const albums = albumsResponse.data;
+                        const albums = albumsResponse.data as LidarrAlbum[];
 
                         logger.debug(
                             `   Found ${albums.length} albums to monitor`
@@ -578,7 +621,7 @@ class LidarrService {
                             );
                             await this.client.post("/api/v1/command", {
                                 name: "AlbumSearch",
-                                albumIds: albums.map((a: any) => a.id),
+                                albumIds: albums.map((a) => a.id),
                             });
                         }
 
@@ -601,8 +644,9 @@ class LidarrService {
 
             // Add artist - use "existing" monitor option to ensure album catalog is fetched
             // even if we don't want to download all albums
-            const artistPayload: any = {
-                ...artistData,
+            const artistPayload: LidarrAddArtistRequest = {
+                foreignArtistId: artistData.foreignArtistId,
+                artistName: artistData.artistName,
                 rootFolderPath: validRootFolder,
                 qualityProfileId: 1, // Uses default profile - could be made configurable via settings
                 metadataProfileId: 1,
@@ -1725,13 +1769,12 @@ class LidarrService {
         try {
             // Get all artists from Lidarr
             const artistsResponse = await this.client.get("/api/v1/artist");
-            const artists = artistsResponse.data || [];
+            const artists = (artistsResponse.data || []) as LidarrArtist[];
 
             // Find matching artist by name
             const matchingArtist = artists.find(
-                (a: any) =>
-                    a.artistName?.toLowerCase().trim() === normalizedArtist ||
-                    a.sortName?.toLowerCase().trim() === normalizedArtist
+                (a) =>
+                    a.artistName?.toLowerCase().trim() === normalizedArtist
             );
 
             if (!matchingArtist) {
@@ -1777,8 +1820,8 @@ class LidarrService {
 
         try {
             const response = await this.client.get("/api/v1/artist");
-            const artists = response.data;
-            return artists.some((a: any) => a.foreignArtistId === artistMbid);
+            const artists = response.data as LidarrArtist[];
+            return artists.some((a) => a.foreignArtistId === artistMbid);
         } catch (error) {
             return false;
         }
@@ -2084,7 +2127,7 @@ class LidarrService {
      * Get all available releases for an album from all indexers
      * This is what Lidarr's "Interactive Search" uses
      */
-    async getAlbumReleases(lidarrAlbumId: number): Promise<LidarrRelease[]> {
+    async getAlbumReleases(lidarrAlbumId: number): Promise<LidarrIndexerRelease[]> {
         await this.ensureInitialized();
 
         if (!this.enabled || !this.client) {
@@ -2100,7 +2143,7 @@ class LidarrService {
                 timeout: 60000, // 60s timeout for indexer searches
             });
 
-            const releases: LidarrRelease[] = response.data || [];
+            const releases: LidarrIndexerRelease[] = response.data || [];
             logger.debug(
                 `[LIDARR] Found ${releases.length} releases from indexers`
             );
@@ -2132,7 +2175,7 @@ class LidarrService {
      * Grab (download) a specific release by GUID
      * This tells Lidarr to download the specified release
      */
-    async grabRelease(release: LidarrRelease): Promise<boolean> {
+    async grabRelease(release: LidarrIndexerRelease): Promise<boolean> {
         await this.ensureInitialized();
 
         if (!this.enabled || !this.client) {
@@ -2180,8 +2223,9 @@ class LidarrService {
                 params: { page: 1, pageSize: 100 },
             });
 
-            const queueItem = queueResponse.data.records.find(
-                (item: any) => item.downloadId === downloadId
+            const queueData = queueResponse.data as LidarrQueueResponse;
+            const queueItem = queueData.records.find(
+                (item) => item.downloadId === downloadId
             );
 
             if (!queueItem) {
@@ -2219,7 +2263,7 @@ class LidarrService {
     /**
      * Find queue item by download ID
      */
-    async findQueueItemByDownloadId(downloadId: string): Promise<any | null> {
+    async findQueueItemByDownloadId(downloadId: string): Promise<LidarrQueueItem | null> {
         await this.ensureInitialized();
 
         if (!this.enabled || !this.client) {
@@ -2231,9 +2275,10 @@ class LidarrService {
                 params: { page: 1, pageSize: 100 },
             });
 
+            const queueData = response.data as LidarrQueueResponse;
             return (
-                response.data.records.find(
-                    (item: any) => item.downloadId === downloadId
+                queueData.records.find(
+                    (item) => item.downloadId === downloadId
                 ) || null
             );
         } catch (error: any) {
@@ -2269,8 +2314,9 @@ class LidarrService {
                 },
             });
 
-            const releases: CalendarRelease[] = response.data.map(
-                (album: any) => ({
+            const albums = response.data as LidarrAlbum[];
+            const releases: CalendarRelease[] = albums.map(
+                (album) => ({
                     id: album.id,
                     title: album.title,
                     artistName: album.artist?.artistName || "Unknown Artist",
@@ -2312,9 +2358,10 @@ class LidarrService {
 
         try {
             const response = await this.client.get(`/api/v1/artist`);
-            return response.data
-                .filter((artist: any) => artist.monitored)
-                .map((artist: any) => ({
+            const artists = response.data as LidarrArtist[];
+            return artists
+                .filter((artist) => artist.monitored)
+                .map((artist) => ({
                     id: artist.id,
                     name: artist.artistName,
                     mbid: artist.foreignArtistId,
@@ -2513,8 +2560,8 @@ export interface CalendarRelease {
     coverUrl: string | null;
 }
 
-// Interface for release data from Lidarr (exported for use by simpleDownloadManager)
-export interface LidarrRelease {
+// Interface for indexer release data from Lidarr (exported for use by simpleDownloadManager)
+export interface LidarrIndexerRelease {
     guid: string;
     title: string;
     indexerId: number;
@@ -2532,53 +2579,6 @@ export interface LidarrRelease {
 }
 
 export const lidarrService = new LidarrService();
-
-// Types for queue monitoring
-interface QueueItem {
-    id: number;
-    title: string;
-    status: string;
-    downloadId: string;
-    trackedDownloadStatus: string;
-    trackedDownloadState: string;
-    statusMessages: { title: string; messages: string[] }[];
-    sizeleft?: number;
-    size?: number;
-}
-
-interface QueueResponse {
-    page: number;
-    pageSize: number;
-    totalRecords: number;
-    records: QueueItem[];
-}
-
-interface HistoryRecord {
-    id: number;
-    albumId: number;
-    downloadId: string;
-    eventType: string;
-    date: string;
-    data: {
-        droppedPath?: string;
-        importedPath?: string;
-    };
-    album: {
-        id: number;
-        title: string;
-        foreignAlbumId: string; // MBID
-    };
-    artist: {
-        name: string;
-    };
-}
-
-interface HistoryResponse {
-    page: number;
-    pageSize: number;
-    totalRecords: number;
-    records: HistoryRecord[];
-}
 
 // Patterns that indicate a stuck download (case-insensitive matching)
 const FAILED_IMPORT_PATTERNS = [
@@ -2619,7 +2619,7 @@ export async function cleanStuckDownloads(
 
     try {
         // Fetch current queue
-        const response = await axios.get<QueueResponse>(
+        const response = await axios.get<LidarrQueueResponse>(
             `${lidarrUrl}/api/v1/queue`,
             {
                 params: {
@@ -2638,7 +2638,7 @@ export async function cleanStuckDownloads(
         for (const item of response.data.records) {
             // Check if this item has a failed import message
             const allMessages =
-                item.statusMessages?.flatMap((sm) => sm.messages) || [];
+                item.statusMessages?.flatMap((sm: { title: string; messages: string[] }) => sm.messages) || [];
 
             // Log ALL items to understand what states we're seeing
             logger.debug(`   - ${item.title}`);
@@ -2650,7 +2650,7 @@ export async function cleanStuckDownloads(
             }
 
             // Check for pattern matches in messages
-            const hasFailedPattern = allMessages.some((msg) =>
+            const hasFailedPattern = allMessages.some((msg: string) =>
                 FAILED_IMPORT_PATTERNS.some((pattern) =>
                     msg.toLowerCase().includes(pattern.toLowerCase())
                 )
@@ -2723,9 +2723,9 @@ export async function getRecentCompletedDownloads(
     lidarrUrl: string,
     apiKey: string,
     sinceMinutes: number = 5
-): Promise<HistoryRecord[]> {
+): Promise<LidarrHistoryRecord[]> {
     try {
-        const response = await axios.get<HistoryResponse>(
+        const response = await axios.get<LidarrHistoryResponse>(
             `${lidarrUrl}/api/v1/history`,
             {
                 params: {
@@ -2758,7 +2758,7 @@ export async function getQueueCount(
     apiKey: string
 ): Promise<number> {
     try {
-        const response = await axios.get<QueueResponse>(
+        const response = await axios.get<LidarrQueueResponse>(
             `${lidarrUrl}/api/v1/queue`,
             {
                 params: {
@@ -2779,7 +2779,7 @@ export async function getQueueCount(
  * Get the full Lidarr queue
  * Returns all items currently in the download queue
  */
-export async function getQueue(): Promise<QueueItem[]> {
+export async function getQueue(): Promise<LidarrQueueItem[]> {
     const settings = await getSystemSettings();
     if (
         !settings?.lidarrEnabled ||
@@ -2790,7 +2790,7 @@ export async function getQueue(): Promise<QueueItem[]> {
     }
 
     try {
-        const response = await axios.get<QueueResponse>(
+        const response = await axios.get<LidarrQueueResponse>(
             `${settings.lidarrUrl}/api/v1/queue`,
             {
                 params: {
@@ -2826,7 +2826,7 @@ export async function isDownloadActive(
     }
 
     try {
-        const response = await axios.get<QueueResponse>(
+        const response = await axios.get<LidarrQueueResponse>(
             `${settings.lidarrUrl}/api/v1/queue`,
             {
                 params: {
@@ -2839,7 +2839,7 @@ export async function isDownloadActive(
         );
 
         const item = response.data.records.find(
-            (r) => r.downloadId === downloadId
+            (r: LidarrQueueItem) => r.downloadId === downloadId
         );
 
         if (!item) {

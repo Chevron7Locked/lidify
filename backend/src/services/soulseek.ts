@@ -14,6 +14,13 @@ import { getSystemSettings } from "../utils/systemSettings";
 import { sessionLog } from "../utils/playlistLogger";
 import { distributedLock } from "../utils/distributedLock";
 import { redisClient } from "../utils/redis";
+import {
+    soulseekConnectionStatus,
+    soulseekSearchesTotal,
+    soulseekSearchDuration,
+    soulseekDownloadsTotal,
+    soulseekDownloadDuration
+} from "../utils/metrics";
 
 export interface SearchResult {
     user: string;
@@ -160,6 +167,7 @@ export class SoulseekService {
         this.lastActivity = new Date();
         this.consecutiveEmptySearches = 0;
         this.failedConnectionAttempts = 0; // Reset on successful connection
+        soulseekConnectionStatus.set(1);
         sessionLog("SOULSEEK", "Connected to Soulseek network");
     }
 
@@ -356,6 +364,7 @@ export class SoulseekService {
         timeoutMs: number = 15000,
         onResult?: (result: FileSearchResponse) => void
     ): Promise<SearchTrackResult> {
+        const metricsStartTime = Date.now();
         this.totalSearches++;
         const searchId = this.totalSearches;
         const connectionAge = this.connectedAt
@@ -370,6 +379,8 @@ export class SoulseekService {
                 `[Search #${searchId}] Connection error: ${err.message}`,
                 "ERROR"
             );
+            soulseekSearchesTotal.inc({ status: 'failed' });
+            soulseekSearchDuration.observe((Date.now() - metricsStartTime) / 1000);
             return { found: false, bestMatch: null, allMatches: [] };
         }
 
@@ -379,6 +390,8 @@ export class SoulseekService {
                 `[Search #${searchId}] Client not connected`,
                 "ERROR"
             );
+            soulseekSearchesTotal.inc({ status: 'failed' });
+            soulseekSearchDuration.observe((Date.now() - metricsStartTime) / 1000);
             return { found: false, bestMatch: null, allMatches: [] };
         }
 
@@ -432,6 +445,8 @@ export class SoulseekService {
                     );
                 }
 
+                soulseekSearchesTotal.inc({ status: 'not_found' });
+                soulseekSearchDuration.observe((Date.now() - metricsStartTime) / 1000);
                 return { found: false, bestMatch: null, allMatches: [] };
             }
 
@@ -462,6 +477,8 @@ export class SoulseekService {
                     `[Search #${searchId}] No suitable match found after ranking ${flatResults.length} files`,
                     "WARN"
                 );
+                soulseekSearchesTotal.inc({ status: 'not_found' });
+                soulseekSearchDuration.observe((Date.now() - metricsStartTime) / 1000);
                 return { found: false, bestMatch: null, allMatches: [] };
             }
 
@@ -474,6 +491,9 @@ export class SoulseekService {
                 "SOULSEEK",
                 `[Search #${searchId}] Found ${rankedMatches.length} alternative sources for retry`
             );
+
+            soulseekSearchesTotal.inc({ status: 'success' });
+            soulseekSearchDuration.observe((Date.now() - metricsStartTime) / 1000);
 
             return {
                 found: true,
@@ -510,6 +530,8 @@ if (!isRetry && this.consecutiveEmptySearches >= this.MAX_CONSECUTIVE_EMPTY) {
                 );
             }
 
+            soulseekSearchesTotal.inc({ status: 'failed' });
+            soulseekSearchDuration.observe((Date.now() - metricsStartTime) / 1000);
             return { found: false, bestMatch: null, allMatches: [] };
         }
     }
@@ -755,6 +777,7 @@ private async recordUserFailure(username: string): Promise<void> {
         destPath: string,
         attemptNumber: number = 0
     ): Promise<{ success: boolean; error?: string }> {
+        const downloadStartTime = Date.now();
         this.activeDownloads++;
         this.maxConcurrentDownloads = Math.max(
             this.maxConcurrentDownloads,
@@ -936,6 +959,11 @@ writeStream.on("error", async (err: Error) => {
                 }
             );
 
+            const duration = (Date.now() - downloadStartTime) / 1000;
+            const status = result.success ? 'success' : 'failed';
+            soulseekDownloadsTotal.inc({ status });
+            soulseekDownloadDuration.observe({ status }, duration);
+
             return result;
         } catch (err: any) {
             this.activeDownloads--;
@@ -948,6 +976,11 @@ writeStream.on("error", async (err: Error) => {
             if (errorInfo.skipUser) {
                 await this.recordUserFailure(match.username);
             }
+
+            const duration = (Date.now() - downloadStartTime) / 1000;
+            soulseekDownloadsTotal.inc({ status: 'failed' });
+            soulseekDownloadDuration.observe({ status: 'failed' }, duration);
+
             return { success: false, error: err.message };
         }
     }
@@ -1193,10 +1226,11 @@ private async downloadWithRetry(
         }
         this.client = null;
         this.connectedAt = null;
+        soulseekConnectionStatus.set(0);
         sessionLog("SOULSEEK", "Disconnected");
     }
 
-    async saveSearchSession(sessionId: string, data: any, ttlSeconds: number = 300): Promise<void> {
+    async saveSearchSession(sessionId: string, data: unknown, ttlSeconds: number = 300): Promise<void> {
         try {
             const key = `soulseek:search:${sessionId}`;
             await redisClient.setEx(key, ttlSeconds, JSON.stringify(data));
@@ -1205,7 +1239,7 @@ private async downloadWithRetry(
         }
     }
 
-    async getSearchSession(sessionId: string): Promise<any | null> {
+    async getSearchSession(sessionId: string): Promise<unknown> {
         try {
             const key = `soulseek:search:${sessionId}`;
             const data = await redisClient.get(key);

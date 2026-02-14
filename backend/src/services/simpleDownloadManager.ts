@@ -9,7 +9,7 @@
 import { logger } from "../utils/logger";
 import { prisma } from "../utils/db";
 import { Prisma, PrismaClient } from "@prisma/client";
-import { lidarrService, LidarrRelease, AcquisitionError, AcquisitionErrorType, ReconciliationSnapshot } from "./lidarr";
+import { lidarrService, LidarrIndexerRelease, AcquisitionError, AcquisitionErrorType, ReconciliationSnapshot } from "./lidarr";
 import { yieldToEventLoop } from "../utils/async";
 import { musicBrainzService } from "./musicbrainz";
 import { getSystemSettings } from "../utils/systemSettings";
@@ -20,6 +20,7 @@ import { config } from "../config";
 import { eventBus } from "./eventBus";
 import axios from "axios";
 import * as crypto from "crypto";
+import { activeDownloads } from "../utils/metrics";
 
 // Type for transactional prisma client
 type TransactionClient = Omit<
@@ -38,6 +39,33 @@ class SimpleDownloadManager {
     private readonly IMPORT_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes for imports
     private readonly PENDING_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes for pending
     private readonly NO_SOURCE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes for no sources found
+
+    /**
+     * Update active downloads metric from database state
+     */
+    private async updateActiveDownloadsMetric(): Promise<void> {
+        try {
+            const [lidarrCount, soulseekCount] = await Promise.all([
+                prisma.downloadJob.count({
+                    where: {
+                        status: 'processing',
+                        metadata: { path: ['currentSource'], equals: 'lidarr' },
+                    },
+                }),
+                prisma.downloadJob.count({
+                    where: {
+                        status: 'processing',
+                        metadata: { path: ['currentSource'], equals: 'soulseek' },
+                    },
+                }),
+            ]);
+
+            activeDownloads.set({ source: 'lidarr' }, lidarrCount);
+            activeDownloads.set({ source: 'soulseek' }, soulseekCount);
+        } catch (error) {
+            logger.error('Failed to update active downloads metric:', error);
+        }
+    }
 
     /**
      * Get max retry attempts from user's discover config, fallback to default
@@ -214,6 +242,10 @@ class SimpleDownloadManager {
             logger.debug(
                 `   Download started with correlation ID: ${correlationId}`
             );
+
+            // Update active downloads metric
+            this.updateActiveDownloadsMetric().catch(() => {});
+
             return { success: true, correlationId };
         } catch (error: any) {
             logger.error(`   Failed to start download:`, error.message);
@@ -1899,6 +1931,9 @@ class SimpleDownloadManager {
             prisma.downloadJob.count({ where: { status: "completed" } }),
             prisma.downloadJob.count({ where: { status: "failed" } }),
         ]);
+
+        // Update active downloads metric
+        this.updateActiveDownloadsMetric().catch(() => {});
 
         return { pending, processing, completed, failed };
     }
