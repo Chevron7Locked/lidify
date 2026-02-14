@@ -207,6 +207,10 @@ export class DiscoverySeeding {
         const inLidarr = await lidarrService.isAlbumAvailable(albumMbid);
         if (inLidarr) return true;
 
+        // Check exclusion window (recently discovered albums)
+        const excluded = await this.isAlbumExcluded(albumMbid, userId);
+        if (excluded) return true;
+
         // OPTIMIZED fuzzy matching - only if names provided
         if (artistName && albumTitle) {
             const normArtist = normalizeForMatching(artistName);
@@ -236,6 +240,30 @@ export class DiscoverySeeding {
                     }
                 }
             }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if album was recently recommended (exclusion window).
+     * Prevents re-recommending albums from last 12 weeks.
+     */
+    async isAlbumExcluded(albumMbid: string, userId: string): Promise<boolean> {
+        const EXCLUSION_WEEKS = 12;
+        const exclusionCutoff = subWeeks(new Date(), EXCLUSION_WEEKS);
+
+        const recentDiscovery = await prisma.discoveryAlbum.findFirst({
+            where: {
+                rgMbid: albumMbid,
+                userId,
+                weekStartDate: { gte: exclusionCutoff },
+            },
+        });
+
+        if (recentDiscovery) {
+            logger.debug(`[DiscoverySeeding] Album ${albumMbid} excluded - discovered within last ${EXCLUSION_WEEKS} weeks`);
+            return true;
         }
 
         return false;
