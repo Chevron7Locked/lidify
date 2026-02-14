@@ -2335,7 +2335,7 @@ export class DiscoverWeeklyService {
                         artistMbid: artist.mbid,
                         albumTitle: album.name,
                         albumMbid: mbAlbum.id,
-                        similarity: artist.match || 0.5,
+                        similarity: artist.avgMatch || artist.match || 0.5,
                     },
                     albumsChecked,
                     skippedNoMbid,
@@ -2562,6 +2562,65 @@ export class DiscoverWeeklyService {
     }
 
     /**
+     * Score artists by how many seed lists they appear in
+     * Artists recommended by multiple seeds = stronger signal
+     */
+    private scoreArtistsByCrossSeedFrequency(
+        similarCache: Map<string, any[]>
+    ): Array<{
+        name: string;
+        mbid?: string;
+        avgMatch: number;
+        crossSeedCount: number;
+        maxMatch: number;
+    }> {
+        const artistFrequency = new Map<string, {
+            name: string;
+            mbid?: string;
+            matches: number[];
+        }>();
+
+        // Collect all artist occurrences across seed lists
+        for (const [seedKey, similar] of similarCache.entries()) {
+            for (const artist of similar) {
+                const key = artist.mbid || artist.name.toLowerCase();
+
+                if (!artistFrequency.has(key)) {
+                    artistFrequency.set(key, {
+                        name: artist.name,
+                        mbid: artist.mbid,
+                        matches: [],
+                    });
+                }
+
+                artistFrequency.get(key)!.matches.push(artist.match || 0.5);
+            }
+        }
+
+        // Calculate scores
+        const scored = Array.from(artistFrequency.values()).map(artist => ({
+            name: artist.name,
+            mbid: artist.mbid,
+            avgMatch: artist.matches.reduce((sum, m) => sum + m, 0) / artist.matches.length,
+            maxMatch: Math.max(...artist.matches),
+            crossSeedCount: artist.matches.length,
+        }));
+
+        // Sort by cross-seed count (more seeds = higher) then by avg match
+        scored.sort((a, b) => {
+            if (b.crossSeedCount !== a.crossSeedCount) {
+                return b.crossSeedCount - a.crossSeedCount;
+            }
+            return b.avgMatch - a.avgMatch;
+        });
+
+        logger.debug(`[DISCOVERY] Cross-seed scored ${scored.length} unique artists`);
+        logger.debug(`   Top artist: ${scored[0]?.name} (${scored[0]?.crossSeedCount} seeds, ${(scored[0]?.avgMatch * 100).toFixed(0)}% avg match)`);
+
+        return scored;
+    }
+
+    /**
      * Main recommendation engine with tier-based selection
      * Combines similar artists (by tier) + genre wildcards for variety
      *
@@ -2581,7 +2640,7 @@ export class DiscoverWeeklyService {
         const seenArtists = new Set<string>();
         const recommendations: RecommendedAlbum[] = [];
 
-        logger.debug(`\n[DISCOVERY] Tier-Based Selection`);
+        logger.debug(`\n[DISCOVERY] Cross-Seed + Tier-Based Selection`);
         logger.debug(`   Target: ${targetCount} albums`);
         logger.debug(
             `   Distribution: 30% high, 40% medium, 20% explore, 10% wildcard`
@@ -2606,25 +2665,19 @@ export class DiscoverWeeklyService {
             `   Targets: ${highCount} high, ${mediumCount} medium, ${exploreCount} explore, ${wildcardCount} wildcard`
         );
 
-        // Collect all similar artists from all seeds
-        const allSimilarArtists: any[] = [];
-        for (const seed of seeds) {
-            const similar = similarCache.get(seed.mbid || seed.name) || [];
-            for (const sim of similar) {
-                allSimilarArtists.push(sim);
-            }
-        }
+        // Score artists by cross-seed frequency (appears in multiple seed lists = stronger signal)
+        const scoredArtists = this.scoreArtistsByCrossSeedFrequency(similarCache);
 
-        // Group similar artists by tier (based on Last.fm match score)
+        // Group similar artists by tier (based on avgMatch across all seeds)
         // Thresholds calibrated to Last.fm's actual distribution (0.5-0.7 range typically)
         // Filter out low-quality matches below minimum threshold
         const byTier = {
-            high: allSimilarArtists.filter((a) => (a.match || 0) >= TIER_THRESHOLDS.high),
-            medium: allSimilarArtists.filter(
-                (a) => (a.match || 0) >= TIER_THRESHOLDS.medium && (a.match || 0) < TIER_THRESHOLDS.high
+            high: scoredArtists.filter((a) => a.avgMatch >= TIER_THRESHOLDS.high),
+            medium: scoredArtists.filter(
+                (a) => a.avgMatch >= TIER_THRESHOLDS.medium && a.avgMatch < TIER_THRESHOLDS.high
             ),
-            explore: allSimilarArtists.filter(
-                (a) => (a.match || 0) >= TIER_THRESHOLDS.explore && (a.match || 0) < TIER_THRESHOLDS.medium
+            explore: scoredArtists.filter(
+                (a) => a.avgMatch >= TIER_THRESHOLDS.explore && a.avgMatch < TIER_THRESHOLDS.medium
             ),
         };
 
@@ -2634,12 +2687,12 @@ export class DiscoverWeeklyService {
             `   Available: ${byTier.high.length} high, ${byTier.medium.length} medium, ${byTier.explore.length} explore`
         );
 
-        // Debug: Show top artists from each tier with their match scores
+        // Debug: Show top artists from each tier with their avgMatch scores and cross-seed counts
         if (byTier.high.length > 0) {
             logger.debug(
                 `   HIGH tier sample: ${byTier.high
                     .slice(0, 3)
-                    .map((a) => `${a.name}(${(a.match * 100).toFixed(0)}%)`)
+                    .map((a) => `${a.name}(${(a.avgMatch * 100).toFixed(0)}%,${a.crossSeedCount}x)`)
                     .join(", ")}`
             );
         }
@@ -2647,7 +2700,7 @@ export class DiscoverWeeklyService {
             logger.debug(
                 `   MEDIUM tier sample: ${byTier.medium
                     .slice(0, 3)
-                    .map((a) => `${a.name}(${(a.match * 100).toFixed(0)}%)`)
+                    .map((a) => `${a.name}(${(a.avgMatch * 100).toFixed(0)}%,${a.crossSeedCount}x)`)
                     .join(", ")}`
             );
         }
@@ -2655,7 +2708,7 @@ export class DiscoverWeeklyService {
             logger.debug(
                 `   EXPLORE tier sample: ${byTier.explore
                     .slice(0, 3)
-                    .map((a) => `${a.name}(${(a.match * 100).toFixed(0)}%)`)
+                    .map((a) => `${a.name}(${(a.avgMatch * 100).toFixed(0)}%,${a.crossSeedCount}x)`)
                     .join(", ")}`
             );
         }
@@ -2705,14 +2758,14 @@ export class DiscoverWeeklyService {
                 if (result.recommendation) {
                     seenArtists.add(key);
                     result.recommendation.tier = tierName;
-                    // Use the artist's actual match score for similarity
+                    // Use the artist's avgMatch score (cross-seed average) for similarity
                     result.recommendation.similarity =
-                        artist.match || result.recommendation.similarity;
+                        artist.avgMatch || result.recommendation.similarity;
                     selected.push(result.recommendation);
                     logger.debug(
                         `    ✓ [${tierName.toUpperCase()}] ${artist.name} - ${
                             result.recommendation.albumTitle
-                        } (${((artist.match || 0) * 100).toFixed(0)}%)`
+                        } (${((artist.avgMatch || 0) * 100).toFixed(0)}%, ${artist.crossSeedCount}x)`
                     );
                 }
             }
@@ -2782,18 +2835,18 @@ export class DiscoverWeeklyService {
                 );
                 if (result.recommendation) {
                     seenArtists.add(key);
-                    // Use the artist's actual match score for tier assignment
+                    // Use the artist's avgMatch score (cross-seed average) for tier assignment
                     result.recommendation.tier = getTierFromSimilarity(
-                        artist.match || result.recommendation.similarity
+                        artist.avgMatch || result.recommendation.similarity
                     );
-                    // Also update similarity to use actual match score
+                    // Also update similarity to use avgMatch score
                     result.recommendation.similarity =
-                        artist.match || result.recommendation.similarity;
+                        artist.avgMatch || result.recommendation.similarity;
                     recommendations.push(result.recommendation);
                     logger.debug(
                         `    ✓ [FILL] ${artist.name} - ${
                             result.recommendation.albumTitle
-                        } (${(artist.match * 100).toFixed(0)}%)`
+                        } (${(artist.avgMatch * 100).toFixed(0)}%, ${artist.crossSeedCount}x)`
                     );
                 }
             }
@@ -2831,15 +2884,15 @@ export class DiscoverWeeklyService {
                 if (result.recommendation) {
                     seenArtists.add(key);
                     result.recommendation.tier = getTierFromSimilarity(
-                        artist.match || result.recommendation.similarity
+                        artist.avgMatch || result.recommendation.similarity
                     );
                     result.recommendation.similarity =
-                        artist.match || result.recommendation.similarity;
+                        artist.avgMatch || result.recommendation.similarity;
                     recommendations.push(result.recommendation);
                     logger.debug(
                         `    ✓ [EXISTING] ${artist.name} - ${
                             result.recommendation.albumTitle
-                        } (${((artist.match || 0) * 100).toFixed(0)}%)`
+                        } (${((artist.avgMatch || 0) * 100).toFixed(0)}%, ${artist.crossSeedCount}x)`
                     );
                 }
             }
