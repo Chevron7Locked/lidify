@@ -36,15 +36,18 @@ COPY --from=deps /app/prisma ./prisma
 # Copy source code (will run with tsx, not compiled)
 COPY src ./src
 
-# Copy healthcheck script and shell entrypoint
+# Copy healthcheck script, migration script, and shell entrypoint
 COPY healthcheck.js ./
+COPY migrate-safe.sh ./
 COPY docker-entrypoint.sh /usr/local/bin/
 
 # Create directories, fix line endings, set permissions, then remove dangerous tools
 # NOTE: We keep /bin/sh because npm/npx require it to spawn processes
 RUN mkdir -p /app/cache/covers /app/cache/transcodes /app/logs && \
     sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && \
+    sed -i 's/\r$//' /app/migrate-safe.sh && \
     chmod +x /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /app/migrate-safe.sh && \
     chown -R node:node /app && \
     # Remove download/network utilities (prevents downloading malware)
     rm -f /usr/bin/wget /usr/bin/curl /bin/wget /bin/curl 2>/dev/null || true && \

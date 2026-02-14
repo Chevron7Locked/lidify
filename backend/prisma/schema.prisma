@@ -7,114 +7,39 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id                     String                @id @default(cuid())
-  username               String                @unique
-  passwordHash           String
-  role                   String                @default("user")
-  onboardingComplete     Boolean               @default(false)
-  enrichmentSettings     Json?
-  twoFactorEnabled       Boolean               @default(false)
-  twoFactorSecret        String?
-  twoFactorRecoveryCodes String?
-  moodMixParams          Json?
-  tokenVersion           Int                   @default(0)
-  createdAt              DateTime              @default(now())
-  apiKeys                ApiKey[]
-  audiobookProgress      AudiobookProgress[]
-  cachedTracks           CachedTrack[]
-  deviceLinkCodes        DeviceLinkCode[]
-  discoverExclusions     DiscoverExclusion[]
-  discoveryAlbums        DiscoveryAlbum[]
-  dislikedEntities       DislikedEntity[]
-  downloadJobs           DownloadJob[]
-  hiddenPlaylists        HiddenPlaylist[]
-  likedTracks            LikedTrack[]
-  listeningState         ListeningState[]
-  notifications          Notification[]
-  plays                  Play[]
-  playbackState          PlaybackState?
-  playlists              Playlist[]
-  podcastDownloads       PodcastDownload[]
-  podcastProgress        PodcastProgress[]
-  podcastSubscriptions   PodcastSubscription[]
-  spotifyImportJobs      SpotifyImportJob[]
-  unavailableAlbums      UnavailableAlbum[]
-  discoverConfig         UserDiscoverConfig?
-  userMoodMix            UserMoodMix?
-  settings               UserSettings?
+model Album {
+  id               String                   @id
+  rgMbid           String
+  artistId         String
+  title            String
+  year             Int?
+  coverUrl         String?
+  primaryType      String
+  label            String?
+  genres           Json?
+  lastSynced       DateTime                 @default(now())
+  location         AlbumLocation            @default(LIBRARY)
+  searchVector     Unsupported("tsvector")?
+  displayTitle     String?
+  displayYear      Int?
+  hasUserOverrides Boolean                  @default(false)
+  userCoverUrl     String?
+  userGenres       Json?
+  originalYear     Int?
 }
 
-model UserSettings {
-  userId          String  @id
-  playbackQuality String  @default("original")
-  wifiOnly        Boolean @default(false)
-  offlineEnabled  Boolean @default(false)
-  maxCacheSizeMb  Int     @default(10240)
-  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model PlaybackState {
-  userId       String   @id
-  playbackType String
-  trackId      String?
-  audiobookId  String?
-  podcastId    String?
-  queue        Json?
-  currentIndex Int      @default(0)
-  isShuffle    Boolean  @default(false)
-  updatedAt    DateTime @updatedAt
-  createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
-
-model SystemSettings {
-  id                          String   @id @default("default")
-  lidarrEnabled               Boolean  @default(true)
-  lidarrUrl                   String?  @default("http://localhost:8686")
-  lidarrApiKey                String?
-  openaiEnabled               Boolean  @default(false)
-  openaiApiKey                String?
-  openaiModel                 String?  @default("gpt-4")
-  openaiBaseUrl               String?
-  fanartEnabled               Boolean  @default(false)
-  fanartApiKey                String?
-  audiobookshelfEnabled       Boolean  @default(false)
-  audiobookshelfUrl           String?  @default("http://localhost:13378")
-  audiobookshelfApiKey        String?
-  soulseekUsername            String?
-  soulseekPassword            String?
-  soulseekEnabled             Boolean?
-  soulseekDownloadPath        String?
-  spotifyClientId             String?
-  spotifyClientSecret         String?
-  musicPath                   String?  @default("/music")
-  downloadPath                String?  @default("/downloads")
-  autoSync                    Boolean  @default(true)
-  autoEnrichMetadata          Boolean  @default(true)
-  maxConcurrentDownloads      Int      @default(3)
-  downloadRetryAttempts       Int      @default(3)
-  transcodeCacheMaxGb         Int      @default(10)
-  downloadSource              String   @default("soulseek")
-  primaryFailureFallback      String   @default("none")
-  updatedAt                   DateTime @updatedAt
-  createdAt                   DateTime @default(now())
-  enrichmentConcurrency       Int      @default(1)
-  lidarrWebhookSecret         String?
-  audioAnalyzerWorkers        Int      @default(2)
-  clapWorkers                 Int      @default(2)
-  lastfmApiKey                String?
-  lastfmApiSecret             String?
-  lastfmUserKey               String?
-  lastfmEnabled               Boolean?
-  soulseekConcurrentDownloads Int      @default(4)
+model ApiKey {
+  id        String   @id
+  userId    String
+  key       String
+  name      String
+  lastUsed  DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Artist {
-  id                  String                   @id @default(cuid())
-  mbid                String                   @unique
+  id                  String                   @id
+  mbid                String
   name                String
   normalizedName      String                   @default("")
   summary             String?
@@ -134,442 +59,6 @@ model Artist {
   discoveryAlbumCount Int                      @default(0)
   libraryAlbumCount   Int                      @default(0)
   totalTrackCount     Int                      @default(0)
-  albums              Album[]
-  ownedAlbums         OwnedAlbum[]
-  similarFrom         SimilarArtist[]          @relation("FromArtist")
-  similarTo           SimilarArtist[]          @relation("ToArtist")
-
-  @@index([name])
-  @@index([normalizedName])
-  @@index([searchVector], type: Gin)
-  @@index([hasUserOverrides])
-  @@index([libraryAlbumCount])
-  @@index([discoveryAlbumCount])
-  @@index([totalTrackCount])
-}
-
-model Album {
-  id               String                   @id @default(cuid())
-  rgMbid           String                   @unique
-  artistId         String
-  title            String
-  year             Int?
-  coverUrl         String?
-  primaryType      String
-  label            String?
-  genres           Json?
-  lastSynced       DateTime                 @default(now())
-  location         AlbumLocation            @default(LIBRARY)
-  searchVector     Unsupported("tsvector")?
-  displayTitle     String?
-  displayYear      Int?
-  hasUserOverrides Boolean                  @default(false)
-  userCoverUrl     String?
-  userGenres       Json?
-  originalYear     Int?
-  artist           Artist                   @relation(fields: [artistId], references: [id], onDelete: Cascade)
-  tracks           Track[]
-
-  @@index([artistId])
-  @@index([location])
-  @@index([artistId, location])
-  @@index([title])
-  @@index([searchVector], type: Gin)
-  @@index([hasUserOverrides])
-}
-
-model Track {
-  id                 String                   @id @default(cuid())
-  albumId            String
-  title              String
-  trackNo            Int
-  duration           Int
-  mime               String?
-  searchVector       Unsupported("tsvector")?
-  filePath           String                   @unique
-  fileModified       DateTime
-  fileSize           Int
-  bpm                Float?
-  beatsCount         Int?
-  key                String?
-  keyScale           String?
-  keyStrength        Float?
-  energy             Float?
-  loudness           Float?
-  dynamicRange       Float?
-  danceability       Float?
-  valence            Float?
-  arousal            Float?
-  instrumentalness   Float?
-  acousticness       Float?
-  speechiness        Float?
-  // Legacy mood fields - populated by MusiCNN analyzer
-  // These may be derived from CLAP text-anchor similarity in future
-  // Consider removing in v2.0 if vibe similarity fully replaces mood-based features
-  moodHappy          Float?
-  moodSad            Float?
-  moodRelaxed        Float?
-  moodAggressive     Float?
-  moodParty          Float?
-  moodAcoustic       Float?
-  moodElectronic     Float?
-  danceabilityMl     Float?
-  moodTags           String[]
-  essentiaGenres     String[]
-  lastfmTags         String[]
-  analysisStatus     String                   @default("pending")
-  analysisVersion    String?
-  analysisMode       String?
-  analyzedAt         DateTime?
-  analysisError      String?
-  analysisRetryCount Int                      @default(0)
-  updatedAt          DateTime                 @updatedAt
-  displayTitle       String?
-  displayTrackNo     Int?
-  hasUserOverrides   Boolean                  @default(false)
-  analysisStartedAt  DateTime?
-  
-// Vibe analysis status tracking
-   vibeAnalysisStatus        String?      // Analysis status: pending, processing, completed, failed
-   vibeAnalysisStartedAt     DateTime?
-   vibeAnalysisError         String?
-   vibeAnalysisRetryCount    Int          @default(0)
-   vibeAnalysisStatusUpdatedAt DateTime?    // When the status was last updated
-  
-  cachedBy           CachedTrack[]
-  likedBy            LikedTrack[]
-  moodBuckets        MoodBucket[]
-  plays              Play[]
-  playlistItems      PlaylistItem[]
-  album              Album                    @relation(fields: [albumId], references: [id], onDelete: Cascade)
-  trackGenres        TrackGenre[]
-  transcodedFiles    TranscodedFile[]
-  embedding          TrackEmbedding?
-
-  @@index([albumId])
-  @@index([fileModified])
-  @@index([title])
-  @@index([searchVector], type: Gin)
-  @@index([analysisStatus])
-  @@index([analysisMode])
-  @@index([bpm])
-  @@index([energy])
-  @@index([valence])
-  @@index([danceability])
-  @@index([moodHappy])
-  @@index([moodSad])
-  @@index([moodRelaxed])
-  @@index([moodAggressive])
-  @@index([moodParty])
-  @@index([moodAcoustic])
-  @@index([moodElectronic])
-  @@index([arousal])
-  @@index([acousticness])
-  @@index([instrumentalness])
-  @@index([hasUserOverrides])
-}
-
-model TranscodedFile {
-  id             String   @id @default(cuid())
-  trackId        String
-  quality        String
-  cachePath      String   @unique
-  cacheSize      Int
-  sourceModified DateTime
-  lastAccessed   DateTime @default(now())
-  createdAt      DateTime @default(now())
-  track          Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
-
-  @@unique([trackId, quality])
-  @@index([trackId, quality])
-  @@index([lastAccessed])
-}
-
-model Play {
-  id       String       @id @default(cuid())
-  userId   String
-  trackId  String
-  playedAt DateTime     @default(now())
-  source   ListenSource @default(LIBRARY)
-  track    Track        @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, playedAt])
-  @@index([trackId])
-  @@index([source])
-}
-
-model Playlist {
-  id                 String                 @id @default(cuid())
-  userId             String
-  mixId              String?
-  name               String
-  isPublic           Boolean                @default(false)
-  createdAt          DateTime               @default(now())
-  spotifyPlaylistId  String?
-  spotifyPlaylistUrl String?
-  hiddenByUsers      HiddenPlaylist[]
-  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items              PlaylistItem[]
-  pendingTracks      PlaylistPendingTrack[]
-
-  @@unique([userId, mixId])
-  @@index([userId])
-  @@index([spotifyPlaylistId])
-}
-
-model HiddenPlaylist {
-  id         String   @id @default(cuid())
-  userId     String
-  playlistId String
-  createdAt  DateTime @default(now())
-  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, playlistId])
-  @@index([userId])
-}
-
-model PlaylistItem {
-  id         String   @id @default(cuid())
-  playlistId String
-  trackId    String
-  sort       Int
-  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
-  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
-
-  @@unique([playlistId, trackId])
-  @@index([playlistId, sort])
-}
-
-model PlaylistPendingTrack {
-  id               String   @id @default(cuid())
-  playlistId       String
-  spotifyArtist    String
-  spotifyTitle     String
-  spotifyAlbum     String
-  albumMbid        String?
-  artistMbid       String?
-  deezerPreviewUrl String?
-  sort             Int
-  createdAt        DateTime @default(now())
-  playlist         Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
-
-  @@unique([playlistId, spotifyArtist, spotifyTitle])
-  @@index([playlistId])
-  @@index([albumMbid])
-  @@index([artistMbid])
-}
-
-model SpotifyImportJob {
-  id                 String   @id
-  userId             String
-  spotifyPlaylistId  String
-  playlistName       String
-  status             String
-  progress           Int      @default(0)
-  albumsTotal        Int
-  albumsCompleted    Int      @default(0)
-  tracksTotal        Int
-  tracksMatched      Int      @default(0)
-  tracksDownloadable Int      @default(0)
-  createdPlaylistId  String?
-  error              String?
-  pendingTracks      Json
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([status])
-  @@index([createdAt])
-}
-
-model Genre {
-  id          String       @id @default(cuid())
-  name        String       @unique
-  trackGenres TrackGenre[]
-}
-
-model TrackGenre {
-  trackId String
-  genreId String
-  genre   Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
-  track   Track  @relation(fields: [trackId], references: [id], onDelete: Cascade)
-
-  @@id([trackId, genreId])
-  @@index([genreId])
-}
-
-model SimilarArtist {
-  fromArtistId String
-  toArtistId   String
-  weight       Float  @default(1.0)
-  fromArtist   Artist @relation("FromArtist", fields: [fromArtistId], references: [id], onDelete: Cascade)
-  toArtist     Artist @relation("ToArtist", fields: [toArtistId], references: [id], onDelete: Cascade)
-
-  @@id([fromArtistId, toArtistId])
-  @@index([fromArtistId])
-}
-
-model OwnedAlbum {
-  artistId String
-  rgMbid   String
-  source   String
-  artist   Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
-
-  @@id([artistId, rgMbid])
-  @@index([artistId])
-}
-
-model DownloadJob {
-  id               String          @id @default(cuid())
-  correlationId    String?         @unique
-  userId           String
-  subject          String
-  type             String
-  targetMbid       String
-  status           String
-  error            String?
-  lidarrRef        String?
-  lidarrAlbumId    Int?
-  metadata         Json?
-  attempts         Int             @default(0)
-  startedAt        DateTime?
-  completedAt      DateTime?
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  discoveryBatchId String?
-  triedReleases    String[]        @default([])
-  releaseIndex     Int             @default(0)
-  artistMbid       String?
-  cleared          Boolean         @default(false)
-  discoveryBatch   DiscoveryBatch? @relation(fields: [discoveryBatchId], references: [id])
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, status])
-  @@index([status])
-  @@index([discoveryBatchId])
-  @@index([correlationId])
-  @@index([startedAt])
-  @@index([lidarrRef])
-  @@index([artistMbid])
-  @@index([targetMbid])
-}
-
-model ListeningState {
-  id         String   @id @default(cuid())
-  userId     String
-  kind       String
-  entityId   String
-  trackId    String?
-  positionMs Int      @default(0)
-  updatedAt  DateTime @updatedAt
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, kind, entityId])
-  @@index([userId])
-}
-
-model DiscoveryAlbum {
-  id            String           @id @default(cuid())
-  userId        String
-  rgMbid        String
-  artistName    String
-  artistMbid    String?
-  albumTitle    String
-  lidarrAlbumId Int?
-  downloadedAt  DateTime?
-  folderPath    String           @default("")
-  weekStartDate DateTime
-  weekEndDate   DateTime         @default(now())
-  status        DiscoverStatus   @default(ACTIVE)
-  likedAt       DateTime?
-  similarity    Float?
-  tier          String?
-  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tracks        DiscoveryTrack[]
-
-  @@unique([userId, weekStartDate, rgMbid])
-  @@index([userId, weekStartDate])
-  @@index([downloadedAt])
-  @@index([status])
-}
-
-model DiscoveryTrack {
-  id               String         @id @default(cuid())
-  discoveryAlbumId String
-  trackId          String?
-  fileName         String
-  filePath         String
-  inPlaylistCount  Int            @default(0)
-  userKept         Boolean        @default(false)
-  lastPlayedAt     DateTime?
-  discoveryAlbum   DiscoveryAlbum @relation(fields: [discoveryAlbumId], references: [id], onDelete: Cascade)
-
-  @@index([discoveryAlbumId])
-  @@index([userKept])
-  @@index([lastPlayedAt])
-}
-
-model LikedTrack {
-  userId  String
-  trackId String
-  likedAt DateTime @default(now())
-  track   Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@id([userId, trackId])
-  @@index([userId])
-  @@index([likedAt])
-}
-
-model DislikedEntity {
-  id         String   @id @default(cuid())
-  userId     String
-  entityType String
-  entityId   String
-  dislikedAt DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, entityType, entityId])
-  @@index([userId, entityType])
-}
-
-model CachedTrack {
-  id             String   @id @default(cuid())
-  userId         String
-  trackId        String
-  localPath      String
-  quality        String
-  fileSizeMb     Float
-  cachedAt       DateTime @default(now())
-  lastAccessedAt DateTime @default(now())
-  track          Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, trackId, quality])
-  @@index([userId])
-  @@index([lastAccessedAt])
-}
-
-model AudiobookProgress {
-  id               String   @id @default(cuid())
-  userId           String
-  audiobookshelfId String
-  title            String
-  author           String?
-  coverUrl         String?
-  currentTime      Float    @default(0)
-  duration         Float    @default(0)
-  isFinished       Boolean  @default(false)
-  lastPlayedAt     DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  createdAt        DateTime @default(now())
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, audiobookshelfId])
-  @@index([userId, lastPlayedAt])
 }
 
 model Audiobook {
@@ -596,46 +85,274 @@ model Audiobook {
   audioUrl       String
   libraryId      String?
   createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
+  updatedAt      DateTime
   lastSyncedAt   DateTime                 @default(now())
   searchVector   Unsupported("tsvector")?
-
-  @@index([title])
-  @@index([author])
-  @@index([series])
-  @@index([lastSyncedAt])
-  @@index([searchVector], type: Gin)
 }
 
-model PodcastRecommendation {
-  id            String   @id @default(cuid())
-  podcastId     String
-  recommendedId String
-  title         String
-  author        String?
-  description   String?
-  coverUrl      String?
-  episodeCount  Int      @default(0)
-  feedUrl       String?
-  itunesId      String?
-  score         Float    @default(0)
-  cachedAt      DateTime @default(now())
-  expiresAt     DateTime
+model AudiobookProgress {
+  id               String   @id
+  userId           String
+  audiobookshelfId String
+  title            String
+  author           String?
+  coverUrl         String?
+  currentTime      Float    @default(0)
+  duration         Float    @default(0)
+  isFinished       Boolean  @default(false)
+  lastPlayedAt     DateTime @default(now())
+  updatedAt        DateTime
+  createdAt        DateTime @default(now())
+}
 
-  @@index([podcastId, expiresAt])
-  @@index([expiresAt])
-  @@map("podcast_recommendations")
+model CachedTrack {
+  id             String   @id
+  userId         String
+  trackId        String
+  localPath      String
+  quality        String
+  fileSizeMb     Float
+  cachedAt       DateTime @default(now())
+  lastAccessedAt DateTime @default(now())
+}
+
+model DeviceLinkCode {
+  id         String    @id
+  code       String
+  userId     String
+  expiresAt  DateTime
+  usedAt     DateTime?
+  deviceName String?
+  apiKeyId   String?
+  createdAt  DateTime  @default(now())
+}
+
+model DiscoverExclusion {
+  id              String   @id
+  userId          String
+  albumMbid       String
+  artistName      String?
+  albumTitle      String?
+  lastSuggestedAt DateTime @default(now())
+  expiresAt       DateTime
+}
+
+model DiscoveryAlbum {
+  id            String         @id
+  userId        String
+  rgMbid        String
+  artistName    String
+  artistMbid    String?
+  albumTitle    String
+  lidarrAlbumId Int?
+  downloadedAt  DateTime?
+  folderPath    String         @default("")
+  weekStartDate DateTime
+  weekEndDate   DateTime       @default(now())
+  status        DiscoverStatus @default(ACTIVE)
+  likedAt       DateTime?
+  similarity    Float?
+  tier          String?
+}
+
+model DiscoveryBatch {
+  id              String    @id
+  userId          String
+  weekStart       DateTime
+  targetSongCount Int
+  status          String    @default("downloading")
+  totalAlbums     Int       @default(0)
+  completedAlbums Int       @default(0)
+  failedAlbums    Int       @default(0)
+  finalSongCount  Int       @default(0)
+  logs            Json?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  version         Int       @default(0)
+}
+
+model DiscoveryTrack {
+  id               String    @id
+  discoveryAlbumId String
+  trackId          String?
+  fileName         String
+  filePath         String
+  inPlaylistCount  Int       @default(0)
+  userKept         Boolean   @default(false)
+  lastPlayedAt     DateTime?
+}
+
+model DislikedEntity {
+  id         String   @id
+  userId     String
+  entityType String
+  entityId   String
+  dislikedAt DateTime @default(now())
+}
+
+model DownloadJob {
+  id               String    @id
+  correlationId    String?
+  userId           String
+  subject          String
+  type             String
+  targetMbid       String
+  status           String
+  error            String?
+  lidarrRef        String?
+  lidarrAlbumId    Int?
+  metadata         Json?
+  attempts         Int       @default(0)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime
+  discoveryBatchId String?
+  triedReleases    String[]  @default([])
+  releaseIndex     Int       @default(0)
+  artistMbid       String?
+  cleared          Boolean   @default(false)
+}
+
+model EnrichmentFailure {
+  id            String    @id
+  entityType    String
+  entityId      String
+  entityName    String?
+  errorMessage  String?
+  errorCode     String?
+  retryCount    Int       @default(0)
+  maxRetries    Int       @default(3)
+  firstFailedAt DateTime  @default(now())
+  lastFailedAt  DateTime  @default(now())
+  skipped       Boolean   @default(false)
+  skippedAt     DateTime?
+  resolved      Boolean   @default(false)
+  resolvedAt    DateTime?
+  metadata      Json?
+}
+
+model Genre {
+  id   String @id
+  name String
+}
+
+model HiddenPlaylist {
+  id         String   @id
+  userId     String
+  playlistId String
+  createdAt  DateTime @default(now())
+}
+
+model LikedTrack {
+  userId  String
+  trackId String
+  likedAt DateTime @default(now())
+
+  @@id([userId, trackId])
+}
+
+model ListeningState {
+  id         String   @id
+  userId     String
+  kind       String
+  entityId   String
+  trackId    String?
+  positionMs Int      @default(0)
+  updatedAt  DateTime
+}
+
+model MoodBucket {
+  id        String   @id
+  trackId   String
+  mood      String
+  score     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+}
+
+model Notification {
+  id        String   @id
+  userId    String
+  type      String
+  title     String
+  message   String?
+  metadata  Json?
+  read      Boolean  @default(false)
+  cleared   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model OwnedAlbum {
+  artistId String
+  rgMbid   String
+  source   String
+
+  @@id([artistId, rgMbid])
+}
+
+model Play {
+  id       String       @id
+  userId   String
+  trackId  String
+  playedAt DateTime     @default(now())
+  source   ListenSource @default(LIBRARY)
+}
+
+model PlaybackState {
+  userId       String   @id
+  playbackType String
+  trackId      String?
+  audiobookId  String?
+  podcastId    String?
+  queue        Json?
+  currentIndex Int      @default(0)
+  isShuffle    Boolean  @default(false)
+  updatedAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+model Playlist {
+  id                 String   @id
+  userId             String
+  mixId              String?
+  name               String
+  isPublic           Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  spotifyPlaylistId  String?
+  spotifyPlaylistUrl String?
+}
+
+model PlaylistItem {
+  id         String @id
+  playlistId String
+  trackId    String
+  sort       Int
+}
+
+model PlaylistPendingTrack {
+  id               String   @id
+  playlistId       String
+  spotifyArtist    String
+  spotifyTitle     String
+  spotifyAlbum     String
+  albumMbid        String?
+  artistMbid       String?
+  deezerPreviewUrl String?
+  sort             Int
+  createdAt        DateTime @default(now())
 }
 
 model Podcast {
-  id              String                   @id @default(cuid())
-  feedUrl         String                   @unique
+  id              String                   @id
+  feedUrl         String
   title           String
   author          String?
   description     String?
   imageUrl        String?
   localCoverPath  String?
-  itunesId        String?                  @unique
+  itunesId        String?
   language        String?
   explicit        Boolean                  @default(false)
   episodeCount    Int                      @default(0)
@@ -643,18 +360,22 @@ model Podcast {
   refreshInterval Int                      @default(3600)
   autoRefresh     Boolean                  @default(true)
   createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
+  updatedAt       DateTime
   searchVector    Unsupported("tsvector")?
-  episodes        PodcastEpisode[]
-  subscriptions   PodcastSubscription[]
+}
 
-  @@index([itunesId])
-  @@index([lastRefreshed])
-  @@index([searchVector], type: Gin)
+model PodcastDownload {
+  id             String   @id
+  userId         String
+  episodeId      String
+  localPath      String
+  fileSizeMb     Float
+  downloadedAt   DateTime @default(now())
+  lastAccessedAt DateTime @default(now())
 }
 
 model PodcastEpisode {
-  id             String                   @id @default(cuid())
+  id             String                   @id
   podcastId      String
   guid           String
   title          String
@@ -670,88 +391,171 @@ model PodcastEpisode {
   mimeType       String?                  @default("audio/mpeg")
   createdAt      DateTime                 @default(now())
   searchVector   Unsupported("tsvector")?
-  downloads      PodcastDownload[]
-  podcast        Podcast                  @relation(fields: [podcastId], references: [id], onDelete: Cascade)
-  progress       PodcastProgress[]
+}
 
-  @@unique([podcastId, guid])
-  @@index([podcastId, publishedAt])
-  @@index([searchVector], type: Gin)
+model PodcastProgress {
+  id           String   @id
+  userId       String
+  episodeId    String
+  currentTime  Float    @default(0)
+  duration     Float    @default(0)
+  isFinished   Boolean  @default(false)
+  lastPlayedAt DateTime @default(now())
+  updatedAt    DateTime
+  createdAt    DateTime @default(now())
 }
 
 model PodcastSubscription {
   userId       String
   podcastId    String
   subscribedAt DateTime @default(now())
-  podcast      Podcast  @relation(fields: [podcastId], references: [id], onDelete: Cascade)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, podcastId])
-  @@index([userId])
-  @@index([podcastId])
 }
 
-model PodcastProgress {
-  id           String         @id @default(cuid())
-  userId       String
-  episodeId    String
-  currentTime  Float          @default(0)
-  duration     Float          @default(0)
-  isFinished   Boolean        @default(false)
-  lastPlayedAt DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  createdAt    DateTime       @default(now())
-  episode      PodcastEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+model SimilarArtist {
+  fromArtistId String
+  toArtistId   String
+  weight       Float  @default(1.0)
 
-  @@unique([userId, episodeId])
-  @@index([userId, lastPlayedAt])
+  @@id([fromArtistId, toArtistId])
 }
 
-model PodcastDownload {
-  id             String         @id @default(cuid())
-  userId         String
-  episodeId      String
-  localPath      String
-  fileSizeMb     Float
-  downloadedAt   DateTime       @default(now())
-  lastAccessedAt DateTime       @default(now())
-  episode        PodcastEpisode @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, episodeId])
-  @@index([userId])
-  @@index([lastAccessedAt])
+model SpotifyImportJob {
+  id                 String   @id
+  userId             String
+  spotifyPlaylistId  String
+  playlistName       String
+  status             String
+  progress           Int      @default(0)
+  albumsTotal        Int
+  albumsCompleted    Int      @default(0)
+  tracksTotal        Int
+  tracksMatched      Int      @default(0)
+  tracksDownloadable Int      @default(0)
+  createdPlaylistId  String?
+  error              String?
+  pendingTracks      Json
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime
 }
 
-model DiscoverExclusion {
-  id              String   @id @default(cuid())
-  userId          String
-  albumMbid       String
-  artistName      String?
-  albumTitle      String?
-  lastSuggestedAt DateTime @default(now())
-  expiresAt       DateTime
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, albumMbid])
-  @@index([userId, expiresAt])
+model SystemSettings {
+  id                          String   @id @default("default")
+  lidarrEnabled               Boolean  @default(true)
+  lidarrUrl                   String?  @default("http://localhost:8686")
+  lidarrApiKey                String?
+  openaiEnabled               Boolean  @default(false)
+  openaiApiKey                String?
+  openaiModel                 String?  @default("gpt-4")
+  openaiBaseUrl               String?
+  fanartEnabled               Boolean  @default(false)
+  fanartApiKey                String?
+  audiobookshelfEnabled       Boolean  @default(false)
+  audiobookshelfUrl           String?  @default("http://localhost:13378")
+  audiobookshelfApiKey        String?
+  soulseekUsername            String?
+  soulseekPassword            String?
+  spotifyClientId             String?
+  spotifyClientSecret         String?
+  musicPath                   String?  @default("/music")
+  downloadPath                String?  @default("/downloads")
+  autoSync                    Boolean  @default(true)
+  autoEnrichMetadata          Boolean  @default(true)
+  maxConcurrentDownloads      Int      @default(3)
+  downloadRetryAttempts       Int      @default(3)
+  transcodeCacheMaxGb         Int      @default(10)
+  downloadSource              String   @default("soulseek")
+  primaryFailureFallback      String   @default("none")
+  updatedAt                   DateTime
+  createdAt                   DateTime @default(now())
+  enrichmentConcurrency       Int      @default(1)
+  lidarrWebhookSecret         String?
+  audioAnalyzerWorkers        Int      @default(2)
+  clapWorkers                 Int      @default(2)
+  lastfmApiKey                String?
+  soulseekConcurrentDownloads Int      @default(4)
+  soulseekEnabled             Boolean?
+  soulseekDownloadPath        String?
+  lastfmApiSecret             String?
+  lastfmUserKey               String?
+  lastfmEnabled               Boolean?
 }
 
-model UserDiscoverConfig {
-  id               String    @id @default(cuid())
-  userId           String    @unique
-  playlistSize     Int       @default(40)
-  maxRetryAttempts Int       @default(3)
-  exclusionMonths  Int       @default(6)
-  downloadRatio    Float     @default(1.3)
-  enabled          Boolean   @default(true)
-  lastGeneratedAt  DateTime?
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Track {
+  id                          String                   @id
+  albumId                     String
+  title                       String
+  trackNo                     Int
+  duration                    Int
+  mime                        String?
+  searchVector                Unsupported("tsvector")?
+  filePath                    String
+  fileModified                DateTime
+  fileSize                    Int
+  bpm                         Float?
+  beatsCount                  Int?
+  key                         String?
+  keyScale                    String?
+  keyStrength                 Float?
+  energy                      Float?
+  loudness                    Float?
+  dynamicRange                Float?
+  danceability                Float?
+  valence                     Float?
+  arousal                     Float?
+  instrumentalness            Float?
+  acousticness                Float?
+  speechiness                 Float?
+  moodHappy                   Float?
+  moodSad                     Float?
+  moodRelaxed                 Float?
+  moodAggressive              Float?
+  moodParty                   Float?
+  moodAcoustic                Float?
+  moodElectronic              Float?
+  danceabilityMl              Float?
+  moodTags                    String[]
+  essentiaGenres              String[]
+  lastfmTags                  String[]
+  analysisStatus              String                   @default("pending")
+  analysisVersion             String?
+  analysisMode                String?
+  analyzedAt                  DateTime?
+  analysisError               String?
+  analysisRetryCount          Int                      @default(0)
+  updatedAt                   DateTime
+  displayTitle                String?
+  displayTrackNo              Int?
+  hasUserOverrides            Boolean                  @default(false)
+  analysisStartedAt           DateTime?
+  vibeAnalysisStatus          String?
+  vibeAnalysisStartedAt       DateTime?
+  vibeAnalysisError           String?
+  vibeAnalysisRetryCount      Int                      @default(0)
+  vibeAnalysisStatusUpdatedAt DateTime?
+}
+
+model TrackGenre {
+  trackId String
+  genreId String
+
+  @@id([trackId, genreId])
+}
+
+model TranscodedFile {
+  id             String   @id
+  trackId        String
+  quality        String
+  cachePath      String
+  cacheSize      Int
+  sourceModified DateTime
+  lastAccessed   DateTime @default(now())
+  createdAt      DateTime @default(now())
 }
 
 model UnavailableAlbum {
-  id              String   @id @default(cuid())
+  id              String   @id
   userId          String
   artistName      String
   albumTitle      String
@@ -766,131 +570,91 @@ model UnavailableAlbum {
   attemptNumber   Int      @default(0)
   originalAlbumId String?
   createdAt       DateTime @default(now())
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, weekStartDate, albumMbid])
-  @@index([userId, weekStartDate])
-  @@index([userId, weekStartDate, attemptNumber])
-  @@index([originalAlbumId])
 }
 
-model DiscoveryBatch {
-  id              String        @id @default(cuid())
-  userId          String
-  weekStart       DateTime
-  targetSongCount Int
-  status          String        @default("downloading")
-  totalAlbums     Int           @default(0)
-  completedAlbums Int           @default(0)
-  failedAlbums    Int           @default(0)
-  finalSongCount  Int           @default(0)
-  logs            Json?
-  errorMessage    String?
-  version         Int           @default(0)
-  createdAt       DateTime      @default(now())
-  completedAt     DateTime?
-  jobs            DownloadJob[]
-
-  @@index([userId, weekStart])
-  @@index([status])
-  @@index([createdAt])
+model User {
+  id                     String   @id
+  username               String
+  passwordHash           String
+  role                   String   @default("user")
+  onboardingComplete     Boolean  @default(false)
+  enrichmentSettings     Json?
+  twoFactorEnabled       Boolean  @default(false)
+  twoFactorSecret        String?
+  twoFactorRecoveryCodes String?
+  moodMixParams          Json?
+  tokenVersion           Int      @default(0)
+  createdAt              DateTime @default(now())
 }
 
-model ApiKey {
-  id        String   @id @default(cuid())
-  userId    String
-  key       String   @unique
-  name      String
-  lastUsed  DateTime @default(now())
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([key])
-  @@index([userId])
-  @@index([lastUsed])
-}
-
-model DeviceLinkCode {
-  id         String    @id @default(cuid())
-  code       String    @unique
-  userId     String
-  expiresAt  DateTime
-  usedAt     DateTime?
-  deviceName String?
-  apiKeyId   String?
-  createdAt  DateTime  @default(now())
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([code, expiresAt])
-  @@index([userId])
-}
-
-model MoodBucket {
-  id        String   @id @default(cuid())
-  trackId   String
-  mood      String
-  score     Float
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
-
-  @@unique([trackId, mood])
-  @@index([mood, score(sort: Desc)])
-  @@index([trackId])
+model UserDiscoverConfig {
+  id               String    @id
+  userId           String
+  playlistSize     Int       @default(40)
+  maxRetryAttempts Int       @default(3)
+  exclusionMonths  Int       @default(6)
+  downloadRatio    Float     @default(1.3)
+  enabled          Boolean   @default(true)
+  lastGeneratedAt  DateTime?
 }
 
 model UserMoodMix {
-  id          String   @id @default(cuid())
-  userId      String   @unique
+  id          String   @id
+  userId      String
   mood        String
   trackIds    String[]
   coverUrls   String[]
   generatedAt DateTime
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
+  updatedAt   DateTime
 }
 
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  type      String
-  title     String
-  message   String?
-  metadata  Json?
-  read      Boolean  @default(false)
-  cleared   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, cleared])
-  @@index([userId, read])
-  @@index([createdAt])
+model UserSettings {
+  userId          String  @id
+  playbackQuality String  @default("original")
+  wifiOnly        Boolean @default(false)
+  offlineEnabled  Boolean @default(false)
+  maxCacheSizeMb  Int     @default(10240)
 }
 
-model EnrichmentFailure {
-  id            String    @id @default(cuid())
-  entityType    String
-  entityId      String
-  entityName    String?
-  errorMessage  String?
-  errorCode     String?
+model WebhookEvent {
+  id            String    @id
+  eventId       String    @unique
+  source        String
+  eventType     String
+  payload       Json
+  processed     Boolean   @default(false)
+  processedAt   DateTime?
+  correlationId String?
+  error         String?
   retryCount    Int       @default(0)
-  maxRetries    Int       @default(3)
-  firstFailedAt DateTime  @default(now())
-  lastFailedAt  DateTime  @default(now())
-  skipped       Boolean   @default(false)
-  skippedAt     DateTime?
-  resolved      Boolean   @default(false)
-  resolvedAt    DateTime?
-  metadata      Json?
+  createdAt     DateTime  @default(now())
 
-  @@unique([entityType, entityId])
-  @@index([entityType, resolved])
-  @@index([skipped])
-  @@index([lastFailedAt])
+  @@index([correlationId])
+  @@index([createdAt])
+  @@index([processed])
+  @@index([source, eventType])
+}
+
+model podcast_recommendations {
+  id            String   @id
+  podcastId     String
+  recommendedId String
+  title         String
+  author        String?
+  description   String?
+  coverUrl      String?
+  episodeCount  Int      @default(0)
+  feedUrl       String?
+  itunesId      String?
+  score         Float    @default(0)
+  cachedAt      DateTime @default(now())
+  expiresAt     DateTime
+}
+
+enum AlbumLocation {
+  LIBRARY
+  DISCOVER
 }
 
 enum DiscoverStatus {
@@ -904,39 +668,4 @@ enum ListenSource {
   LIBRARY
   DISCOVERY
   DISCOVERY_KEPT
-}
-
-enum AlbumLocation {
-  LIBRARY
-  DISCOVER
-}
-
-model TrackEmbedding {
-  trackId      String                     @id @map("track_id")
-  embedding    Unsupported("vector(512)")
-  modelVersion String                     @default("laion-clap-music") @map("model_version") @db.VarChar(50)
-  analyzedAt   DateTime                   @default(now()) @map("analyzed_at") @db.Timestamptz
-  track        Track                      @relation(fields: [trackId], references: [id], onDelete: Cascade)
-
-  @@index([modelVersion])
-  @@map("track_embeddings")
-}
-
-model WebhookEvent {
-  id            String    @id @default(cuid())
-  eventId       String    @unique
-  source        String
-  eventType     String
-  payload       Json
-  processed     Boolean   @default(false)
-  processedAt   DateTime?
-  correlationId String?
-  error         String?
-  retryCount    Int       @default(0)
-  createdAt     DateTime  @default(now())
-
-  @@index([source, eventType])
-  @@index([processed])
-  @@index([correlationId])
-  @@index([createdAt])
 }

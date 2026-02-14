@@ -1,6 +1,7 @@
 import axios from "axios";
 import { logger } from "../utils/logger";
 import { redisClient } from "../utils/redis";
+import { CacheWrapper } from "../utils/cacheWrapper";
 
 /**
  * Deezer Service
@@ -67,27 +68,25 @@ export interface DeezerGenreWithRadios {
 class DeezerService {
     private readonly cachePrefix = "deezer:";
     private readonly cacheTTL = 86400; // 24 hours
+    private cache: CacheWrapper;
+
+    constructor() {
+        this.cache = new CacheWrapper('deezer');
+    }
 
     /**
      * Get cached value from Redis
      */
     private async getCached(key: string): Promise<string | null> {
-        try {
-            return await redisClient.get(`${this.cachePrefix}${key}`);
-        } catch {
-            return null;
-        }
+        const cached = await this.cache.get<string>(`${this.cachePrefix}${key}`);
+        return cached;
     }
 
     /**
      * Set cached value in Redis
      */
     private async setCache(key: string, value: string): Promise<void> {
-        try {
-            await redisClient.setEx(`${this.cachePrefix}${key}`, this.cacheTTL, value);
-        } catch {
-            // Ignore cache errors
-        }
+        await this.cache.set(`${this.cachePrefix}${key}`, value, this.cacheTTL);
     }
 
     /**

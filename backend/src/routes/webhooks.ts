@@ -20,6 +20,7 @@ import { getSystemSettings } from "../utils/systemSettings";
 import { prisma } from "../utils/db";
 import { logger } from "../utils/logger";
 import { webhookEventStore } from "../services/webhookEventStore";
+import { webhookEventsTotal, webhookProcessingDuration } from "../utils/metrics";
 
 const router = Router();
 
@@ -104,6 +105,9 @@ async function processWebhookEvent(
     eventType: string,
     payload: any
 ): Promise<void> {
+    const startTime = Date.now();
+    let status = 'success';
+
     try {
         let correlationId: string | undefined;
 
@@ -137,8 +141,13 @@ async function processWebhookEvent(
 
         await webhookEventStore.markProcessed(eventId, correlationId);
     } catch (error: any) {
+        status = 'failed';
         logger.error(`[WEBHOOK] Event processing failed:`, error.message);
         await webhookEventStore.markFailed(eventId, error.message);
+    } finally {
+        const duration = (Date.now() - startTime) / 1000;
+        webhookEventsTotal.inc({ event_type: eventType, status });
+        webhookProcessingDuration.observe({ event_type: eventType }, duration);
     }
 }
 

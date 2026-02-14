@@ -28,9 +28,9 @@ echo "[WAIT] Waiting for services to be ready..."
 sleep 3
 echo "Services are ready"
 
-# Run database migrations
+# Run database migrations (with automatic baselining for existing databases)
 echo "[DB] Running database migrations..."
-npx prisma migrate deploy
+sh ./migrate-safe.sh
 
 # Generate Prisma client (in case of schema changes)
 echo "[DB] Generating Prisma client..."

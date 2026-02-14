@@ -176,6 +176,18 @@ app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
 });
 
+// Prometheus metrics endpoint
+app.get("/api/metrics", async (req, res) => {
+    try {
+        const { getMetrics } = await import("./utils/metrics");
+        res.set("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+        res.send(await getMetrics());
+    } catch (error) {
+        logger.error("Error generating metrics:", error);
+        res.status(500).send("Error generating metrics");
+    }
+});
+
 // Swagger API Documentation
 // In production: require auth unless DOCS_PUBLIC=true
 // In development: always public for easier testing
