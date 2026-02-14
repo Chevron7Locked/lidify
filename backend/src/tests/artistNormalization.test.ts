@@ -342,6 +342,17 @@ function runTests(): void {
             input: "Track.mp3",
             expected: null,
         },
+        // Windows path separators
+        {
+            name: "Windows path: Artist\\Album\\Track.mp3",
+            input: "Artist\\Album\\Track.mp3",
+            expected: "Artist",
+        },
+        {
+            name: "Mixed separators: Artist/Album\\Track.mp3",
+            input: "Artist/Album\\Track.mp3",
+            expected: "Artist",
+        },
     ];
 
     for (const test of relativePathTests) {
@@ -379,6 +390,11 @@ function runTests(): void {
             name: "Flat file: Track.mp3",
             input: "Track.mp3",
             expected: null,
+        },
+        {
+            name: "Windows path: Artist\\Album\\Track.mp3",
+            input: "Artist\\Album\\Track.mp3",
+            expected: "Album",
         },
     ];
 

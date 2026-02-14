@@ -295,12 +295,15 @@ export function parseArtistFromPath(folderName: string): string | null {
  * 2. Grandparent folder name (catches standard Artist/Album/Track.ext layout)
  * 3. Filename parsing (catches "Artist - Album - Track - Title.ext" naming)
  *
+ * Note: Handles both Unix (/) and Windows (\) path separators.
  * Returns null if no artist can be determined.
  */
 export function extractArtistFromRelativePath(relativePath: string): string | null {
     if (!relativePath) return null;
 
-    const parts = relativePath.split('/');
+    // Normalize path separators to forward slashes for cross-platform compatibility
+    const normalizedPath = relativePath.replace(/\\/g, '/');
+    const parts = normalizedPath.split('/');
     if (parts.length < 2) return null;
 
     const albumFolder = parts[parts.length - 2];
@@ -337,12 +340,15 @@ export function extractArtistFromRelativePath(relativePath: string): string | nu
  * Uses the immediate parent folder name, which is typically the album folder
  * in standard Artist/Album/Track.ext layouts.
  *
+ * Note: Handles both Unix (/) and Windows (\) path separators.
  * Returns null if the file is at the root level (no parent folder).
  */
 export function extractAlbumFromRelativePath(relativePath: string): string | null {
     if (!relativePath) return null;
 
-    const parts = relativePath.split('/');
+    // Normalize path separators to forward slashes for cross-platform compatibility
+    const normalizedPath = relativePath.replace(/\\/g, '/');
+    const parts = normalizedPath.split('/');
     if (parts.length < 2) return null;
 
     const albumFolder = parts[parts.length - 2];

@@ -577,10 +577,11 @@ export class MusicScannerService {
                     normalizedName: {
                         startsWith: normalizedArtistName.substring(
                             0,
-                            Math.min(3, normalizedArtistName.length)
+                            Math.min(5, normalizedArtistName.length)
                         ),
                     },
                 },
+                take: 50,
                 select: {
                     id: true,
                     name: true,
