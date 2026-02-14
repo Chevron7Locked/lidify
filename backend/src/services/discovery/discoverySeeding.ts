@@ -220,13 +220,14 @@ export class DiscoverySeeding {
             const normArtist = normalizeForMatching(artistName);
             const artistFirstWord = normArtist.split(' ')[0];
 
-            if (artistFirstWord && artistFirstWord.length > 2) {
+            // Allow 2+ character names (handles U2, AC/DC, M83, etc.)
+            if (artistFirstWord && artistFirstWord.length >= 2) {
                 const candidates = await prisma.album.findMany({
                     where: {
                         location: 'LIBRARY',
                         artist: {
                             name: {
-                                contains: artistFirstWord,
+                                startsWith: artistFirstWord,  // More precise than contains
                                 mode: 'insensitive',
                             },
                         },
@@ -234,7 +235,7 @@ export class DiscoverySeeding {
                     include: {
                         artist: true,
                     },
-                    take: 20,
+                    take: 50,  // Increased to catch more potential matches
                 });
 
                 for (const album of candidates) {

@@ -60,10 +60,12 @@ const TIER_DISTRIBUTION = {
 
 // Tier thresholds calibrated to Last.fm's actual score distribution (typically 0.5-0.7 range)
 const TIER_THRESHOLDS = {
-    high: 0.65,    // >=65% match
-    medium: 0.50,  // 50-65% match
-    explore: 0.35, // 35-50% match
-    minimum: 0.35, // Don't recommend anything below this
+    high: 0.65,       // >=65% match
+    medium: 0.50,     // 50-65% match
+    explore: 0.35,    // 35-50% match
+    deepCutMin: 0.20, // Deep cuts: 20-35% (exploratory wildcard picks)
+    deepCutMax: 0.35,
+    minimum: 0.20,    // Don't recommend anything below this (allows deep cuts)
 };
 
 interface BatchLogEntry {
@@ -2501,10 +2503,10 @@ export class DiscoverWeeklyService {
         const recentWindow = recentPicks.slice(-lookbackWindow);
         const avgRecentSimilarity = recentWindow.reduce((sum, p) => sum + p.similarity, 0) / recentWindow.length;
 
-        // If recent picks are all high similarity (>80%)
-        // and candidate is also high similarity (>80%)
+        // If recent picks are all high similarity (>70%)
+        // and candidate is also high similarity (>70%)
         // reject to enforce variety
-        const SIMILARITY_CLUSTER_THRESHOLD = 0.80;
+        const SIMILARITY_CLUSTER_THRESHOLD = 0.70;
 
         const recentAreClusteredHigh = avgRecentSimilarity >= SIMILARITY_CLUSTER_THRESHOLD;
         const candidateIsHigh = (candidate.avgMatch || candidate.match || 0) >= SIMILARITY_CLUSTER_THRESHOLD;
@@ -2529,9 +2531,6 @@ export class DiscoverWeeklyService {
     ): Promise<RecommendedAlbum[]> {
         logger.debug(`\n[STRATEGY] Deep Cuts - finding adjacent artists from seeds`);
 
-        const DEEP_CUT_MIN = 0.20;
-        const DEEP_CUT_MAX = 0.35;
-
         const recommendations: RecommendedAlbum[] = [];
         const seenArtists = new Set<string>();
 
@@ -2546,9 +2545,9 @@ export class DiscoverWeeklyService {
                     50 // Fetch more to find low-similarity matches
                 );
 
-                // Filter to deep cut range
+                // Filter to deep cut range (20-35% similarity)
                 const deepCuts = similar.filter(
-                    (a) => (a.match || 0) >= DEEP_CUT_MIN && (a.match || 0) <= DEEP_CUT_MAX
+                    (a) => (a.match || 0) >= TIER_THRESHOLDS.deepCutMin && (a.match || 0) <= TIER_THRESHOLDS.deepCutMax
                 );
 
                 logger.debug(`   ${seed.name}: ${deepCuts.length} deep cuts found`);
