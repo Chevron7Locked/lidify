@@ -210,6 +210,8 @@ class SoulseekService {
         }
 
         if (!this.lastActivity) {
+            // Initialize on first check after connection
+            this.lastActivity = new Date();
             return true;
         }
 

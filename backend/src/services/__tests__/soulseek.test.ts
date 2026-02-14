@@ -152,16 +152,14 @@ describe("SoulseekService - Race Condition Fix", () => {
         });
     });
 
-    describe("reconnection cooldown bypass", () => {
-        it("should skip cooldown check when cleaning up stale client", () => {
+    describe("stale client cleanup", () => {
+        it("should clean up stale clients in ensureConnected", () => {
             const servicePath = path.join(__dirname, "../soulseek.ts");
             const content = fs.readFileSync(servicePath, "utf-8");
 
-            // Check that cleanedUpStaleClient flag exists
-            expect(content).toContain("cleanedUpStaleClient");
-
-            // Check that cooldown checks use the flag
-            expect(content).toContain("!cleanedUpStaleClient");
+            // Check that stale clients (exists but not logged in) are cleaned up
+            expect(content).toContain("if (this.client && !this.client.loggedIn)");
+            expect(content).toContain("this.forceDisconnect()");
         });
 
         it("should log individual download failure errors", () => {
