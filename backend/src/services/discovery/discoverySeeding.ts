@@ -11,6 +11,7 @@ import { prisma } from '../../utils/db';
 import { logger } from '../../utils/logger';
 import { lidarrService } from '../lidarr';
 import { subWeeks } from 'date-fns';
+import { normalizeForMatching, matchAlbum } from '../../utils/fuzzyMatch';
 
 export interface SeedArtist {
     name: string;
@@ -171,8 +172,15 @@ export class DiscoverySeeding {
      * - Previous discovery
      * - Pending downloads
      * - Lidarr
+     * - Fuzzy name matching (if artistName and albumTitle provided)
      */
-    async isAlbumOwned(albumMbid: string, userId: string): Promise<boolean> {
+    async isAlbumOwned(
+        albumMbid: string,
+        userId: string,
+        artistName?: string,
+        albumTitle?: string
+    ): Promise<boolean> {
+        // Exact MBID checks
         const ownedAlbum = await prisma.ownedAlbum.findFirst({
             where: { rgMbid: albumMbid },
         });
@@ -198,6 +206,37 @@ export class DiscoverySeeding {
 
         const inLidarr = await lidarrService.isAlbumAvailable(albumMbid);
         if (inLidarr) return true;
+
+        // OPTIMIZED fuzzy matching - only if names provided
+        if (artistName && albumTitle) {
+            const normArtist = normalizeForMatching(artistName);
+            const artistFirstWord = normArtist.split(' ')[0];
+
+            if (artistFirstWord && artistFirstWord.length > 2) {
+                const candidates = await prisma.album.findMany({
+                    where: {
+                        location: 'LIBRARY',
+                        artist: {
+                            name: {
+                                contains: artistFirstWord,
+                                mode: 'insensitive',
+                            },
+                        },
+                    },
+                    include: {
+                        artist: true,
+                    },
+                    take: 20,
+                });
+
+                for (const album of candidates) {
+                    if (matchAlbum(artistName, albumTitle, album.artist.name, album.title)) {
+                        logger.debug(`[DiscoverySeeding] Fuzzy match: ${artistName} - ${albumTitle} = ${album.artist.name} - ${album.title}`);
+                        return true;
+                    }
+                }
+            }
+        }
 
         return false;
     }
