@@ -52,10 +52,18 @@ interface RecommendedAlbum {
 // Tier distribution for variety in recommendations
 // This ensures each playlist has a mix of similarity levels
 const TIER_DISTRIBUTION = {
-    high: 0.3, // 30% from very similar artists (>80% match)
-    medium: 0.4, // 40% from moderately similar (50-80% match)
-    explore: 0.2, // 20% from stretch picks (30-50% match)
-    wildcard: 0.1, // 10% from genre tags (variety)
+    high: 0.3, // 30% from very similar artists (>=65% match)
+    medium: 0.4, // 40% from moderately similar (50-65% match)
+    explore: 0.2, // 20% from stretch picks (35-50% match)
+    wildcard: 0.1, // 10% from deep cuts (variety)
+};
+
+// Tier thresholds calibrated to Last.fm's actual score distribution (typically 0.5-0.7 range)
+const TIER_THRESHOLDS = {
+    high: 0.65,    // >=65% match
+    medium: 0.50,  // 50-65% match
+    explore: 0.35, // 35-50% match
+    minimum: 0.35, // Don't recommend anything below this
 };
 
 interface BatchLogEntry {
@@ -66,19 +74,19 @@ interface BatchLogEntry {
 
 /**
  * Calculate tier from Last.fm similarity score
- * Last.fm typically returns scores in 0.5-0.9 range for similar artists
- * Adjusted thresholds for better distribution:
- * - High Match: 60-100% (0.6-1.0)
- * - Medium Match: 45-59% (0.45-0.59)
- * - Explore: 30-44% (0.3-0.44)
- * - Wild Card: 0-29% (0-0.29) or explicitly set
+ * Last.fm typically returns scores in 0.5-0.7 range for similar artists
+ * Adjusted thresholds calibrated to actual Last.fm distribution:
+ * - High Match: >=65% (0.65-1.0)
+ * - Medium Match: 50-65% (0.50-0.64)
+ * - Explore: 35-50% (0.35-0.49)
+ * - Wild Card: <35% (0-0.34) or explicitly set
  */
 function getTierFromSimilarity(
     similarity: number
 ): "high" | "medium" | "explore" | "wildcard" {
-    if (similarity >= 0.6) return "high";
-    if (similarity >= 0.45) return "medium";
-    if (similarity >= 0.3) return "explore";
+    if (similarity >= TIER_THRESHOLDS.high) return "high";
+    if (similarity >= TIER_THRESHOLDS.medium) return "medium";
+    if (similarity >= TIER_THRESHOLDS.explore) return "explore";
     return "wildcard";
 }
 
@@ -2608,16 +2616,19 @@ export class DiscoverWeeklyService {
         }
 
         // Group similar artists by tier (based on Last.fm match score)
-        // Thresholds adjusted for better distribution (Last.fm returns 0.5-0.9 range typically)
+        // Thresholds calibrated to Last.fm's actual distribution (0.5-0.7 range typically)
+        // Filter out low-quality matches below minimum threshold
         const byTier = {
-            high: allSimilarArtists.filter((a) => (a.match || 0) >= 0.7),
+            high: allSimilarArtists.filter((a) => (a.match || 0) >= TIER_THRESHOLDS.high),
             medium: allSimilarArtists.filter(
-                (a) => (a.match || 0) >= 0.5 && (a.match || 0) < 0.7
+                (a) => (a.match || 0) >= TIER_THRESHOLDS.medium && (a.match || 0) < TIER_THRESHOLDS.high
             ),
             explore: allSimilarArtists.filter(
-                (a) => (a.match || 0) >= 0.3 && (a.match || 0) < 0.5
+                (a) => (a.match || 0) >= TIER_THRESHOLDS.explore && (a.match || 0) < TIER_THRESHOLDS.medium
             ),
         };
+
+        logger.debug(`[DISCOVERY] Filtered to artists above ${TIER_THRESHOLDS.minimum} minimum threshold`);
 
         logger.debug(
             `   Available: ${byTier.high.length} high, ${byTier.medium.length} medium, ${byTier.explore.length} explore`
