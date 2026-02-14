@@ -19,6 +19,10 @@ import {
     startDiscoverWeeklyCron,
     stopDiscoverWeeklyCron,
 } from "./discoverCron";
+import {
+    startDataCleanupCron,
+    stopDataCleanupCron,
+} from "./dataCleanup";
 import { runDataIntegrityCheck } from "./dataIntegrity";
 import { simpleDownloadManager } from "../services/simpleDownloadManager";
 import { queueCleaner } from "../jobs/queueCleaner";
@@ -127,6 +131,9 @@ logger.debug("Worker processors registered and event handlers attached");
 
 // Start Discovery Weekly cron scheduler (Sundays at 8 PM)
 startDiscoverWeeklyCron();
+
+// Start data cleanup cron scheduler (daily at 2 AM)
+startDataCleanupCron();
 
 // Self-rescheduling data integrity check (prevents pile-up on slow runs)
 async function runDataIntegrityCycle() {
@@ -314,6 +321,9 @@ export async function shutdownWorkers(): Promise<void> {
 
     // Stop discover weekly cron
     stopDiscoverWeeklyCron();
+
+    // Stop data cleanup cron
+    stopDataCleanupCron();
 
     // Shutdown download queue manager
     downloadQueueManager.shutdown();
