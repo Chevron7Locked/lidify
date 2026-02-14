@@ -48,7 +48,7 @@ class SoulseekService {
     private readonly FAILED_RECONNECT_COOLDOWN = 5000;
     private readonly DOWNLOAD_TIMEOUT_INITIAL = 60000;
     private readonly DOWNLOAD_TIMEOUT_RETRY = 30000;
-    private readonly MAX_DOWNLOAD_RETRIES = 10; // Try more alternatives since we have 20
+    private readonly MAX_DOWNLOAD_RETRIES = 20; // Try all available matches before giving up
 
     private failedUsers = new Map<
         string,
