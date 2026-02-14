@@ -119,6 +119,27 @@ private activeDownloads = 0;
             );
         });
 
+        // CRITICAL: Wait for server socket to connect before attempting login
+        // The SlskClient constructor creates a TCP socket via net.createConnection()
+        // which is async. We must wait for 'connect' event before sending login.
+        sessionLog("SOULSEEK", "Waiting for server socket connection...", "DEBUG");
+        await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error("Server socket connection timed out after 30s"));
+            }, 30000);
+
+            this.client!.server.conn.once("connect", () => {
+                clearTimeout(timeout);
+                sessionLog("SOULSEEK", "Server socket connected", "DEBUG");
+                resolve();
+            });
+
+            this.client!.server.conn.once("error", (err) => {
+                clearTimeout(timeout);
+                reject(err);
+            });
+        });
+
         try {
             sessionLog("SOULSEEK", "Attempting login to Soulseek server...", "DEBUG");
             await this.client.loginAndRemember(
