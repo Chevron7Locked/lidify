@@ -13,6 +13,7 @@ import { FileAttribute } from "../lib/soulseek/messages/common";
 import { getSystemSettings } from "../utils/systemSettings";
 import { sessionLog } from "../utils/playlistLogger";
 import { distributedLock } from "../utils/distributedLock";
+import { redisClient } from "../utils/redis";
 
 export interface SearchResult {
     user: string;
@@ -50,12 +51,9 @@ export class SoulseekService {
     private readonly DOWNLOAD_TIMEOUT_RETRY = 30000;
     private readonly MAX_DOWNLOAD_RETRIES = 20;
 
-    private failedUsers = new Map<
-        string,
-        { failures: number; lastFailure: Date }
-    >();
     private readonly FAILURE_THRESHOLD = 3;
     private readonly FAILURE_WINDOW = 300000;
+    private readonly FAILED_USER_TTL = 86400;
 
     private activeDownloads = 0;
     private maxConcurrentDownloads = 0;
@@ -77,7 +75,6 @@ export class SoulseekService {
     private readonly LOGIN_TIMEOUT = 10000; // 10s (reduced from 15s)
 
     constructor() {
-        setInterval(() => this.cleanupFailedUsers(), 5 * 60 * 1000);
     }
 
     async connect(): Promise<void> {
@@ -453,7 +450,7 @@ export class SoulseekService {
             );
 
             // Rank and filter results
-            const rankedMatches = this.rankAllResults(
+            const rankedMatches = await this.rankAllResults(
                 flatResults,
                 artistName,
                 trackTitle
@@ -547,17 +544,6 @@ if (!isRetry && this.consecutiveEmptySearches >= this.MAX_CONSECUTIVE_EMPTY) {
         return results;
     }
 
-private isUserBlocked(username: string): boolean {
-         const record = this.failedUsers.get(username);
-         if (!record) return false;
-
-         if (Date.now() - record.lastFailure.getTime() > this.FAILURE_WINDOW) {
-             this.failedUsers.delete(username);
-             return false;
-         }
-
-         return record.failures >= this.FAILURE_THRESHOLD;
-     }
 
      private isUserInCooldown(username: string): boolean {
          const cooldownUntil = this.userConnectionCooldowns.get(username);
@@ -571,49 +557,9 @@ private isUserBlocked(username: string): boolean {
          return true;
      }
 
-private cleanupFailedUsers(): void {
-         const now = Date.now();
-         let cleaned = 0;
-         for (const [username, record] of this.failedUsers.entries()) {
-             if (now - record.lastFailure.getTime() > this.FAILURE_WINDOW) {
-                 this.failedUsers.delete(username);
-                 cleaned++;
-             }
-         }
-         if (cleaned > 0) {
-             sessionLog(
-                 "SOULSEEK",
-                 `Cleaned up ${cleaned} expired user failure records`
-             );
-         }
-
-         const cooldownCleanup = Date.now();
-         for (const [username, cooldownUntil] of this.userConnectionCooldowns.entries()) {
-             if (cooldownCleanup >= cooldownUntil) {
-                 this.userConnectionCooldowns.delete(username);
-             }
-         }
-     }
-
-private recordUserFailure(username: string): void {
-         const now = Date.now();
-         const record = this.failedUsers.get(username) || {
-             failures: 0,
-             lastFailure: new Date(),
-         };
-         record.failures++;
-         record.lastFailure = new Date();
-         this.failedUsers.set(username, record);
-
-         if (record.failures >= this.FAILURE_THRESHOLD) {
-             sessionLog(
-                 "SOULSEEK",
-                 `User ${username} blocked: ${record.failures} failures in ${Math.round(this.FAILURE_WINDOW / 60000)}min window`,
-                 "WARN"
-             );
-         }
-
-         this.userConnectionCooldowns.set(username, now + this.USER_CONNECTION_COOLDOWN);
+private async recordUserFailure(username: string): Promise<void> {
+         await this.markUserFailed(username);
+         this.userConnectionCooldowns.set(username, Date.now() + this.USER_CONNECTION_COOLDOWN);
      }
 
     private categorizeError(error: Error): {
@@ -667,11 +613,11 @@ private recordUserFailure(username: string): void {
         return { type: "unknown", skipUser: true };
     }
 
-    private rankAllResults(
+    private async rankAllResults(
         results: SearchResult[],
         artistName: string,
         trackTitle: string
-    ): TrackMatch[] {
+    ): Promise<TrackMatch[]> {
         const normalizedArtist = artistName
             .toLowerCase()
             .replace(/^the\s+/, "")
@@ -696,9 +642,15 @@ private recordUserFailure(username: string): void {
 
         // Prefer active users (have upload slots) but don't require it
         // Strict filtering can cause 0 results → reconnect spam → rate limits
-        const availableResults = results.filter(
-            (file) => !this.isUserBlocked(file.user)
+        const blockChecks = await Promise.all(
+            results.map(async (file) => ({
+                file,
+                blocked: await this.isUserBlocked(file.user)
+            }))
         );
+        const availableResults = blockChecks
+            .filter(({ blocked }) => !blocked)
+            .map(({ file }) => file);
 
         // Sort by slots (active users first), then by speed
         availableResults.sort((a, b) => {
@@ -878,7 +830,7 @@ if (!this.client) {
                         }
                     };
 
-                    const timeoutId = setTimeout(() => {
+                    const timeoutId = setTimeout(async () => {
                         if (!resolved) {
                             cleanup();
                             sessionLog(
@@ -886,7 +838,7 @@ if (!this.client) {
                                 `Download timed out after ${timeout / 1000}s: ${match.filename}`,
                                 "WARN"
                             );
-                            this.recordUserFailure(match.username);
+                            await this.recordUserFailure(match.username);
                             try {
                                 download.stream.destroy();
                             } catch {
@@ -937,7 +889,7 @@ if (!this.client) {
                         }
                     });
 
-                    download.stream.on("error", (err: Error) => {
+                    download.stream.on("error", async (err: Error) => {
                         if (resolved) return;
                         clearTimeout(timeoutId);
                         cleanup();
@@ -948,7 +900,7 @@ if (!this.client) {
                             "ERROR"
                         );
                         if (errorInfo.skipUser) {
-                            this.recordUserFailure(match.username);
+                            await this.recordUserFailure(match.username);
                         }
                         writeStream.destroy();
                         if (fs.existsSync(destPath)) {
@@ -961,7 +913,7 @@ if (!this.client) {
                         resolve({ success: false, error: err.message });
                     });
 
-writeStream.on("error", (err: Error) => {
+writeStream.on("error", async (err: Error) => {
                          if (resolved) return;
                          clearTimeout(timeoutId);
                          cleanup();
@@ -975,7 +927,7 @@ writeStream.on("error", (err: Error) => {
                          } catch {
                              // ignore
                          }
-                         this.recordUserFailure(match.username);
+                         await this.recordUserFailure(match.username);
                          resolve({
                             success: false,
                             error: `Write error: ${err.message}`,
@@ -994,7 +946,7 @@ writeStream.on("error", (err: Error) => {
                 "ERROR"
             );
             if (errorInfo.skipUser) {
-                this.recordUserFailure(match.username);
+                await this.recordUserFailure(match.username);
             }
             return { success: false, error: err.message };
         }
@@ -1242,6 +1194,123 @@ private async downloadWithRetry(
         this.client = null;
         this.connectedAt = null;
         sessionLog("SOULSEEK", "Disconnected");
+    }
+
+    async saveSearchSession(sessionId: string, data: any, ttlSeconds: number = 300): Promise<void> {
+        try {
+            const key = `soulseek:search:${sessionId}`;
+            await redisClient.setEx(key, ttlSeconds, JSON.stringify(data));
+        } catch (err: any) {
+            sessionLog("SOULSEEK", `Failed to save search session: ${err.message}`, "ERROR");
+        }
+    }
+
+    async getSearchSession(sessionId: string): Promise<any | null> {
+        try {
+            const key = `soulseek:search:${sessionId}`;
+            const data = await redisClient.get(key);
+            return data ? JSON.parse(data) : null;
+        } catch (err: any) {
+            sessionLog("SOULSEEK", `Failed to get search session: ${err.message}`, "ERROR");
+            return null;
+        }
+    }
+
+    async deleteSearchSession(sessionId: string): Promise<void> {
+        try {
+            const key = `soulseek:search:${sessionId}`;
+            await redisClient.del(key);
+        } catch (err: any) {
+            sessionLog("SOULSEEK", `Failed to delete search session: ${err.message}`, "ERROR");
+        }
+    }
+
+    async listSearchSessions(): Promise<string[]> {
+        try {
+            const keys = await redisClient.keys('soulseek:search:*');
+            return keys.map(key => key.replace('soulseek:search:', ''));
+        } catch (err: any) {
+            sessionLog("SOULSEEK", `Failed to list search sessions: ${err.message}`, "ERROR");
+            return [];
+        }
+    }
+
+    async extendSearchSessionTTL(sessionId: string, ttlSeconds: number = 300): Promise<void> {
+        try {
+            const key = `soulseek:search:${sessionId}`;
+            await redisClient.expire(key, ttlSeconds);
+        } catch (err: any) {
+            sessionLog("SOULSEEK", `Failed to extend search session TTL: ${err.message}`, "ERROR");
+        }
+    }
+
+    async markUserFailed(username: string): Promise<void> {
+        try {
+            const key = `soulseek:failed-user:${username}`;
+            const existing = await redisClient.get(key);
+            const record = existing ? JSON.parse(existing) : { failures: 0, lastFailure: new Date().toISOString() };
+
+            record.failures++;
+            record.lastFailure = new Date().toISOString();
+
+            await redisClient.setEx(key, this.FAILED_USER_TTL, JSON.stringify(record));
+
+            if (record.failures >= this.FAILURE_THRESHOLD) {
+                sessionLog(
+                    "SOULSEEK",
+                    `User ${username} blocked: ${record.failures} failures (24h TTL)`,
+                    "WARN"
+                );
+            }
+        } catch (err: any) {
+            sessionLog("SOULSEEK", `Failed to mark user as failed: ${err.message}`, "ERROR");
+        }
+    }
+
+    async isUserBlocked(username: string): Promise<boolean> {
+        try {
+            const key = `soulseek:failed-user:${username}`;
+            const data = await redisClient.get(key);
+            if (!data) return false;
+
+            const record = JSON.parse(data);
+            return record.failures >= this.FAILURE_THRESHOLD;
+        } catch (err: any) {
+            sessionLog("SOULSEEK", `Failed to check if user is blocked: ${err.message}`, "ERROR");
+            return false;
+        }
+    }
+
+    async clearUserFailures(username: string): Promise<void> {
+        try {
+            const key = `soulseek:failed-user:${username}`;
+            await redisClient.del(key);
+        } catch (err: any) {
+            sessionLog("SOULSEEK", `Failed to clear user failures: ${err.message}`, "ERROR");
+        }
+    }
+
+    async getBlockedUsers(): Promise<string[]> {
+        try {
+            const keys = await redisClient.keys('soulseek:failed-user:*');
+            const blockedUsers: string[] = [];
+
+            for (const key of keys) {
+                const data = await redisClient.get(key);
+                if (data) {
+                    const record = JSON.parse(data);
+                    if (record.failures >= this.FAILURE_THRESHOLD) {
+                        const username = key.replace('soulseek:failed-user:', '');
+                        blockedUsers.push(username);
+                    }
+                }
+            }
+
+            return blockedUsers;
+        } catch (err: any) {
+            sessionLog("SOULSEEK", `Failed to get blocked users: ${err.message}`, "ERROR");
+            return [];
+        }
     }
 }
 

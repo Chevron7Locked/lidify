@@ -126,7 +126,7 @@ describe("SoulseekService - Race Condition Fix", () => {
             const content = fs.readFileSync(servicePath, "utf-8");
 
             expect(content).toContain("recordUserFailure");
-            expect(content).toContain("failedUsers");
+            expect(content).toContain("markUserFailed");
         });
 
         it("should have isUserInCooldown method", () => {
