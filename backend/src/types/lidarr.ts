@@ -20,7 +20,7 @@ export interface LidarrAlbum {
   releases: LidarrRelease[];
   genres: string[];
   media: LidarrMedia[];
-  artist: LidarrArtist;
+  artist?: LidarrArtist;
   links: LidarrLink[];
   images?: Array<{
     coverType: string;
@@ -152,7 +152,7 @@ export interface LidarrAddAlbumRequest {
   addOptions: {
     searchForNewAlbum: boolean;
   };
-  tags?: string[];
+  tags?: number[];
 }
 
 export interface LidarrAddArtistRequest {

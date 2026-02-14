@@ -2638,7 +2638,7 @@ export async function cleanStuckDownloads(
         for (const item of response.data.records) {
             // Check if this item has a failed import message
             const allMessages =
-                item.statusMessages?.flatMap((sm: { title: string; messages: string[] }) => sm.messages) || [];
+                item.statusMessages?.flatMap((sm) => sm.messages) || [];
 
             // Log ALL items to understand what states we're seeing
             logger.debug(`   - ${item.title}`);
@@ -2650,7 +2650,7 @@ export async function cleanStuckDownloads(
             }
 
             // Check for pattern matches in messages
-            const hasFailedPattern = allMessages.some((msg: string) =>
+            const hasFailedPattern = allMessages.some((msg) =>
                 FAILED_IMPORT_PATTERNS.some((pattern) =>
                     msg.toLowerCase().includes(pattern.toLowerCase())
                 )
