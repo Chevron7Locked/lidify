@@ -378,7 +378,6 @@ export const AudioElement = memo(function AudioElement() {
 
         // Load the audio - setting src stops any current playback (single stream guaranteed)
         audioEngine.load(streamUrl, shouldAutoPlay);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- isPlaying intentionally excluded to prevent reload on play/pause
     }, [currentTrack, currentAudiobook, currentPodcast, playbackType, setDuration, setIsBuffering]);
 
     // --- Sync play/pause from UI to engine ---
