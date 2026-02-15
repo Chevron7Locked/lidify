@@ -80,6 +80,21 @@ export class SoulseekService {
     private readonly LOGIN_TIMEOUT = 10000; // 10s (reduced from 15s)
 
     constructor() {
+        this.connectEagerly();
+    }
+
+    private async connectEagerly(): Promise<void> {
+        try {
+            const settings = await this.getSettings();
+            if (!settings.enabled || !settings.username || !settings.password) {
+                return;
+            }
+            sessionLog("SOULSEEK", "Attempting eager connection on startup...", "DEBUG");
+            await this.ensureConnected();
+            sessionLog("SOULSEEK", "Eager connection successful", "DEBUG");
+        } catch (err: any) {
+            sessionLog("SOULSEEK", `Eager connection failed (will retry on use): ${err.message}`, "DEBUG");
+        }
     }
 
     private async getSettings() {
