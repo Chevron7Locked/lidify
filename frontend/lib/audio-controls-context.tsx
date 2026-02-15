@@ -105,6 +105,13 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
     const lastCursorTrackIndexRef = useRef<number | null>(null);
     const lastCursorIsShuffleRef = useRef<boolean | null>(null);
 
+    // Skip button debouncing: accumulate rapid clicks into a single seek
+    const skipAccumulatorRef = useRef<number>(0);
+    const skipBaseTimeRef = useRef<number>(0);
+    const skipDebounceRef = useRef<NodeJS.Timeout | null>(null);
+    // Stable ref for setCurrentTime to avoid adding unstable `playback` to skip deps
+    const setCurrentTimeRef = useRef(playback.setCurrentTime);
+
     // Cleanup on unmount
     useEffect(() => {
         queueDebugLog("AudioControlsProvider mounted");
@@ -350,12 +357,8 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
                     ? Math.min(Math.max(time, 0), maxDuration)
                     : Math.max(time, 0);
 
-            // Lock seek to prevent stale timeupdate events from overwriting optimistic update
-            // Podcasts/audiobooks need a longer timeout since seeking may require audio reload
-            const seekTimeout = state.playbackType === "track" ? 500 : 3000;
-            playback.lockSeek(clampedTime, seekTimeout);
-
-            // Optimistically update local playback time for instant UI feedback
+            // Optimistically update local playback time for instant UI feedback.
+            // setCurrentTime marks a seek timestamp to debounce stale engine updates.
             playback.setCurrentTime(clampedTime);
 
             // Keep audiobook/podcast progress in sync locally so detail pages reflect scrubs
@@ -728,14 +731,47 @@ export function AudioControlsProvider({ children }: { children: ReactNode }) {
 
     const skipForward = useCallback(
         (seconds: number = 30) => {
-            seek(currentTimeRef.current + seconds);
+            // Accumulate rapid clicks and execute a single seek after 200ms idle.
+            // 5 rapid clicks of 30s → one seek of +150s instead of 5 separate seeks.
+            const isFirstInBatch = skipAccumulatorRef.current === 0;
+            if (isFirstInBatch) {
+                skipBaseTimeRef.current = currentTimeRef.current;
+            }
+            skipAccumulatorRef.current += seconds;
+            // Update UI optimistically from the captured base time
+            setCurrentTimeRef.current(skipBaseTimeRef.current + skipAccumulatorRef.current);
+            if (skipDebounceRef.current) {
+                clearTimeout(skipDebounceRef.current);
+            }
+            skipDebounceRef.current = setTimeout(() => {
+                skipDebounceRef.current = null;
+                const targetTime = skipBaseTimeRef.current + skipAccumulatorRef.current;
+                skipAccumulatorRef.current = 0;
+                seek(targetTime);
+            }, 200);
         },
         [seek]
     );
 
     const skipBackward = useCallback(
         (seconds: number = 30) => {
-            seek(currentTimeRef.current - seconds);
+            const isFirstInBatch = skipAccumulatorRef.current === 0;
+            if (isFirstInBatch) {
+                skipBaseTimeRef.current = currentTimeRef.current;
+            }
+            skipAccumulatorRef.current -= seconds;
+            setCurrentTimeRef.current(
+                Math.max(0, skipBaseTimeRef.current + skipAccumulatorRef.current)
+            );
+            if (skipDebounceRef.current) {
+                clearTimeout(skipDebounceRef.current);
+            }
+            skipDebounceRef.current = setTimeout(() => {
+                skipDebounceRef.current = null;
+                const targetTime = skipBaseTimeRef.current + skipAccumulatorRef.current;
+                skipAccumulatorRef.current = 0;
+                seek(targetTime);
+            }, 200);
         },
         [seek]
     );
