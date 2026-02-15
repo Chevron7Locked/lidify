@@ -69,7 +69,6 @@ export class SoulseekService {
     private readonly USER_CONNECTION_COOLDOWN = 5000; // Increased from 3s to 5s
 
     private connectedAt: Date | null = null;
-    private lastActivity: Date | null = null;
     private lastSuccessfulSearch: Date | null = null;
     private consecutiveEmptySearches = 0;
     private totalSearches = 0;
@@ -78,7 +77,6 @@ export class SoulseekService {
 
     // slskd-inspired timeout values (from slskd.example.yml)
     private readonly CONNECT_TIMEOUT = 10000; // 10s (slskd default)
-    private readonly INACTIVITY_TIMEOUT = 15000; // 15s (slskd default)
     private readonly LOGIN_TIMEOUT = 10000; // 10s (reduced from 15s)
 
     constructor() {
@@ -100,10 +98,13 @@ export class SoulseekService {
             throw new Error('Soulseek is disabled in settings');
         }
 
+        const username = settings.soulseekUsername || process.env.SOULSEEK_USERNAME;
+        const password = settings.soulseekPassword || process.env.SOULSEEK_PASSWORD;
+
         return {
-            enabled: settings.soulseekEnabled ?? (process.env.SOULSEEK_ENABLED === 'true'),
-            username: settings.soulseekUsername || process.env.SOULSEEK_USERNAME,
-            password: settings.soulseekPassword || process.env.SOULSEEK_PASSWORD,
+            enabled: settings.soulseekEnabled ?? !!(username && password),
+            username,
+            password,
             downloadPath: settings.soulseekDownloadPath || process.env.SOULSEEK_DOWNLOAD_PATH,
         };
     }
@@ -192,7 +193,6 @@ export class SoulseekService {
         }
 
         this.connectedAt = new Date();
-        this.lastActivity = new Date();
         this.consecutiveEmptySearches = 0;
         this.failedConnectionAttempts = 0; // Reset on successful connection
         soulseekConnectionStatus.set(1);
@@ -231,31 +231,20 @@ export class SoulseekService {
         }
         this.client = null;
         this.connectedAt = null;
-        this.lastActivity = null;
     }
 
     /**
-     * Check for stale connection and force reconnect if inactive
-     * Follows slskd's inactivity timeout (15s)
+     * Check if the server connection is alive.
+     * Does NOT disconnect for inactivity - TCP keepalive handles dead connection detection.
+     * slskd disables inactivity timeout for server connections (inactivityTimeout: -1).
      */
     private checkConnectionHealth(): boolean {
         if (!this.client || !this.client.loggedIn) {
             return false;
         }
 
-        if (!this.lastActivity) {
-            // Initialize on first check after connection
-            this.lastActivity = new Date();
-            return true;
-        }
-
-        const inactiveMs = Date.now() - this.lastActivity.getTime();
-        if (inactiveMs > this.INACTIVITY_TIMEOUT) {
-            sessionLog(
-                "SOULSEEK",
-                `Connection inactive for ${Math.round(inactiveMs / 1000)}s (threshold: ${this.INACTIVITY_TIMEOUT / 1000}s) - forcing reconnect`,
-                "WARN"
-            );
+        if (this.client.server.conn.destroyed || !this.client.server.conn.writable) {
+            sessionLog("SOULSEEK", "Server socket is dead - needs reconnect", "WARN");
             this.forceDisconnect();
             return false;
         }
@@ -485,10 +474,9 @@ export class SoulseekService {
                 return { found: false, bestMatch: null, allMatches: [] };
             }
 
-            // Success - reset counters and update activity timestamp
+            // Success - reset counters
             this.consecutiveEmptySearches = 0;
             this.lastSuccessfulSearch = new Date();
-            this.lastActivity = new Date(); // Track activity for health monitoring
             this.totalSuccessfulSearches++;
 
             // Flatten responses to SearchResult format
@@ -866,9 +854,6 @@ if (!this.client) {
             `Downloading from ${match.username}: ${match.filename} -> ${destPath}`
         );
 
-        // Update activity timestamp at start of download
-        this.lastActivity = new Date();
-
         try {
             const download = await this.client.download(
                 match.username,
@@ -923,9 +908,6 @@ if (!this.client) {
                         if (resolved) return;
                         clearTimeout(timeoutId);
                         cleanup();
-
-                        // Update activity timestamp on successful download
-                        this.lastActivity = new Date();
 
                         if (fs.existsSync(destPath)) {
                             const stats = fs.statSync(destPath);
