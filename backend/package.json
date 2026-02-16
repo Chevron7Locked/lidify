@@ -1,11 +1,11 @@
 {
-    "name": "lidify-backend",
+    "name": "kima-backend",
     "version": "1.4.3",
-    "description": "Lidify backend API server",
+    "description": "Kima backend API server",
     "license": "GPL-3.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/Chevron7Locked/lidify.git"
+        "url": "https://github.com/Chevron7Locked/kima-hub.git"
     },
     "scripts": {
         "dev": "tsx watch src/index.ts",
