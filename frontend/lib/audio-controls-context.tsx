@@ -24,7 +24,7 @@ function queueDebugEnabled(): boolean {
     try {
         return (
             typeof window !== "undefined" &&
-            window.localStorage?.getItem("lidifyQueueDebug") === "1"
+            window.localStorage?.getItem("kimaQueueDebug") === "1"
         );
     } catch {
         // Intentionally ignored: localStorage may throw in SSR or restricted contexts

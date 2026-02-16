@@ -1,6 +1,6 @@
 // Kima Service Worker
-const CACHE_NAME = 'lidify-v1';
-const IMAGE_CACHE_NAME = 'lidify-images-v3';
+const CACHE_NAME = 'kima-v1';
+const IMAGE_CACHE_NAME = 'kima-images-v3';
 const MAX_IMAGE_CACHE_ENTRIES = 2000;
 const MAX_CONCURRENT_IMAGE_REQUESTS = 8;
 const REQUEST_DELAY_MS = 10;
@@ -9,7 +9,7 @@ const REQUEST_DELAY_MS = 10;
 const PRECACHE_ASSETS = [
   '/',
   '/manifest.webmanifest',
-  '/assets/images/LIDIFY.webp',
+  '/assets/images/KIMA.webp',
 ];
 
 // Image route patterns to cache

@@ -15,7 +15,7 @@ function queueDebugEnabled(): boolean {
     try {
         return (
             typeof window !== "undefined" &&
-            window.localStorage?.getItem("lidifyQueueDebug") === "1"
+            window.localStorage?.getItem("kimaQueueDebug") === "1"
         );
     } catch {
         // Intentionally ignored: localStorage may throw in SSR or restricted contexts
@@ -177,18 +177,18 @@ const AudioStateContext = createContext<AudioStateContextType | undefined>(
 
 // LocalStorage keys
 const STORAGE_KEYS = {
-    CURRENT_TRACK: "lidify_current_track",
-    CURRENT_AUDIOBOOK: "lidify_current_audiobook",
-    CURRENT_PODCAST: "lidify_current_podcast",
-    PLAYBACK_TYPE: "lidify_playback_type",
-    QUEUE: "lidify_queue",
-    CURRENT_INDEX: "lidify_current_index",
-    IS_SHUFFLE: "lidify_is_shuffle",
-    REPEAT_MODE: "lidify_repeat_mode",
-    PLAYER_MODE: "lidify_player_mode",
-    VOLUME: "lidify_volume",
-    IS_MUTED: "lidify_muted",
-    PODCAST_EPISODE_QUEUE: "lidify_podcast_episode_queue",
+    CURRENT_TRACK: "kima_current_track",
+    CURRENT_AUDIOBOOK: "kima_current_audiobook",
+    CURRENT_PODCAST: "kima_current_podcast",
+    PLAYBACK_TYPE: "kima_playback_type",
+    QUEUE: "kima_queue",
+    CURRENT_INDEX: "kima_current_index",
+    IS_SHUFFLE: "kima_is_shuffle",
+    REPEAT_MODE: "kima_repeat_mode",
+    PLAYER_MODE: "kima_player_mode",
+    VOLUME: "kima_volume",
+    IS_MUTED: "kima_muted",
+    PODCAST_EPISODE_QUEUE: "kima_podcast_episode_queue",
 };
 
 function readStorage(key: string): string | null {

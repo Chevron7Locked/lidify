@@ -120,8 +120,8 @@ class AudioEngine {
         if (typeof window === "undefined" || !this.audio) return;
 
         try {
-            const savedVolume = localStorage.getItem("lidify_volume");
-            const savedMuted = localStorage.getItem("lidify_muted");
+            const savedVolume = localStorage.getItem("kima_volume");
+            const savedMuted = localStorage.getItem("kima_muted");
 
             if (savedVolume) {
                 const parsed = parseFloat(savedVolume);

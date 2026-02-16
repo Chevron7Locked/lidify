@@ -34,7 +34,7 @@ export function usePodcastData() {
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem(
-        `lidify_podcast_sort_order_${podcastId}`
+        `kima_podcast_sort_order_${podcastId}`
       );
       return (saved as "newest" | "oldest") || "newest";
     }
@@ -100,7 +100,7 @@ export function usePodcastData() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem(
-        `lidify_podcast_sort_order_${podcastId}`,
+        `kima_podcast_sort_order_${podcastId}`,
         sortOrder
       );
     }
