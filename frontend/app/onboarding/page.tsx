@@ -195,7 +195,7 @@ export default function OnboardingPage() {
                                 <div className="relative">
                                     <div className="absolute inset-0 bg-white/10 blur-xl rounded-full" />
                                     <Image
-                                        src="/assets/images/LIDIFY.webp"
+                                        src="/assets/images/kima.webp"
                                         alt="Kima"
                                         width={48}
                                         height={48}

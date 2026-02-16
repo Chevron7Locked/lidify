@@ -9,7 +9,7 @@ import type { ColorPalette } from "@/hooks/useImageColor";
 import { CachedImage } from "./CachedImage";
 
 // Kima brand yellow for all on-page play buttons
-const LIDIFY_YELLOW = "#ecb200";
+const KIMA_YELLOW = "#ecb200";
 
 export interface PlayableCardProps extends Omit<CardProps, "onPlay"> {
     href?: string;
@@ -93,7 +93,7 @@ const PlayableCard = memo(function PlayableCard({
                             e.stopPropagation();
                             onPlay(e);
                         }}
-                        style={{ backgroundColor: LIDIFY_YELLOW }}
+                        style={{ backgroundColor: KIMA_YELLOW }}
                         className={cn(
                             "absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center",
                             "shadow-xl shadow-black/50",

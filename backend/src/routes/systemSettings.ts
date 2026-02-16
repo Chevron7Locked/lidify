@@ -259,10 +259,10 @@ router.post("/", async (req, res) => {
         const apiKey = data.lidarrApiKey;
 
         // Determine webhook URL
-        // Use LIDIFY_CALLBACK_URL env var if set, otherwise default to backend:3006
+        // Use KIMA_CALLBACK_URL env var if set, otherwise default to backend:3006
         // In Docker, services communicate via Docker network names (backend, lidarr, etc.)
         const callbackHost =
-          process.env.LIDIFY_CALLBACK_URL || "http://backend:3006";
+          process.env.KIMA_CALLBACK_URL || "http://backend:3006";
         const webhookUrl = `${callbackHost}/api/webhooks/lidarr`;
 
         logger.debug(`   Webhook URL: ${webhookUrl}`);

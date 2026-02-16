@@ -158,7 +158,7 @@ export default function DeviceLinkPage() {
     const getQRValue = () => {
         if (!linkCode) return "";
         const serverUrl = typeof window !== "undefined" ? window.location.origin : "";
-        return `lidify://link?code=${linkCode.code}&server=${encodeURIComponent(serverUrl)}`;
+        return `kima://link?code=${linkCode.code}&server=${encodeURIComponent(serverUrl)}`;
     };
 
     if (authLoading) {

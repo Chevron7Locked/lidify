@@ -95,7 +95,7 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                         onClick={onClose}
                     >
                         <Image
-                            src="/assets/images/LIDIFY.webp"
+                            src="/assets/images/kima.webp"
                             alt="Kima"
                             width={32}
                             height={32}

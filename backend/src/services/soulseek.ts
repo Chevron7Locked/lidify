@@ -516,6 +516,23 @@ export class SoulseekService {
                     !isRetry &&
                     this.consecutiveEmptySearches >= this.MAX_CONSECUTIVE_EMPTY
                 ) {
+                    // Don't force reconnect if we're in backoff period (prevents rate limiting)
+                    const backoffDelay = this.getReconnectDelay();
+                    const timeSinceLastAttempt = this.lastConnectAttempt > 0
+                        ? Date.now() - this.lastConnectAttempt
+                        : backoffDelay + 1;
+
+                    if (timeSinceLastAttempt < backoffDelay) {
+                        sessionLog(
+                            "SOULSEEK",
+                            `[Search #${searchId}] Too many empty searches but respecting backoff period (${Math.round(backoffDelay / 1000)}s)`,
+                            "WARN"
+                        );
+                        soulseekSearchesTotal.inc({ status: 'not_found' });
+                        soulseekSearchDuration.observe((Date.now() - metricsStartTime) / 1000);
+                        return { found: false, bestMatch: null, allMatches: [] };
+                    }
+
                     sessionLog(
                         "SOULSEEK",
                         `[Search #${searchId}] Too many consecutive empty searches, forcing reconnect and retry...`,
@@ -600,6 +617,23 @@ export class SoulseekService {
             this.consecutiveEmptySearches++;
 
 if (!isRetry && this.consecutiveEmptySearches >= this.MAX_CONSECUTIVE_EMPTY) {
+                 // Don't force reconnect if we're in backoff period (prevents rate limiting)
+                 const backoffDelay = this.getReconnectDelay();
+                 const timeSinceLastAttempt = this.lastConnectAttempt > 0
+                     ? Date.now() - this.lastConnectAttempt
+                     : backoffDelay + 1;
+
+                 if (timeSinceLastAttempt < backoffDelay) {
+                     sessionLog(
+                         "SOULSEEK",
+                         `[Search #${searchId}] ${this.consecutiveEmptySearches} consecutive failures but respecting backoff period (${Math.round(backoffDelay / 1000)}s)`,
+                         "WARN"
+                     );
+                     soulseekSearchesTotal.inc({ status: 'failed' });
+                     soulseekSearchDuration.observe((Date.now() - metricsStartTime) / 1000);
+                     return { found: false, bestMatch: null, allMatches: [] };
+                 }
+
                  sessionLog(
                      "SOULSEEK",
                      `[Search #${searchId}] ${this.consecutiveEmptySearches} consecutive search failures - forcing reconnect and retry...`,

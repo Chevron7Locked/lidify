@@ -202,7 +202,7 @@ cleanup(): void {
 
 ### 5.1 Architecture Comparison
 
-| Feature | Lidify (New) | Jellyfin Web | Plex Web | Navidrome | Assessment |
+| Feature | Kima (New) | Jellyfin Web | Plex Web | Navidrome | Assessment |
 |---------|--------------|--------------|----------|-----------|------------|
 | Audio Element | Single `<audio>` | Single `<audio>` | Single `<audio>` | Single `<audio>` | ✅ Industry standard |
 | Gapless Playback | Preload + swap | Preload + swap | Preload + swap | Not implemented | ✅ Best practice |
@@ -213,7 +213,7 @@ cleanup(): void {
 
 ### 5.2 Gapless Playback Implementation
 
-**Lidify's approach** (audio-engine.ts lines 158-188):
+**Kima's approach** (audio-engine.ts lines 158-188):
 1. Preload next track to second `<audio>` element after 2s of stable playback
 2. On track change, if preloaded, swap elements instead of loading
 3. Detach listeners from old, attach to new, release old element
@@ -227,12 +227,12 @@ cleanup(): void {
 
 ### 5.3 State Management
 
-**Lidify:** 3-layer React context (State → Playback → Controls)
+**Kima:** 3-layer React context (State → Playback → Controls)
 **Jellyfin:** Redux
 **Plex:** MobX
 **Navidrome:** React Context
 
-All use some form of centralized state. Lidify's layered approach prevents unnecessary re-renders (e.g., `currentTime` updates don't trigger consumers of `queue`).
+All use some form of centralized state. Kima's layered approach prevents unnecessary re-renders (e.g., `currentTime` updates don't trigger consumers of `queue`).
 
 **Verdict:** ✅ **WELL-ARCHITECTED**
 

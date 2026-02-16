@@ -31,7 +31,7 @@ Thanks for your patience while I work through this.
 -   [CLAP Audio Analysis](#clap-audio-analysis)
 -   [GPU Acceleration](#gpu-acceleration)
 -   [Integrations](#integrations)
--   [Using Kima](#using-lidify)
+-   [Using Kima](#using-kima)
 -   [Administration](#administration)
 -   [Architecture](#architecture)
 -   [Roadmap](#roadmap)
@@ -202,10 +202,10 @@ The TV interface is automatically enabled when accessing Kima from an Android TV
 
 ```bash
 docker run -d \
-  --name lidify \
+  --name kima \
   -p 3030:3030 \
   -v /path/to/your/music:/music \
-  -v lidify_data:/data \
+  -v kima_data:/data \
   chevron7locked/kima:latest
 ```
 
@@ -215,11 +215,11 @@ That's it! Open http://localhost:3030 and create your account.
 
 ```bash
 docker run -d \
-  --name lidify \
+  --name kima \
   --gpus all \
   -p 3030:3030 \
   -v /path/to/your/music:/music \
-  -v lidify_data:/data \
+  -v kima_data:/data \
   chevron7locked/kima:latest
 ```
 
@@ -236,10 +236,10 @@ The Kima container includes everything you need:
 
 ```bash
 docker run -d \
-  --name lidify \
+  --name kima \
   -p 3030:3030 \
   -v /path/to/your/music:/music \
-  -v lidify_data:/data \
+  -v kima_data:/data \
   -e SESSION_SECRET=your-secret-key \
   -e TZ=America/New_York \
   --add-host=host.docker.internal:host-gateway \
@@ -257,14 +257,14 @@ Create a `docker-compose.yml` file:
 
 ```yaml
 services:
-    lidify:
+    kima:
         image: chevron7locked/kima:latest
-        container_name: lidify
+        container_name: kima
         ports:
             - "3030:3030"
         volumes:
             - /path/to/your/music:/music
-            - lidify_data:/data
+            - kima_data:/data
         environment:
             - TZ=America/New_York
         # Required for Lidarr webhook integration on Linux
@@ -273,7 +273,7 @@ services:
         restart: unless-stopped
 
 volumes:
-    lidify_data:
+    kima_data:
 ```
 
 Then run:
@@ -294,7 +294,7 @@ docker compose up -d
 Named volumes are recommended. If you bind-mount `/data`, make sure required subdirectories exist and are writable by the container service users.
 
 ```bash
-mkdir -p /path/to/lidify-data/postgres /path/to/lidify-data/redis
+mkdir -p /path/to/kima-data/postgres /path/to/kima-data/redis
 ```
 
 If startup logs report a permission error, `chown` the host path to the UID/GID shown in the logs (for example, the postgres user).
@@ -345,7 +345,7 @@ The unified Kima container handles most configuration automatically. Here are th
 | `SETTINGS_ENCRYPTION_KEY`           | Required                           | Encryption key for stored credentials (generate with `openssl rand -base64 32`) |
 | `TZ`                                | `UTC`                              | Timezone for the container                                                  |
 | `PORT`                              | `3030`                             | Port to access Kima                                                       |
-| `LIDIFY_CALLBACK_URL`               | `http://host.docker.internal:3030` | URL for Lidarr webhook callbacks (see [Lidarr integration](#lidarr))        |
+| `KIMA_CALLBACK_URL`               | `http://host.docker.internal:3030` | URL for Lidarr webhook callbacks (see [Lidarr integration](#lidarr))        |
 | `AUDIO_ANALYSIS_WORKERS`            | `2`                                | Number of parallel workers for audio analysis (1-8)                         |
 | `AUDIO_ANALYSIS_THREADS_PER_WORKER` | `1`                                | Threads per worker for TensorFlow/FFT operations (1-4)                      |
 | `AUDIO_ANALYSIS_BATCH_SIZE`         | `10`                               | Tracks per analysis batch                                                   |
@@ -361,13 +361,13 @@ The music library path is configured via Docker volume mount (`-v /path/to/music
 If you're accessing Kima from outside your local network (via reverse proxy, for example), set the API URL:
 
 ```env
-NEXT_PUBLIC_API_URL=https://lidify-api.yourdomain.com
+NEXT_PUBLIC_API_URL=https://kima-api.yourdomain.com
 ```
 
 And add your domain to the allowed origins:
 
 ```env
-ALLOWED_ORIGINS=http://localhost:3030,https://lidify.yourdomain.com
+ALLOWED_ORIGINS=http://localhost:3030,https://kima.yourdomain.com
 ```
 
 ---
@@ -505,7 +505,7 @@ nvidia-container-runtime --version
 
 **All-in-One container:**
 ```bash
-docker run -d --gpus all -p 3030:3030 -v /path/to/music:/music -v lidify_data:/data chevron7locked/kima:latest
+docker run -d --gpus all -p 3030:3030 -v /path/to/music:/music -v kima_data:/data chevron7locked/kima:latest
 ```
 
 **Docker Compose:**
@@ -527,10 +527,10 @@ Then restart: `docker compose up -d`
 
 ```bash
 # MusiCNN analyzer
-docker logs lidify_audio_analyzer 2>&1 | grep -i gpu
+docker logs kima_audio_analyzer 2>&1 | grep -i gpu
 
 # CLAP analyzer
-docker logs lidify_audio_analyzer_clap 2>&1 | grep -i gpu
+docker logs kima_audio_analyzer_clap 2>&1 | grep -i gpu
 ```
 
 Expected: `TensorFlow GPU detected: ...` or `CUDA available: True`
@@ -572,7 +572,7 @@ If you're using **custom Docker networks** with static IPs, set the callback URL
 
 ```yaml
 environment:
-    - LIDIFY_CALLBACK_URL=http://YOUR_LIDIFY_IP:3030
+    - KIMA_CALLBACK_URL=http://YOUR_KIMA_IP:3030
 ```
 
 Use the IP address that Lidarr can reach. If both containers are on the same Docker network, use Kima's container IP.
@@ -913,7 +913,7 @@ Kima wouldn't be possible without these services and projects:
 
 If you encounter issues or have questions:
 
-1. Check the [Issues](https://github.com/chevron7locked/kima/issues) page for known problems
+1. Check the [Issues](https://github.com/Chevron7Locked/kima-hub/issues) page for known problems
 2. Open a new issue with details about your setup and the problem you're experiencing
 3. Include logs from `docker compose logs` if relevant
 

@@ -23,7 +23,7 @@ export default function SetupPage() {
             {/* Logo */}
             <div className="mb-8">
                 <Image
-                    src="/assets/images/LIDIFY.webp"
+                    src="/assets/images/kima.webp"
                     alt="Kima"
                     width={120}
                     height={120}

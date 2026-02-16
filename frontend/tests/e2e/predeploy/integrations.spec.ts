@@ -7,8 +7,8 @@ test.describe("Integrations", () => {
     });
 
     test("Audiobookshelf connection test", async ({ page }, testInfo) => {
-        skipIfNoEnv("LIDIFY_TEST_ABS_URL", testInfo);
-        skipIfNoEnv("LIDIFY_TEST_ABS_API_KEY", testInfo);
+        skipIfNoEnv("KIMA_TEST_ABS_URL", testInfo);
+        skipIfNoEnv("KIMA_TEST_ABS_API_KEY", testInfo);
 
         await page.goto("/settings");
 
@@ -34,10 +34,10 @@ test.describe("Integrations", () => {
         const apiKeyInput = absContainer.getByRole('textbox', { name: 'Enter API key' });
 
         if (await urlInput.isVisible({ timeout: 2000 })) {
-            await urlInput.fill(process.env.LIDIFY_TEST_ABS_URL!);
+            await urlInput.fill(process.env.KIMA_TEST_ABS_URL!);
         }
         if (await apiKeyInput.isVisible({ timeout: 2000 })) {
-            await apiKeyInput.fill(process.env.LIDIFY_TEST_ABS_API_KEY!);
+            await apiKeyInput.fill(process.env.KIMA_TEST_ABS_API_KEY!);
         }
 
         // Click test connection within Audiobookshelf section
@@ -56,8 +56,8 @@ test.describe("Integrations", () => {
     });
 
     test("Lidarr connection test", async ({ page }, testInfo) => {
-        skipIfNoEnv("LIDIFY_TEST_LIDARR_URL", testInfo);
-        skipIfNoEnv("LIDIFY_TEST_LIDARR_API_KEY", testInfo);
+        skipIfNoEnv("KIMA_TEST_LIDARR_URL", testInfo);
+        skipIfNoEnv("KIMA_TEST_LIDARR_API_KEY", testInfo);
 
         await page.goto("/settings");
 
@@ -70,10 +70,10 @@ test.describe("Integrations", () => {
         const apiKeyInput = page.locator('input[placeholder*="api" i], input[name*="apikey" i], input[type="password"]').first();
 
         if (await urlInput.isVisible()) {
-            await urlInput.fill(process.env.LIDIFY_TEST_LIDARR_URL!);
+            await urlInput.fill(process.env.KIMA_TEST_LIDARR_URL!);
         }
         if (await apiKeyInput.isVisible()) {
-            await apiKeyInput.fill(process.env.LIDIFY_TEST_LIDARR_API_KEY!);
+            await apiKeyInput.fill(process.env.KIMA_TEST_LIDARR_API_KEY!);
         }
 
         // Click test connection button
@@ -93,8 +93,8 @@ test.describe("Integrations", () => {
     });
 
     test("Soulseek connection test", async ({ page }, testInfo) => {
-        skipIfNoEnv("LIDIFY_TEST_SOULSEEK_USER", testInfo);
-        skipIfNoEnv("LIDIFY_TEST_SOULSEEK_PASS", testInfo);
+        skipIfNoEnv("KIMA_TEST_SOULSEEK_USER", testInfo);
+        skipIfNoEnv("KIMA_TEST_SOULSEEK_PASS", testInfo);
 
         await page.goto("/settings");
 
@@ -108,10 +108,10 @@ test.describe("Integrations", () => {
             const passInput = page.locator('input[placeholder*="password" i], input[type="password"]');
 
             if (await userInput.first().isVisible()) {
-                await userInput.first().fill(process.env.LIDIFY_TEST_SOULSEEK_USER!);
+                await userInput.first().fill(process.env.KIMA_TEST_SOULSEEK_USER!);
             }
             if (await passInput.first().isVisible()) {
-                await passInput.first().fill(process.env.LIDIFY_TEST_SOULSEEK_PASS!);
+                await passInput.first().fill(process.env.KIMA_TEST_SOULSEEK_PASS!);
             }
 
             // Test connection

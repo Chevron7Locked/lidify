@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-const username = process.env.LIDIFY_TEST_USERNAME || "predeploy";
-const password = process.env.LIDIFY_TEST_PASSWORD || "predeploy-password";
+const username = process.env.KIMA_TEST_USERNAME || "predeploy";
+const password = process.env.KIMA_TEST_PASSWORD || "predeploy-password";
 
 test("core smoke: login → play album → play/pause/next/prev", async ({ page }) => {
     // Login

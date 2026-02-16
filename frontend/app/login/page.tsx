@@ -232,7 +232,7 @@ export default function LoginPage() {
                             <div className="relative">
                                 <div className="absolute inset-0 bg-white/10 blur-xl rounded-full group-hover:bg-white/20 transition-all duration-300" />
                                 <Image
-                                    src="/assets/images/LIDIFY.webp"
+                                    src="/assets/images/kima.webp"
                                     alt="Kima"
                                     width={40}
                                     height={40}

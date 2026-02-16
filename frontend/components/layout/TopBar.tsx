@@ -266,7 +266,7 @@ export function TopBar() {
                             className="flex items-center gap-2 group"
                         >
                             <Image
-                                src="/assets/images/LIDIFY.webp"
+                                src="/assets/images/kima.webp"
                                 alt="Kima"
                                 width={32}
                                 height={32}

@@ -89,8 +89,8 @@ export default function AudiobooksPage() {
         if (!isConfigured && currentAudiobook) {
             pause();
             if (typeof window !== "undefined") {
-                localStorage.removeItem("lidify_current_audiobook");
-                localStorage.removeItem("lidify_playback_type");
+                localStorage.removeItem("kima_current_audiobook");
+                localStorage.removeItem("kima_playback_type");
             }
         }
     }, [isConfigured, currentAudiobook, pause]);

@@ -1,8 +1,8 @@
 import { Page, TestInfo } from "@playwright/test";
 
-const username = process.env.LIDIFY_TEST_USERNAME || "predeploy";
-const password = process.env.LIDIFY_TEST_PASSWORD || "predeploy-password";
-const baseUrl = process.env.LIDIFY_UI_BASE_URL || "http://127.0.0.1:3030";
+const username = process.env.KIMA_TEST_USERNAME || "predeploy";
+const password = process.env.KIMA_TEST_PASSWORD || "predeploy-password";
+const baseUrl = process.env.KIMA_UI_BASE_URL || "http://127.0.0.1:3030";
 
 export async function loginAsTestUser(page: Page): Promise<void> {
     await page.goto("/login");

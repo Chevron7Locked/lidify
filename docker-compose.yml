@@ -1,6 +1,6 @@
 services:
     # ==============================================================================
-    # LIDIFY CORE APPLICATION
+    # KIMA CORE APPLICATION
     # ==============================================================================
 
     # Backend API - Your Kima Express.js server
@@ -40,7 +40,7 @@ services:
 
             # Lidarr webhook callback URL - how Lidarr can reach Kima
             # Use backend:3006 for same-network communication, or external IP:3030 for external Lidarr
-            LIDIFY_CALLBACK_URL: ${LIDIFY_CALLBACK_URL:-http://backend:3006}
+            KIMA_CALLBACK_URL: ${KIMA_CALLBACK_URL:-http://backend:3006}
             # Debug: enable extra podcast stream/cache logging
             PODCAST_DEBUG: ${PODCAST_DEBUG:-0}
         volumes:

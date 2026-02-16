@@ -1,7 +1,7 @@
 #!/bin/bash
 # Development environment setup script
 
-echo "🚀 Setting up Lidify development environment..."
+echo "🚀 Setting up Kima development environment..."
 
 # Check if .env exists
 if [ ! -f backend/.env ]; then

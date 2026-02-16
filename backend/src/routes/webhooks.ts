@@ -30,7 +30,7 @@ router.get("/lidarr/verify", (req, res) => {
     res.json({
         status: "ok",
         timestamp: new Date().toISOString(),
-        service: "lidify",
+        service: "kima",
         version: process.env.npm_package_version || "unknown",
     });
 });

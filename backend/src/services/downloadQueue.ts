@@ -379,9 +379,9 @@ class DownloadQueueManager {
 
             // Step 2: Trigger Kima library sync
             logger.debug("[2/2] Triggering Kima library sync...");
-            const lidifySuccess = await this.triggerKimaSync();
+            const kimaSuccess = await this.triggerKimaSync();
 
-            if (!lidifySuccess) {
+            if (!kimaSuccess) {
                 logger.error(" Kima sync failed");
                 return;
             }
