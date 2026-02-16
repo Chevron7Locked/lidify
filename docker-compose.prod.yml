@@ -1,4 +1,4 @@
-# Lidify - Premium Self-Hosted Music Server
+# Kima - Premium Self-Hosted Music Server
 # All-in-One container with AI-powered vibe matching
 #
 # Features included:
@@ -12,20 +12,20 @@
 #   3. Open http://localhost:3030
 
 services:
-  lidify:
-    image: ${DOCKERHUB_USERNAME:-chevron7locked}/lidify:${VERSION:-latest}
-    container_name: lidify
+  kima:
+    image: ${DOCKERHUB_USERNAME:-chevron7locked}/kima:${VERSION:-latest}
+    container_name: kima
     ports:
       - "${PORT:-3030}:3030"
     volumes:
       # REQUIRED: Path to your music library
       - ${MUSIC_PATH:-/path/to/your/music}:/music
       # Persistent data (database, cache, etc.)
-      - lidify_data:/data
+      - kima_data:/data
     environment:
       - TZ=${TZ:-UTC}
       - SESSION_SECRET=${SESSION_SECRET:-}
-      # Lidarr webhook callback URL - how Lidarr reaches Lidify when downloads complete
+      # Lidarr webhook callback URL - how Lidarr reaches Kima when downloads complete
       # Default uses host.docker.internal which works on most setups with extra_hosts below
       # Override if using custom Docker networks: e.g., http://192.168.0.20:3030
       - LIDIFY_CALLBACK_URL=${LIDIFY_CALLBACK_URL:-http://host.docker.internal:3030}
@@ -41,4 +41,4 @@ services:
       retries: 3
 
 volumes:
-  lidify_data:
+  kima_data:

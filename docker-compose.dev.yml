@@ -1,4 +1,4 @@
-# Lidify Dev Services
+# Kima Dev Services
 # Run alongside npm dev servers for audio analysis
 #
 # Usage:
@@ -12,25 +12,25 @@
 services:
     postgres:
         image: postgres:16-alpine
-        container_name: lidify_dev_db
+        container_name: kima_dev_db
         environment:
-            POSTGRES_USER: lidify
-            POSTGRES_PASSWORD: lidify
-            POSTGRES_DB: lidify
+            POSTGRES_USER: kima
+            POSTGRES_PASSWORD: kima
+            POSTGRES_DB: kima
         volumes:
             - postgres_dev_data:/var/lib/postgresql/data
         ports:
             - "5433:5432"
         restart: unless-stopped
         healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U lidify -d lidify"]
+            test: ["CMD-SHELL", "pg_isready -U kima -d kima"]
             interval: 10s
             timeout: 5s
             retries: 5
 
     redis:
         image: redis:7-alpine
-        container_name: lidify_dev_redis
+        container_name: kima_dev_redis
         ports:
             - "6380:6379"
         restart: unless-stopped
@@ -44,11 +44,11 @@ services:
     audio-analyzer:
         build:
             context: ./services/audio-analyzer
-        container_name: lidify_audio_analyzer
+        container_name: kima_audio_analyzer
         environment:
             # Connect to host machine's services (or Docker services)
             REDIS_URL: redis://redis:6379
-            DATABASE_URL: postgresql://lidify:lidify@postgres:5432/lidify
+            DATABASE_URL: postgresql://kima:kima@postgres:5432/kima
             # Music path inside container (mounted from host)
             MUSIC_PATH: /music
             BATCH_SIZE: 10

@@ -1,11 +1,11 @@
 #!/bin/bash
-# Lidify Deploy Script
+# Kima Deploy Script
 # Builds Docker image and cleans up old images/cache to prevent disk bloat
 
 set -e
 
 # Configuration
-IMAGE_NAME="${DOCKERHUB_USERNAME:-chevron7locked}/lidify"
+IMAGE_NAME="${DOCKERHUB_USERNAME:-chevron7locked}/kima"
 VERSION="${VERSION:-latest}"
 FULL_IMAGE="${IMAGE_NAME}:${VERSION}"
 
@@ -15,7 +15,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}=== Lidify Deploy ===${NC}"
+echo -e "${GREEN}=== Kima Deploy ===${NC}"
 echo "Building: ${FULL_IMAGE}"
 echo ""
 

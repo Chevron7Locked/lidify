@@ -3,18 +3,18 @@ services:
     # LIDIFY CORE APPLICATION
     # ==============================================================================
 
-    # Backend API - Your Lidify Express.js server
+    # Backend API - Your Kima Express.js server
     backend:
         build:
             context: ./backend
             dockerfile: Dockerfile
-        container_name: lidify_backend
+        container_name: kima_backend
         environment:
             # Database
-            DATABASE_URL: postgresql://${POSTGRES_USER:-lidifydb}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-lidify}
-            POSTGRES_USER: ${POSTGRES_USER:-lidifydb}
+            DATABASE_URL: postgresql://${POSTGRES_USER:-kimadb}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-kima}
+            POSTGRES_USER: ${POSTGRES_USER:-kimadb}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-            POSTGRES_DB: ${POSTGRES_DB:-lidify}
+            POSTGRES_DB: ${POSTGRES_DB:-kima}
             REDIS_URL: redis://redis:6379
 
             # Server config
@@ -36,9 +36,9 @@ services:
             ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3030}
 
             # Internal API secret for service-to-service auth
-            INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-lidify-internal-secret-change-me}
+            INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-kima-internal-secret-change-me}
 
-            # Lidarr webhook callback URL - how Lidarr can reach Lidify
+            # Lidarr webhook callback URL - how Lidarr can reach Kima
             # Use backend:3006 for same-network communication, or external IP:3030 for external Lidarr
             LIDIFY_CALLBACK_URL: ${LIDIFY_CALLBACK_URL:-http://backend:3006}
             # Debug: enable extra podcast stream/cache logging
@@ -64,9 +64,9 @@ services:
             default:
                 aliases:
                     - backend
-                    - lidify_backend
+                    - kima_backend
 
-    # Frontend Web UI - Your Lidify Next.js app
+    # Frontend Web UI - Your Kima Next.js app
     frontend:
         build:
             context: ./frontend
@@ -77,7 +77,7 @@ services:
                 NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
                 # Build type: "nightly" for dev builds, unset/empty for tagged releases
                 NEXT_PUBLIC_BUILD_TYPE: ${NEXT_PUBLIC_BUILD_TYPE:-nightly}
-        container_name: lidify_frontend
+        container_name: kima_frontend
         environment:
             NODE_ENV: ${NODE_ENV:-production}
             # Used by next.config.ts rewrites() inside the container.
@@ -102,11 +102,11 @@ services:
 
     postgres:
         image: pgvector/pgvector:pg16
-        container_name: lidify_db
+        container_name: kima_db
         environment:
-            POSTGRES_USER: ${POSTGRES_USER:-lidifydb}
+            POSTGRES_USER: ${POSTGRES_USER:-kimadb}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-            POSTGRES_DB: ${POSTGRES_DB:-lidify}
+            POSTGRES_DB: ${POSTGRES_DB:-kima}
         volumes:
             - postgres_data:/var/lib/postgresql/data
         ports:
@@ -115,12 +115,12 @@ services:
         healthcheck:
             # IMPORTANT:
             # pg_isready defaults to connecting to a database with the same name as the user.
-            # Our default user is "lidifydb" but default database is "lidify",
-            # so without -d this will spam logs with: FATAL: database "lidifydb" does not exist
+            # Our default user is "kimadb" but default database is "kima",
+            # so without -d this will spam logs with: FATAL: database "kimadb" does not exist
             test:
                 [
                     "CMD-SHELL",
-                    "pg_isready -U ${POSTGRES_USER:-lidifydb} -d ${POSTGRES_DB:-lidify}",
+                    "pg_isready -U ${POSTGRES_USER:-kimadb} -d ${POSTGRES_DB:-kima}",
                 ]
             interval: 10s
             timeout: 5s
@@ -128,7 +128,7 @@ services:
 
     redis:
         image: redis:7-alpine
-        container_name: lidify_redis
+        container_name: kima_redis
         ports:
             - "${REDIS_PORT:-6379}:6379"
         restart: unless-stopped
@@ -145,7 +145,7 @@ services:
     # Lidarr - Music collection manager
     lidarr:
         image: lscr.io/linuxserver/lidarr:latest
-        container_name: lidify_lidarr
+        container_name: kima_lidarr
         environment:
             - PUID=${PUID:-1000}
             - PGID=${PGID:-1000}
@@ -161,7 +161,7 @@ services:
     # Prowlarr - Indexer manager
     prowlarr:
         image: lscr.io/linuxserver/prowlarr:latest
-        container_name: lidify_prowlarr
+        container_name: kima_prowlarr
         environment:
             - PUID=${PUID:-1000}
             - PGID=${PGID:-1000}
@@ -175,7 +175,7 @@ services:
     # FlareSolverr - Cloudflare bypass for Prowlarr
     flaresolverr:
         image: ghcr.io/flaresolverr/flaresolverr:latest
-        container_name: lidify_flaresolverr
+        container_name: kima_flaresolverr
         environment:
             - LOG_LEVEL=${LOG_LEVEL:-info}
             - LOG_HTML=${LOG_HTML:-false}
@@ -191,7 +191,7 @@ services:
     # qBittorrent - Torrent client
     qbittorrent:
         image: lscr.io/linuxserver/qbittorrent:latest
-        container_name: lidify_qbittorrent
+        container_name: kima_qbittorrent
         environment:
             - PUID=${PUID:-1000}
             - PGID=${PGID:-1000}
@@ -210,7 +210,7 @@ services:
     # SABnzbd - Usenet client
     sabnzbd:
         image: lscr.io/linuxserver/sabnzbd:latest
-        container_name: lidify_sabnzbd
+        container_name: kima_sabnzbd
         environment:
             - PUID=${PUID:-1000}
             - PGID=${PGID:-1000}
@@ -230,10 +230,10 @@ services:
     audio-analyzer:
         build:
             context: ./services/audio-analyzer
-        container_name: lidify_audio_analyzer
+        container_name: kima_audio_analyzer
         environment:
             REDIS_URL: redis://redis:6379
-            DATABASE_URL: postgresql://${POSTGRES_USER:-lidifydb}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-lidify}
+            DATABASE_URL: postgresql://${POSTGRES_USER:-kimadb}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-kima}
             MUSIC_PATH: /music
             BATCH_SIZE: ${AUDIO_ANALYSIS_BATCH_SIZE:-10}
             SLEEP_INTERVAL: ${AUDIO_ANALYSIS_INTERVAL:-5}
@@ -285,17 +285,17 @@ services:
     audio-analyzer-clap:
         build:
             context: ./services/audio-analyzer-clap
-        container_name: lidify_audio_analyzer_clap
+        container_name: kima_audio_analyzer_clap
         environment:
             REDIS_URL: redis://redis:6379
-            DATABASE_URL: postgresql://${POSTGRES_USER:-lidifydb}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-lidify}
+            DATABASE_URL: postgresql://${POSTGRES_USER:-kimadb}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-kima}
             BACKEND_URL: http://backend:3006
             MUSIC_PATH: /music
             SLEEP_INTERVAL: ${CLAP_SLEEP_INTERVAL:-5}
             NUM_WORKERS: ${CLAP_WORKERS:-2}
             THREADS_PER_WORKER: ${CLAP_THREADS_PER_WORKER:-1}
             MODEL_IDLE_TIMEOUT: ${CLAP_MODEL_IDLE_TIMEOUT:-300}
-            INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-lidify-internal-secret-change-me}
+            INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-kima-internal-secret-change-me}
         volumes:
             - ${MUSIC_PATH:-./music}:/music:ro
         depends_on:
@@ -324,7 +324,7 @@ services:
                     #       capabilities: [gpu]
 
 volumes:
-    # Lidify core
+    # Kima core
     postgres_data:
     backend_cache:
     backend_logs:
@@ -336,4 +336,4 @@ volumes:
 
 networks:
     default:
-        name: lidify_network
+        name: kima_network

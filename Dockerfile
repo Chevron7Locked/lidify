@@ -1,6 +1,6 @@
-# Lidify All-in-One Docker Image (Hardened)
+# Kima All-in-One Docker Image (Hardened)
 # Contains: Backend, Frontend, PostgreSQL, Redis, Audio Analyzer (Essentia AI)
-# Usage: docker run -d -p 3030:3030 -v /path/to/music:/music lidify/lidify
+# Usage: docker run -d -p 3030:3030 -v /path/to/music:/music kima/kima
 
 FROM node:20-slim
 
@@ -129,7 +129,7 @@ if [ -f /data/.schema_ready ]; then
 fi
 
 while [ $COUNTER -lt $TIMEOUT ]; do
-    if PGPASSWORD=lidify psql -h localhost -U lidify -d lidify -c "SELECT 1 FROM \"Track\" LIMIT 1" > /dev/null 2>&1; then
+    if PGPASSWORD=kima psql -h localhost -U kima -d kima -c "SELECT 1 FROM \"Track\" LIMIT 1" > /dev/null 2>&1; then
         echo "[wait-for-db] ✓ Database is ready and schema exists!"
         exit 0
     fi
@@ -144,7 +144,7 @@ done
 
 echo "[wait-for-db] ERROR: Database schema not ready after ${TIMEOUT}s"
 echo "[wait-for-db] Listing available tables:"
-PGPASSWORD=lidify psql -h localhost -U lidify -d lidify -c "\dt" 2>&1 || echo "Could not list tables"
+PGPASSWORD=kima psql -h localhost -U kima -d kima -c "\dt" 2>&1 || echo "Could not list tables"
 exit 1
 EOF
 
@@ -211,7 +211,7 @@ WORKDIR /app
 COPY healthcheck-prod.js /app/healthcheck.js
 
 # Create supervisord config - logs to stdout/stderr for Docker visibility
-RUN cat > /etc/supervisor/conf.d/lidify.conf << 'EOF'
+RUN cat > /etc/supervisor/conf.d/kima.conf << 'EOF'
 [supervisord]
 nodaemon=true
 logfile=/dev/null
@@ -275,7 +275,7 @@ stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
-environment=DATABASE_URL="postgresql://lidify:lidify@localhost:5432/lidify",REDIS_URL="redis://localhost:6379",MUSIC_PATH="/music",BATCH_SIZE="10",SLEEP_INTERVAL="5",MAX_ANALYZE_SECONDS="90",BRPOP_TIMEOUT="30",MODEL_IDLE_TIMEOUT="300",NUM_WORKERS="2",THREADS_PER_WORKER="1",LD_LIBRARY_PATH="/opt/cudnn8/nvidia/cudnn/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cublas/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cufft/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cuda_runtime/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cuda_nvrtc/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cusolver/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cusparse/lib:/usr/local/lib/python3.11/dist-packages/nvidia/nccl/lib"
+environment=DATABASE_URL="postgresql://kima:kima@localhost:5432/kima",REDIS_URL="redis://localhost:6379",MUSIC_PATH="/music",BATCH_SIZE="10",SLEEP_INTERVAL="5",MAX_ANALYZE_SECONDS="90",BRPOP_TIMEOUT="30",MODEL_IDLE_TIMEOUT="300",NUM_WORKERS="2",THREADS_PER_WORKER="1",LD_LIBRARY_PATH="/opt/cudnn8/nvidia/cudnn/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cublas/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cufft/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cuda_runtime/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cuda_nvrtc/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cusolver/lib:/usr/local/lib/python3.11/dist-packages/nvidia/cusparse/lib:/usr/local/lib/python3.11/dist-packages/nvidia/nccl/lib"
 priority=50
 
 [program:audio-analyzer-clap]
@@ -288,12 +288,12 @@ stdout_logfile=/dev/stdout
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
-environment=DATABASE_URL="postgresql://lidify:lidify@localhost:5432/lidify",REDIS_URL="redis://localhost:6379",MUSIC_PATH="/music",BACKEND_URL="http://localhost:3006",SLEEP_INTERVAL="5",NUM_WORKERS="1",MODEL_IDLE_TIMEOUT="300",INTERNAL_API_SECRET="lidify-internal-aio"
+environment=DATABASE_URL="postgresql://kima:kima@localhost:5432/kima",REDIS_URL="redis://localhost:6379",MUSIC_PATH="/music",BACKEND_URL="http://localhost:3006",SLEEP_INTERVAL="5",NUM_WORKERS="1",MODEL_IDLE_TIMEOUT="300",INTERNAL_API_SECRET="kima-internal-aio"
 priority=60
 EOF
 
 # Fix Windows line endings in supervisor config
-RUN sed -i 's/\r$//' /etc/supervisor/conf.d/lidify.conf
+RUN sed -i 's/\r$//' /etc/supervisor/conf.d/kima.conf
 
 # Create startup script with root check
 RUN cat > /app/start.sh << 'EOF'
@@ -306,7 +306,7 @@ set -e
 
 echo ""
 echo "============================================================"
-echo "  Lidify - Premium Self-Hosted Music Server"
+echo "  Kima - Premium Self-Hosted Music Server"
 echo ""
 echo "  Features:"
 echo "    - AI-Powered Vibe Matching (Essentia ML)"
@@ -372,32 +372,32 @@ fi
 gosu postgres $PG_BIN/pg_ctl -D /data/postgres -w start
 
 # Create user and database if they don't exist
-gosu postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname = 'lidify'" | grep -q 1 || \
-    gosu postgres psql -c "CREATE USER lidify WITH PASSWORD 'lidify';"
-gosu postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = 'lidify'" | grep -q 1 || \
-    gosu postgres psql -c "CREATE DATABASE lidify OWNER lidify;"
+gosu postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname = 'kima'" | grep -q 1 || \
+    gosu postgres psql -c "CREATE USER kima WITH PASSWORD 'kima';"
+gosu postgres psql -tc "SELECT 1 FROM pg_database WHERE datname = 'kima'" | grep -q 1 || \
+    gosu postgres psql -c "CREATE DATABASE kima OWNER kima;"
 
 # Create pgvector extension as superuser (required before migrations)
 echo "Creating pgvector extension..."
-gosu postgres psql -d lidify -c "CREATE EXTENSION IF NOT EXISTS vector;"
+gosu postgres psql -d kima -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
 # Run Prisma migrations
 cd /app/backend
-export DATABASE_URL="postgresql://lidify:lidify@localhost:5432/lidify"
+export DATABASE_URL="postgresql://kima:kima@localhost:5432/kima"
 echo "Running Prisma migrations..."
 ls -la prisma/migrations/ || echo "No migrations directory!"
 
 # Check if _prisma_migrations table exists (indicates previous Prisma setup)
-MIGRATIONS_EXIST=$(gosu postgres psql -d lidify -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '_prisma_migrations')" 2>/dev/null || echo "f")
+MIGRATIONS_EXIST=$(gosu postgres psql -d kima -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '_prisma_migrations')" 2>/dev/null || echo "f")
 
 # Check if User table exists (indicates existing data)
-USER_TABLE_EXIST=$(gosu postgres psql -d lidify -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'User')" 2>/dev/null || echo "f")
+USER_TABLE_EXIST=$(gosu postgres psql -d kima -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'User')" 2>/dev/null || echo "f")
 
 # Handle rename migration for existing databases
 echo "Checking if rename migration needs to be marked as applied..."
-if gosu postgres psql -d lidify -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='SystemSettings' AND column_name='soulseekFallback');" 2>/dev/null | grep -q 't'; then
+if gosu postgres psql -d kima -tAc "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='SystemSettings' AND column_name='soulseekFallback');" 2>/dev/null | grep -q 't'; then
     echo "Old column exists, marking migration as applied..."
-    gosu postgres psql -d lidify -c "INSERT INTO \"_prisma_migrations\" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count) VALUES (gen_random_uuid(), '', NOW(), '20250101000000_rename_soulseek_fallback', '', NULL, NOW(), 1) ON CONFLICT DO NOTHING;" 2>/dev/null || true
+    gosu postgres psql -d kima -c "INSERT INTO \"_prisma_migrations\" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count) VALUES (gen_random_uuid(), '', NOW(), '20250101000000_rename_soulseek_fallback', '', NULL, NOW(), 1) ON CONFLICT DO NOTHING;" 2>/dev/null || true
 fi
 
 if [ "$MIGRATIONS_EXIST" = "t" ]; then
@@ -430,7 +430,7 @@ echo "✓ Migrations completed successfully"
 
 # Verify schema exists before starting services
 echo "Verifying database schema..."
-if ! gosu postgres psql -d lidify -c "SELECT 1 FROM \"Track\" LIMIT 1" >/dev/null 2>&1; then
+if ! gosu postgres psql -d kima -c "SELECT 1 FROM \"Track\" LIMIT 1" >/dev/null 2>&1; then
     echo "FATAL: Track table does not exist after migration!"
     echo "Database schema verification failed. Container will exit."
     exit 1
@@ -471,20 +471,20 @@ fi
 # Write environment file for backend
 cat > /app/backend/.env << ENVEOF
 NODE_ENV=production
-DATABASE_URL=postgresql://lidify:lidify@localhost:5432/lidify
+DATABASE_URL=postgresql://kima:kima@localhost:5432/kima
 REDIS_URL=redis://localhost:6379
 PORT=3006
 MUSIC_PATH=/music
 TRANSCODE_CACHE_PATH=/data/cache/transcodes
 SESSION_SECRET=$SESSION_SECRET
 SETTINGS_ENCRYPTION_KEY=$SETTINGS_ENCRYPTION_KEY
-INTERNAL_API_SECRET=lidify-internal-aio
+INTERNAL_API_SECRET=kima-internal-aio
 ENVEOF
 
-echo "Starting Lidify..."
+echo "Starting Kima..."
 exec env \
     NODE_ENV=production \
-    DATABASE_URL="postgresql://lidify:lidify@localhost:5432/lidify" \
+    DATABASE_URL="postgresql://kima:kima@localhost:5432/kima" \
     SESSION_SECRET="$SESSION_SECRET" \
     SETTINGS_ENCRYPTION_KEY="$SETTINGS_ENCRYPTION_KEY" \
     /usr/bin/supervisord -c /etc/supervisor/supervisord.conf

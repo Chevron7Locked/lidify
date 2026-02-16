@@ -20,7 +20,7 @@ if [ "$(id -u)" = "0" ]; then
   exit 1
 fi
 
-echo "[START] Starting Lidify Frontend..."
+echo "[START] Starting Kima Frontend..."
 echo "[CONFIG] Environment: ${NODE_ENV:-production}"
 echo "[CONFIG] API URL: ${NEXT_PUBLIC_API_URL:-not set}"
 

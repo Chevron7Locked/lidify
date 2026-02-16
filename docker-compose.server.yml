@@ -1,5 +1,5 @@
-# Lidify Full Stack - Production Deployment
-# Uses pre-built Lidify image from DockerHub + all external services
+# Kima Full Stack - Production Deployment
+# Uses pre-built Kima image from DockerHub + all external services
 #
 # Usage:
 #   docker compose -f docker-compose.server.yml up -d
@@ -9,21 +9,21 @@ services:
     # LIDIFY (All-in-One: Frontend + Backend + PostgreSQL + Redis)
     # ==============================================================================
 
-    lidify:
-        image: chevron7locked/lidify:latest
-        container_name: lidify
+    kima:
+        image: chevron7locked/kima:latest
+        container_name: kima
         ports:
             - "${FRONTEND_PORT:-3030}:3030"
         volumes:
             # IMPORTANT: CHANGE THIS to your music library path
             - ${MUSIC_PATH:-/path/to/your/music}:/music
             # Persistent data (database, cache, covers, etc.)
-            - lidify_data:/data
+            - kima_data:/data
         environment:
             - TZ=${TZ:-America/Chicago}
             # Generate with: openssl rand -base64 32
             - SESSION_SECRET=${SESSION_SECRET:-changeme-generate-secure-key}
-            # Lidarr webhook callback URL - how Lidarr reaches Lidify when downloads complete
+            # Lidarr webhook callback URL - how Lidarr reaches Kima when downloads complete
             # Default uses host.docker.internal which works on most setups with extra_hosts below
             # Override if using custom Docker networks: e.g., http://192.168.0.20:3030
             - LIDIFY_CALLBACK_URL=${LIDIFY_CALLBACK_URL:-http://host.docker.internal:3030}
@@ -52,7 +52,7 @@ services:
     # Lidarr - Music collection manager
     lidarr:
         image: lscr.io/linuxserver/lidarr:latest
-        container_name: lidify_lidarr
+        container_name: kima_lidarr
         environment:
             - PUID=${PUID:-1000}
             - PGID=${PGID:-1000}
@@ -68,7 +68,7 @@ services:
     # Prowlarr - Indexer manager
     prowlarr:
         image: lscr.io/linuxserver/prowlarr:latest
-        container_name: lidify_prowlarr
+        container_name: kima_prowlarr
         environment:
             - PUID=${PUID:-1000}
             - PGID=${PGID:-1000}
@@ -82,7 +82,7 @@ services:
     # FlareSolverr - Cloudflare bypass for Prowlarr
     flaresolverr:
         image: ghcr.io/flaresolverr/flaresolverr:latest
-        container_name: lidify_flaresolverr
+        container_name: kima_flaresolverr
         environment:
             - LOG_LEVEL=${LOG_LEVEL:-info}
             - LOG_HTML=${LOG_HTML:-false}
@@ -95,7 +95,7 @@ services:
     # qBittorrent - Torrent client
     qbittorrent:
         image: lscr.io/linuxserver/qbittorrent:latest
-        container_name: lidify_qbittorrent
+        container_name: kima_qbittorrent
         environment:
             - PUID=${PUID:-1000}
             - PGID=${PGID:-1000}
@@ -114,7 +114,7 @@ services:
     # NZBGet - Usenet client
     nzbget:
         image: lscr.io/linuxserver/nzbget:latest
-        container_name: lidify_nzbget
+        container_name: kima_nzbget
         environment:
             - PUID=${PUID:-1000}
             - PGID=${PGID:-1000}
@@ -128,8 +128,8 @@ services:
         restart: unless-stopped
 
 volumes:
-    # Lidify
-    lidify_data:
+    # Kima
+    kima_data:
     # External services
     lidarr_config:
     prowlarr_config:
@@ -138,4 +138,4 @@ volumes:
 
 networks:
     default:
-        name: lidify_network
+        name: kima_network
