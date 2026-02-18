@@ -8,17 +8,13 @@ import { searchResultStore } from "@/lib/search-result-store";
 import { api, getApiBaseUrl } from "@/lib/api";
 
 /**
- * SSE connections MUST bypass the Next.js rewrite proxy because it buffers
- * streaming responses. This returns a direct URL to the backend for SSE only.
+ * Returns the base URL for SSE connections.
+ * Uses getApiBaseUrl() directly -- in proxy/all-in-one mode this returns ""
+ * (relative path), which routes SSE through the Next.js rewrite to the backend.
  */
 function getSSEBaseUrl(): string {
     if (typeof window === "undefined") return "";
-    const base = getApiBaseUrl();
-    // If getApiBaseUrl returns a full URL (e.g. http://localhost:3006), use it
-    if (base) return base;
-    // Relative path means we'd go through Next.js proxy -- connect directly instead
-    const apiPort = process.env.NEXT_PUBLIC_BACKEND_PORT || "3006";
-    return `${window.location.protocol}//${window.location.hostname}:${apiPort}`;
+    return getApiBaseUrl();
 }
 
 export function useEventSource() {
