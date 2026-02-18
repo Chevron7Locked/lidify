@@ -195,7 +195,10 @@ class AudioAnalysisCleanupService {
             }
         }
 
-        if (resetCount > 0 || permanentlyFailedCount > 0) {
+        if (resetCount > 0) {
+            // Only count stale active tracks as circuit breaker failures.
+            // Permanently failing a track is expected cleanup behavior,
+            // not a sign that the analyzer is broken.
             this.onFailure(resetCount, permanentlyFailedCount);
         }
 

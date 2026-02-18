@@ -329,6 +329,8 @@ export async function runFullEnrichment(): Promise<{
         data: {
             lastfmTags: [],
             analysisStatus: "pending",
+            analysisRetryCount: 0,
+            analysisError: null,
         },
     });
 
@@ -919,6 +921,7 @@ async function queueAudioAnalysis(): Promise<number> {
     const tracks = await prisma.track.findMany({
         where: {
             analysisStatus: "pending",
+            analysisRetryCount: { lt: 3 }, // matches Python's MAX_RETRIES — skip tracks the analyzer will ignore
         },
         select: {
             id: true,
