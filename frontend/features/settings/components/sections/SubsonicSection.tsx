@@ -24,7 +24,9 @@ export function SubsonicSection() {
     const [message, setMessage] = useState("");
     const [revoking, setRevoking] = useState<string | null>(null);
 
-    const serverUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const [serverUrl, setServerUrl] = useState(
+        typeof window !== "undefined" ? window.location.origin : ""
+    );
 
     const loadApiKeys = async () => {
         try {
@@ -91,15 +93,19 @@ export function SubsonicSection() {
             {/* Connection Info */}
             <SettingsRow
                 label="Server URL"
-                description="Enter this in your Subsonic-compatible client"
+                description="Enter this in your Subsonic-compatible client. Edit if connecting from a different address or via reverse proxy."
             >
                 <div className="flex items-center gap-2">
-                    <code className="text-sm text-white bg-white/5 border border-white/10 px-3 py-2 rounded-lg font-mono break-all">
-                        {serverUrl}
-                    </code>
+                    <input
+                        type="text"
+                        value={serverUrl}
+                        onChange={(e) => setServerUrl(e.target.value)}
+                        className="text-sm text-white bg-white/5 border border-white/10 px-3 py-2 rounded-lg font-mono break-all
+                            focus:outline-none focus:border-white/20 w-full"
+                    />
                     <button
                         onClick={() => copyToClipboard(serverUrl)}
-                        className="text-xs font-mono text-[#fca208] hover:text-[#f97316] uppercase tracking-wider transition-colors"
+                        className="text-xs font-mono text-[#fca208] hover:text-[#f97316] uppercase tracking-wider transition-colors shrink-0"
                     >
                         Copy
                     </button>
