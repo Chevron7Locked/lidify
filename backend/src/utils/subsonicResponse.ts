@@ -10,6 +10,7 @@ const xmlBuilder = new XMLBuilder({
     attributeNamePrefix: "@_",
     format: false,
     suppressEmptyNode: true,
+    suppressBooleanAttributes: false,  // emit true/false as quoted strings per XML spec
 });
 
 // Recursively strip the @_ attribute prefix for JSON output.

@@ -63,9 +63,14 @@ export async function subsonicAuth(
 
             // Timing-safe: always run bcrypt.compare to prevent username enumeration
             const dummyHash = "$2b$10$invalidhashfortimingsafety.00000000000000000000";
-            const valid = user
-                ? await bcrypt.compare(plainPassword, user.passwordHash)
-                : (await bcrypt.compare(plainPassword, dummyHash), false);
+            let valid = false;
+            if (user) {
+                valid = await bcrypt.compare(plainPassword, user.passwordHash);
+            } else {
+                // Run bcrypt against a dummy hash for timing safety (prevents username enumeration)
+                await bcrypt.compare(plainPassword, dummyHash);
+                // valid remains false
+            }
 
             if (!valid || !user) {
                 subsonicError(req, res, SubsonicError.WRONG_CREDENTIALS, "Wrong username or password");
