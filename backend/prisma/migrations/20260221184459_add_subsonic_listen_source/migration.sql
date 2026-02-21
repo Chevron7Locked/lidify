@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "ListenSource" ADD VALUE IF NOT EXISTS 'SUBSONIC';
