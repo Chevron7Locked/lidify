@@ -40,6 +40,7 @@ import releasesRoutes from "./routes/releases";
 import vibeRoutes from "./routes/vibe";
 import systemRoutes from "./routes/system";
 import eventsRoutes from "./routes/events";
+import { subsonicRouter } from "./routes/subsonic/index";
 import { dataCacheService } from "./services/dataCache";
 import { enrichmentStateService } from "./services/enrichmentState";
 import { errorHandler } from "./middleware/errorHandler";
@@ -167,6 +168,9 @@ app.use("/api/vibe", apiLimiter, vibeRoutes);
 app.use("/api/system", apiLimiter, systemRoutes);
 // SSE - no rate limit, long-lived connections
 app.use("/api/events", eventsRoutes);
+
+// Subsonic-compatible API — rate limiting is internal to the router
+app.use("/rest", subsonicRouter);
 
 // Health check (keep at root for simple container health checks)
 app.get("/health", (req, res) => {
