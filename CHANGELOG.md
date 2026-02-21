@@ -5,6 +5,26 @@ All notable changes to Kima will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] - 2026-02-21
+
+### Added
+
+- **OpenSubsonic / Subsonic API**: Native client support for Symfonium, DSub, Ultrasonic, Finamp, and any other Subsonic-compatible app
+  - Full Subsonic REST API v1.16.1 compatibility, with OpenSubsonic extensions declared
+  - **OpenSubsonic `apiKey` auth** — generate per-client tokens in Settings > Native Apps; tokens can be named and revoked individually
+  - **Endpoints implemented**: `ping`, `getArtists`, `getIndexes`, `getArtist`, `getAlbum`, `getSong`, `getAlbumList2`, `getAlbumList`, `getGenres`, `search3`, `search2`, `getRandomSongs`, `stream`, `download`, `getCoverArt`, `scrobble`, `getPlaylists`, `getPlaylist`, `createPlaylist`, `updatePlaylist`, `deletePlaylist`, `getUser`, `getStarred`, `getStarred2`, `star`, `unstar`, `getArtistInfo2`
+  - **Enrichment-aware genres** — genre fields on albums, songs, and search results are sourced from Last.fm-enriched artist tags rather than static file tags; `getGenres` aggregates across the enriched artist catalogue
+  - **Enrichment-aware biographies** — `getArtistInfo2` returns the user-edited summary when present, otherwise the Last.fm biography
+  - **HTTP 206 range support** on `stream.view` for seek-capable clients and Firefox/Safari
+  - Scrobbles recorded as `SUBSONIC` listen source
+  - DISCOVER-location albums are excluded from all library views
+  - MD5 token auth intentionally rejected (error 41) — OpenSubsonic `apiKey` is the preferred auth method
+- **Named API tokens** — Settings > Native Apps token generator now accepts a client name (e.g., "Symfonium", "DSub"); previously all tokens were named "Subsonic"
+
+### Fixed
+
+- **Frontend lint errors** (pre-existing): `let sectionIndex` changed to `const` in three pages; `setPreviewLoadState` moved inside the async function to avoid calling setState synchronously in a `useEffect`
+
 ## [1.5.4] - 2026-02-21
 
 ### Fixed
