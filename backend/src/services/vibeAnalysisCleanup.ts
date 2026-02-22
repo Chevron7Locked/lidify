@@ -74,6 +74,73 @@ class VibeAnalysisCleanupService {
 
         return { reset: resetCount };
     }
+
+    /**
+     * Clean up tracks where vibeAnalysisStatus='completed' but no embedding exists
+     * This fixes CLAP embedding stalls where tracks appear complete but have no embedding
+     */
+    async cleanupOrphanedCompleted(options?: {
+        dryRun?: boolean;
+        batchSize?: number;
+        offset?: number;
+    }): Promise<{ reset: number; skipped: number; totalOrphaned: number }> {
+        const batchSize = options?.batchSize ?? 100;
+        const offset = options?.offset ?? 0;
+        const dryRun = options?.dryRun ?? false;
+
+        const RECENT_THRESHOLD_MS = 5 * 60 * 1000;
+        const recentCutoff = new Date(Date.now() - RECENT_THRESHOLD_MS);
+
+        try {
+            const orphanedTracks = await prisma.$queryRaw<{ id: string }[]>`
+                SELECT t.id 
+                FROM "Track" t
+                LEFT JOIN "track_embeddings" te ON t.id = te.track_id
+                WHERE t."vibeAnalysisStatus" = 'completed'
+                  AND te.track_id IS NULL
+                  AND t."vibeAnalysisStatusUpdatedAt" < ${recentCutoff}
+                LIMIT ${batchSize} OFFSET ${offset}
+            `;
+
+            const totalOrphaned = orphanedTracks.length;
+
+            if (totalOrphaned === 0) {
+                return { reset: 0, skipped: 0, totalOrphaned: 0 };
+            }
+
+            logger.info(
+                `[VibeAnalysisCleanup] Found ${totalOrphaned} orphaned completed tracks (batchSize=${batchSize}, offset=${offset}, dryRun=${dryRun})`
+            );
+
+            if (dryRun) {
+                return { reset: 0, skipped: totalOrphaned, totalOrphaned };
+            }
+
+            let resetCount = 0;
+
+            await prisma.$transaction(async (tx) => {
+                const result = await tx.track.updateMany({
+                    where: {
+                        id: { in: orphanedTracks.map(t => t.id) },
+                    },
+                    data: {
+                        vibeAnalysisStatus: null,
+                        vibeAnalysisRetryCount: { increment: 1 },
+                        vibeAnalysisStatusUpdatedAt: null,
+                        vibeAnalysisError: "Orphaned: completed but no embedding found",
+                    },
+                });
+                resetCount = result.count;
+            });
+
+            logger.info(`[VibeAnalysisCleanup] Reset ${resetCount} orphaned completed tracks`);
+
+            return { reset: resetCount, skipped: 0, totalOrphaned };
+        } catch (error) {
+            logger.error(`[VibeAnalysisCleanup] Error cleaning up orphaned completed: ${error}`);
+            return { reset: 0, skipped: 0, totalOrphaned: 0 };
+        }
+    }
 }
 
 export const vibeAnalysisCleanupService = new VibeAnalysisCleanupService();

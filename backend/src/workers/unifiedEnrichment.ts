@@ -993,7 +993,7 @@ async function queueVibeEmbeddings(): Promise<number> {
           LEFT JOIN track_embeddings te ON t.id = te.track_id
           WHERE te.track_id IS NULL
             AND t."filePath" IS NOT NULL
-            AND (t."vibeAnalysisStatus" IS NULL OR t."vibeAnalysisStatus" = 'pending' OR t."vibeAnalysisStatus" = 'failed')
+            AND (t."vibeAnalysisStatus" IS NULL OR t."vibeAnalysisStatus" <> 'processing')
             AND COALESCE(t."vibeAnalysisRetryCount", 0) < ${VIBE_MAX_RETRIES}
           LIMIT 1000
       `;
@@ -1173,13 +1173,16 @@ async function executeVibePhase(): Promise<number> {
 
     const { reset } = await vibeAnalysisCleanupService.cleanupStaleProcessing();
     if (reset > 0) {
-        logger.debug(`[ENRICHMENT] Cleaned up ${reset} stale vibe processing entries`);
+        logger.info(`[ENRICHMENT] Cleaned up ${reset} stale vibe processing entries`);
+    }
+
+    const orphanedResult = await vibeAnalysisCleanupService.cleanupOrphanedCompleted();
+    if (orphanedResult.reset > 0) {
+        logger.info(`[ENRICHMENT] Reset ${orphanedResult.reset} orphaned completed tracks (total orphaned: ${orphanedResult.totalOrphaned})`);
     }
 
     const result = await queueVibeEmbeddings();
-    if (result > 0) {
-        logger.debug(`[ENRICHMENT] Queued ${result} tracks for vibe embedding`);
-    }
+    logger.info(`[ENRICHMENT] Queued ${result} tracks for vibe embedding`);
 
     return result;
 }
